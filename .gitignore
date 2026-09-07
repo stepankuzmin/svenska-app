@@ -1,0 +1,5 @@
+node_modules/
+dist/
+public/lexin-dictionary.*.json
+src/generated/dictionary-asset.ts
+*.tsbuildinfo

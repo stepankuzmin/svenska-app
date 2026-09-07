@@ -1,0 +1,30 @@
+{
+  "name": "svenska-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm run dictionary:build && tsc -b && vite build",
+    "dev": "npm run dictionary:build && vite",
+    "dictionary:build": "tsx scripts/build-dictionary.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run dictionary:build && tsc -b --pretty false"
+  },
+  "dependencies": {
+    "@vitejs/plugin-react": "latest",
+    "fast-xml-parser": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "vite": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest",
+    "vitest": "latest"
+  }
+}

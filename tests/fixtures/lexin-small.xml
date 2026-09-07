@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Dictionary BaseLang="Swedish" TargetLang="Russian" Version="2010-07-07">
+  <Word ID="1" MatchingID="100" Type="subst." Value="bok">
+    <BaseLang><Meaning>en samling sidor</Meaning></BaseLang>
+    <TargetLang><Translation>книга</Translation></TargetLang>
+  </Word>
+  <Word ID="1" MatchingID="101" Type="verb" Value="bok">
+    <BaseLang><Meaning>reservera</Meaning></BaseLang>
+    <TargetLang><Translation>бронировать</Translation></TargetLang>
+  </Word>
+  <Word ID="2" MatchingID="102" Type="subst." Value="hus">
+    <BaseLang><Meaning>byggnad</Meaning></BaseLang>
+    <TargetLang><Translation>дом</Translation></TargetLang>
+  </Word>
+</Dictionary>
