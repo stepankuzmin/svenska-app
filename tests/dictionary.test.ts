@@ -14,6 +14,19 @@ const dictionary = {
       { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
     ],
     hus: [{ partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" }],
+    hem: [{ partOfSpeech: "subst.", meaning: "plats där någon bor", translation: "дом" }],
+    koja: [{ partOfSpeech: "subst.", meaning: "enkel bostad", translation: "дом" }],
+    torp: [{ partOfSpeech: "subst.", meaning: "litet lantställe", translation: "дом" }],
+    villa: [{ partOfSpeech: "subst.", meaning: "fristående bostad", translation: "дом" }],
+    stuga: [{ partOfSpeech: "subst.", meaning: "litet hus", translation: "дом" }],
+    residens: [{ partOfSpeech: "subst.", meaning: "officiell bostad", translation: "дом" }],
+    hemvist: [{ partOfSpeech: "subst.", meaning: "stadigvarande plats", translation: "дом" }],
+    byggnad: [{ partOfSpeech: "subst.", meaning: "uppförd konstruktion", translation: "дом" }],
+  },
+  russianIndex: {
+    "бронировать": ["bok"],
+    "дом": ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
+    "книга": ["bok"],
   },
 } satisfies DictionaryAsset;
 
@@ -25,6 +38,31 @@ describe("dictionary lookup", () => {
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
+    });
+  });
+
+  it("returns the canonical Swedish result with every sense for an exact Russian translation", () => {
+    expect(search(" КНИГА ")).toEqual({
+      kind: "result",
+      headword: "bok",
+      senses: dictionary.entries.bok,
+    });
+  });
+
+  it("returns canonical choices when an exact Russian translation matches multiple headwords", () => {
+    expect(search("дом")).toEqual({
+      kind: "choices",
+      choices: [
+        { headword: "hus", translation: "дом" },
+        { headword: "hem", translation: "дом" },
+        { headword: "koja", translation: "дом" },
+        { headword: "torp", translation: "дом" },
+        { headword: "villa", translation: "дом" },
+        { headword: "stuga", translation: "дом" },
+        { headword: "residens", translation: "дом" },
+        { headword: "hemvist", translation: "дом" },
+        { headword: "byggnad", translation: "дом" },
+      ],
     });
   });
 

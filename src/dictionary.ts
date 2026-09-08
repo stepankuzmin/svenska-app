@@ -1,4 +1,5 @@
 import { dictionaryAssetSchema, type DictionaryAsset } from "./dictionary-contract";
+import { normalizeLookupText } from "./normalize-lookup-text";
 
 export type LookupResult = {
   kind: "result";
@@ -22,23 +23,37 @@ export type LookupOutcome =
 
 const maximumChoices = 8;
 
-function normalizeLookupText(value: string): string {
-  return value.trim().toLocaleLowerCase("sv-SE");
-}
-
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
     normalizedHeadword: normalizeLookupText(headword),
     senses,
   }));
+  const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
-    const exactEntry = entries.find(({ normalizedHeadword }) => normalizedHeadword === normalizedQuery);
+    const exactSwedishEntry = entries.find(({ normalizedHeadword }) => normalizedHeadword === normalizedQuery);
+    const russianHeadwords = dictionary.russianIndex[normalizedQuery] ?? [];
+    const exactRussianEntries = russianHeadwords.flatMap((headword) => {
+      const entry = entriesByHeadword.get(headword);
+      return entry === undefined ? [] : [entry];
+    });
 
-    if (exactEntry !== undefined) {
-      return { kind: "result", headword: exactEntry.headword, senses: exactEntry.senses };
+    const resultEntry = exactSwedishEntry ?? (exactRussianEntries.length === 1 ? exactRussianEntries[0] : undefined);
+    if (resultEntry !== undefined) {
+      return { kind: "result", headword: resultEntry.headword, senses: resultEntry.senses };
+    }
+
+    if (exactRussianEntries.length > 1) {
+      return {
+        kind: "choices",
+        choices: exactRussianEntries.map(({ headword, senses }) => ({
+          headword,
+          translation:
+            senses.find((sense) => normalizeLookupText(sense.translation) === normalizedQuery)?.translation ?? "",
+        })),
+      };
     }
 
     if (normalizedQuery.length === 0) {

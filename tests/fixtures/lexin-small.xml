@@ -12,4 +12,8 @@
     <BaseLang><Meaning>byggnad</Meaning></BaseLang>
     <TargetLang><Translation>дом</Translation></TargetLang>
   </Word>
+  <Word ID="3" MatchingID="103" Type="subst." Value="hem">
+    <BaseLang><Meaning>plats där någon bor</Meaning></BaseLang>
+    <TargetLang><Translation>дом</Translation></TargetLang>
+  </Word>
 </Dictionary>

@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
+import { normalizeLookupText } from "../src/normalize-lookup-text.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
 
@@ -60,6 +61,7 @@ export function buildDictionary({ xml }: { xml: string }): Dictionary {
   const dictionary = source.Dictionary;
 
   const entries: DictionaryAsset["entries"] = {};
+  const russianIndex: DictionaryAsset["russianIndex"] = {};
   const words = Array.isArray(dictionary.Word) ? dictionary.Word : [dictionary.Word];
 
   for (const word of words) {
@@ -69,12 +71,22 @@ export function buildDictionary({ xml }: { xml: string }): Dictionary {
     }
 
     const senses = entries[headword] ?? [];
+    const translation = childText(word.TargetLang, "Translation");
     senses.push({
       partOfSpeech: word["@_Type"]?.trim() ?? "",
       meaning: childText(word.BaseLang, "Meaning"),
-      translation: childText(word.TargetLang, "Translation"),
+      translation,
     });
     entries[headword] = senses;
+
+    const normalizedTranslation = normalizeLookupText(translation);
+    if (normalizedTranslation.length > 0) {
+      const matchingHeadwords = russianIndex[normalizedTranslation] ?? [];
+      if (!matchingHeadwords.includes(headword)) {
+        matchingHeadwords.push(headword);
+      }
+      russianIndex[normalizedTranslation] = matchingHeadwords;
+    }
   }
 
   return {
@@ -84,6 +96,7 @@ export function buildDictionary({ xml }: { xml: string }): Dictionary {
       license: "CC BY 4.0",
     },
     entries,
+    russianIndex,
   };
 }
 

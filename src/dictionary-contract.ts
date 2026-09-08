@@ -13,6 +13,7 @@ export const dictionaryAssetSchema = z.object({
     license: z.literal("CC BY 4.0"),
   }),
   entries: z.record(z.string(), z.array(senseSchema)),
+  russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
 });
 
 export type DictionaryAsset = z.infer<typeof dictionaryAssetSchema>;
