@@ -27,6 +27,7 @@
     "@types/react-dom": "latest",
     "tsx": "latest",
     "typescript": "latest",
+    "vite-plugin-pwa": "^1.3.0",
     "vitest": "latest"
   }
 }

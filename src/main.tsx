@@ -8,7 +8,7 @@ import "./styles.css";
 type LookupState =
   | { kind: "loading" }
   | { kind: "ready"; search: (query: string) => LookupOutcome }
-  | { kind: "failed" };
+  | { kind: "unavailable-offline" };
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
 const lookupLibrarySchema = z.array(z.string());
@@ -50,7 +50,7 @@ function LookupApp() {
         }
         setLookupState({ kind: "ready", search: createSearch({ dictionary: asset }) });
       })
-      .catch(() => setLookupState({ kind: "failed" }));
+      .catch(() => setLookupState({ kind: "unavailable-offline" }));
   }, []);
 
   function openLookup(lookupQuery: string) {
@@ -123,7 +123,9 @@ function LookupApp() {
       </form>
       <section aria-live="polite">
         {lookupState.kind === "loading" ? <p>Loading dictionary…</p> : null}
-        {lookupState.kind === "failed" ? <p>Dictionary could not be loaded.</p> : null}
+        {lookupState.kind === "unavailable-offline" ? (
+          <p>Connect once while online to make the dictionary available offline.</p>
+        ) : null}
         {outcome?.kind === "no-match" ? (
           <div className="no-match">
             <h2>No matching word</h2>
