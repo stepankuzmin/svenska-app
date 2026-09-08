@@ -15,5 +15,13 @@ ol { padding-inline-start: 1.5rem; }
 li + li { border-top: 1px solid #deddd5; margin-top: 1rem; padding-top: 1rem; }
 li span, small { color: #526056; }
 li p { font-size: 1.25rem; margin: .25rem 0; }
+.choices ul { display: grid; gap: .75rem; list-style: none; padding: 0; }
+.choices li + li { border: 0; margin: 0; padding: 0; }
+.choices button { align-items: baseline; background: white; border: 1px solid #d6d4ca; color: #172019; display: flex; gap: .75rem; justify-content: space-between; padding: .75rem 1rem; text-align: start; width: 100%; }
+.choices button:hover { border-color: #476850; }
+.choices span { color: #526056; }
+.no-match { background: #eee9dc; border-radius: .75rem; padding: 1.5rem; }
+.no-match h2, .no-match p { margin-block: 0; }
+.no-match p { margin-block-start: .5rem; }
 footer { color: #526056; font-size: .875rem; margin-top: 4rem; }
 @media (max-width: 30rem) { .search-row { flex-direction: column; } }

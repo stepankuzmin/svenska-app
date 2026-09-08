@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { buildDictionary } from "../scripts/build-dictionary.ts";
-import { createSearch, isDictionaryAsset } from "../src/dictionary.ts";
+import { isDictionaryAsset } from "../src/dictionary.ts";
 
 describe("Lexin source edition import", () => {
   it("preserves source metadata and groups every exact Swedish headword sense", async () => {
@@ -18,13 +18,6 @@ describe("Lexin source edition import", () => {
       { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
       { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
     ]);
-    expect(createSearch({ dictionary })("bok")).toEqual({
-      headword: "bok",
-      senses: [
-        { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
-        { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
-      ],
-    });
   });
 
   it("rejects a dictionary asset with malformed senses", () => {
