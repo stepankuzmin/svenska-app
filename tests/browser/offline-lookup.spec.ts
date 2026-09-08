@@ -6,13 +6,13 @@ async function searchFor(page: Page, query: string) {
   await field.press("Enter");
 }
 
-test("lookup remains available after an online visit and offline reload", async ({ page }) => {
+test("lookup remains available after an online visit and offline reload", async ({ context, page }) => {
   await page.goto("/");
   await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
 
   await page.waitForFunction("navigator.serviceWorker?.controller !== null");
 
-  await page.route("**/*", (route) => route.abort("internetdisconnected"));
+  await context.setOffline(true);
   await page.evaluate("location.reload()");
   await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
 

@@ -8,7 +8,7 @@ import "./styles.css";
 type LookupState =
   | { kind: "loading" }
   | { kind: "ready"; search: (query: string) => LookupOutcome }
-  | { kind: "installed-dictionary-unavailable-offline" };
+  | { kind: "dictionary-not-installed" };
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
 const lookupLibrarySchema = z.array(z.string());
@@ -52,7 +52,7 @@ function LookupApp() {
       })
       .catch(() => {
         if (!navigator.onLine) {
-          setLookupState({ kind: "installed-dictionary-unavailable-offline" });
+          setLookupState({ kind: "dictionary-not-installed" });
         }
       });
   }, []);
@@ -127,7 +127,7 @@ function LookupApp() {
       </form>
       <section aria-live="polite">
         {lookupState.kind === "loading" ? <p>Loading dictionary…</p> : null}
-        {lookupState.kind === "installed-dictionary-unavailable-offline" ? (
+        {lookupState.kind === "dictionary-not-installed" ? (
           <p>Connect once while online to install the dictionary on this device.</p>
         ) : null}
         {outcome?.kind === "no-match" ? (
