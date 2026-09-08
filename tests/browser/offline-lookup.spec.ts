@@ -26,11 +26,11 @@ test("lookup remains available after an online visit and offline reload", async 
   await expect(page.getByRole("heading", { name: "No matching word" })).toBeVisible();
 });
 
-test("an uncached dictionary explains that one connection is required", async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(navigator, "onLine", { configurable: true, get: () => false });
+test("a missing installed dictionary explains that one connection is required", async ({ context, page }) => {
+  await page.route("**/lexin-dictionary.*.json", async (route) => {
+    await context.setOffline(true);
+    await route.abort("internetdisconnected");
   });
-  await page.route("**/lexin-dictionary.*.json", (route) => route.abort("internetdisconnected"));
 
   await page.goto("/");
 
