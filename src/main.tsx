@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
+import { z } from "zod";
 import { createSearch, isDictionaryAsset, type LookupOutcome } from "./dictionary";
 import { dictionaryAssetUrl } from "./generated/dictionary-asset";
 import "./styles.css";
@@ -9,10 +10,31 @@ type LookupState =
   | { kind: "ready"; search: (query: string) => LookupOutcome }
   | { kind: "failed" };
 
+const lookupLibraryStorageKey = "svenska.lookup-library";
+const lookupLibrarySchema = z.array(z.string());
+
+function readLookupLibrary(): readonly string[] {
+  try {
+    const storedLibrary: unknown = JSON.parse(localStorage.getItem(lookupLibraryStorageKey) ?? "[]");
+    return lookupLibrarySchema.safeParse(storedLibrary).data ?? [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLookupLibrary(headwords: readonly string[]) {
+  try {
+    localStorage.setItem(lookupLibraryStorageKey, JSON.stringify(headwords));
+  } catch {
+    // Lookups still work when browser storage is unavailable.
+  }
+}
+
 function LookupApp() {
   const [query, setQuery] = useState("");
   const [outcome, setOutcome] = useState<LookupOutcome | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
+  const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
 
   useEffect(() => {
     fetch(dictionaryAssetUrl)
@@ -31,22 +53,50 @@ function LookupApp() {
       .catch(() => setLookupState({ kind: "failed" }));
   }, []);
 
-  function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function openLookup(lookupQuery: string) {
     if (lookupState.kind !== "ready") {
       return;
     }
 
-    setOutcome(lookupState.search(query));
+    const nextOutcome = lookupState.search(lookupQuery);
+    setOutcome(nextOutcome);
+    if (nextOutcome.kind === "result") {
+      setLibraryHeadwords((currentHeadwords) => {
+        const nextHeadwords = [
+          nextOutcome.headword,
+          ...currentHeadwords.filter((headword) => headword !== nextOutcome.headword),
+        ];
+        writeLookupLibrary(nextHeadwords);
+        return nextHeadwords;
+      });
+    }
+  }
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    openLookup(query);
   }
 
   function selectChoice(headword: string) {
-    if (lookupState.kind !== "ready") {
+    setQuery(headword);
+    openLookup(headword);
+  }
+
+  function removeFromLibrary(headwordToRemove: string) {
+    setLibraryHeadwords((currentHeadwords) => {
+      const nextHeadwords = currentHeadwords.filter((headword) => headword !== headwordToRemove);
+      writeLookupLibrary(nextHeadwords);
+      return nextHeadwords;
+    });
+  }
+
+  function clearLibrary() {
+    if (!window.confirm("Clear every word from your lookup library?")) {
       return;
     }
 
-    setQuery(headword);
-    setOutcome(lookupState.search(headword));
+    writeLookupLibrary([]);
+    setLibraryHeadwords([]);
   }
 
   return (
@@ -54,6 +104,7 @@ function LookupApp() {
       <header>
         <p className="eyebrow">Svenska.app</p>
         <h1>Swedish–Russian lookup</h1>
+        <a href="#lookup-library">Library</a>
       </header>
       <form onSubmit={submit} method="get">
         <label htmlFor="dictionary-query">Swedish or Russian word</label>
@@ -107,6 +158,48 @@ function LookupApp() {
               ))}
             </ol>
           </article>
+        ) : null}
+      </section>
+      <section id="lookup-library" aria-labelledby="lookup-library-heading">
+        <div className="library-heading">
+          <h2 id="lookup-library-heading">Lookup library</h2>
+          {libraryHeadwords.length > 0 ? (
+            <button className="library-clear" type="button" onClick={clearLibrary}>Clear library</button>
+          ) : null}
+        </div>
+        {libraryHeadwords.length === 0 ? <p>Opened words will appear here.</p> : null}
+        {lookupState.kind === "ready" && libraryHeadwords.length > 0 ? (
+          <ul className="library-list">
+            {libraryHeadwords.flatMap((headword) => {
+              const libraryOutcome = lookupState.search(headword);
+              if (libraryOutcome.kind !== "result") {
+                return [];
+              }
+
+              const translation = [...new Set(libraryOutcome.senses.map((sense) => sense.translation))].join(" · ");
+              return [
+                <li key={headword}>
+                  <button
+                    className="library-entry"
+                    type="button"
+                    aria-label={`Open ${headword}, ${translation}`}
+                    onClick={() => selectChoice(headword)}
+                  >
+                    <strong lang="sv">{headword}</strong>
+                    <span lang="ru">{translation}</span>
+                  </button>
+                  <button
+                    className="library-remove"
+                    type="button"
+                    aria-label={`Remove ${headword} from library`}
+                    onClick={() => removeFromLibrary(headword)}
+                  >
+                    Remove
+                  </button>
+                </li>,
+              ];
+            })}
+          </ul>
         ) : null}
       </section>
     </main>

@@ -24,4 +24,11 @@ li p { font-size: 1.25rem; margin: .25rem 0; }
 .no-match h2, .no-match p { margin-block: 0; }
 .no-match p { margin-block-start: .5rem; }
 footer { color: #526056; font-size: .875rem; margin-top: 4rem; }
+.library-list { list-style: none; padding: 0; }
+.library-heading { align-items: baseline; display: flex; justify-content: space-between; }
+.library-clear { background: transparent; color: #254c31; min-height: auto; padding: .5rem; }
+.library-list li { align-items: center; display: flex; gap: .75rem; }
+.library-entry { align-items: baseline; background: transparent; color: #172019; display: flex; flex: 1; gap: .75rem; justify-content: space-between; text-align: start; }
+.library-entry span { color: #526056; }
+.library-remove { background: transparent; border: 1px solid #758078; color: #254c31; }
 @media (max-width: 30rem) { .search-row { flex-direction: column; } }

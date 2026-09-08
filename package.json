@@ -7,6 +7,7 @@
     "build": "npm run dictionary:build && tsc -b && vite build",
     "dev": "npm run dictionary:build && vite",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
+    "test:browser": "playwright test",
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "npm run dictionary:build && tsc -b --pretty false"
@@ -20,9 +21,10 @@
     "zod": "latest"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@types/node": "latest",
     "tsx": "latest",
     "typescript": "latest",
     "vitest": "latest"
