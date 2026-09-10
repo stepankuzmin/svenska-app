@@ -61,9 +61,9 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const choices: LookupChoice[] = [];
     for (const { headword, normalizedHeadword, senses } of entries) {
       const matchingTranslation = senses.find((sense) =>
-        normalizeLookupText(sense.translation).startsWith(normalizedQuery),
+        normalizeLookupText(sense.translation).includes(normalizedQuery),
       );
-      const displayedSense = matchingTranslation ?? (normalizedHeadword.startsWith(normalizedQuery) ? senses[0] : undefined);
+      const displayedSense = matchingTranslation ?? (normalizedHeadword.includes(normalizedQuery) ? senses[0] : undefined);
 
       if (displayedSense !== undefined) {
         choices.push({ headword, translation: displayedSense.translation });

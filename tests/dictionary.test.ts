@@ -66,12 +66,12 @@ describe("dictionary lookup", () => {
     });
   });
 
-  it("returns every canonical choice for Swedish and Russian prefixes", () => {
-    expect(search("bo")).toEqual({
+  it("returns every canonical choice containing the Swedish or Russian query", () => {
+    expect(search("ok")).toEqual({
       kind: "choices",
       choices: [{ headword: "bok", translation: "книга" }],
     });
-    expect(search("бро")).toEqual({
+    expect(search("ниров")).toEqual({
       kind: "choices",
       choices: [{ headword: "bok", translation: "бронировать" }],
     });
