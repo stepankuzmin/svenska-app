@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PROTOTYPE: visual system</title>
+  <style>
+    * { box-sizing: border-box } body { margin:0; font:16px/1.45 system-ui,sans-serif; background:#f5f4ee; color:#17241b } button,input { font:inherit } button { cursor:pointer }
+    main { width:min(100%,720px); margin:auto; padding:22px 20px 160px } .test { display:flex; gap:6px; margin:0 0 22px; overflow:auto } .test button { border:1px solid #ccd2c7; border-radius:99px; background:#fff; padding:6px 10px; white-space:nowrap } .test button[aria-pressed=true] { background:#18281d; color:#fff; border-color:#18281d }
+    .app { min-height:650px } .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:24px } .brand { font-weight:800; letter-spacing:-.05em; font-size:1.2rem } .count { border:0; background:transparent; font-weight:650; color:inherit }
+    .search { display:flex; gap:8px; align-items:center; border:1px solid #d6d9d2; background:#fff; padding:7px 8px 7px 14px; border-radius:15px } .search input { min-width:0; flex:1; outline:0; border:0; background:transparent; color:inherit } .search button { border:0; border-radius:10px; padding:9px 14px; background:#16291c; color:#fff; font-weight:700 }
+    .label { margin-top:34px; color:#687467; font-size:.73rem; letter-spacing:.09em; font-weight:800; text-transform:uppercase } h1 { margin:8px 0 2px; font-size:clamp(3.6rem,14vw,6rem); line-height:.9; letter-spacing:-.075em } .kind { color:#69756b } .translation { margin:28px 0 9px; font-size:clamp(1.5rem,5vw,2.15rem); line-height:1.15; letter-spacing:-.035em; font-weight:700 } .description { max-width:44ch; margin:0; color:#526055 }
+    .section { margin-top:38px; border-top:1px solid #d9ddd5; padding-top:16px } .section-head { display:flex; justify-content:space-between; color:#6b766c; font-size:.78rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase } .row { display:flex; justify-content:space-between; align-items:center; width:100%; border:0; border-bottom:1px solid #e4e7e1; background:transparent; padding:13px 0; color:inherit; text-align:left } .row strong,.row span { display:block } .row span { color:#667269; font-size:.9rem } .row b { color:#799175; font-size:1.35rem; font-weight:400 }
+    .empty,.offline { display:grid; place-items:center; min-height:360px; text-align:center } .empty h1,.offline h1 { font-size:2rem; letter-spacing:-.045em; line-height:1.1 } .empty p,.offline p { max-width:28ch; color:#647064 } .empty button,.offline button { border:0; border-radius:10px; background:#18291d; color:#fff; padding:10px 14px; font-weight:700 }
+    .switcher { position:fixed; z-index:3; bottom:22px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:center; padding:7px; border-radius:999px; color:#fff; background:#142219; box-shadow:0 12px 30px #0004 } .switcher button { width:34px; height:34px; border:0; border-radius:50%; background:#31513b; color:#fff; font-size:1.1rem }.switcher strong { min-width:148px; text-align:center; font-size:.78rem }
+    /* A: quiet editorial */
+    .A .brand::after { content:"."; color:#6f9d2e }.A .translation { color:#1e5531 }
+    /* B: practical tool */
+    .B { color:#101820 }.B .header { padding-bottom:12px; border-bottom:2px solid #101820 }.B .brand { letter-spacing:.02em; text-transform:uppercase; font-size:.9rem }.B .search { border-radius:3px; border:2px solid #101820; box-shadow:4px 4px 0 #ced8ca }.B .search button { border-radius:2px; background:#0f6a52 }.B h1 { font-family:Georgia,serif; letter-spacing:-.055em }.B .translation { color:#0f6a52 }.B .section { border-top:2px solid #101820 }.B .row { border-bottom-color:#b6c0ba }
+    /* C: high-contrast night */
+    .C { margin:-22px -20px -160px; min-height:100dvh; padding:22px 20px 160px; background:#10251d; color:#eff5e9 }.C .search { background:#183328; border-color:#3e6450 }.C .search input { color:#fff }.C .search button { background:#dff66b; color:#17301f }.C .label,.C .kind,.C .description,.C .section-head,.C .row span { color:#a9bba9 }.C .translation { color:#dff66b }.C .section { border-color:#3b5b4a }.C .row { border-color:#315141 }.C .row b { color:#dff66b }.C .test button { background:#173427; border-color:#416252; color:#e8f1e4 }.C .test button[aria-pressed=true] { background:#dff66b; color:#14271b; border-color:#dff66b }
+    @media (prefers-reduced-motion:no-preference) { .search:focus-within { box-shadow:0 0 0 4px #b7d98666; transition:box-shadow 150ms ease-out } .row { transition:background 120ms ease } }
+    @media (max-width:520px) { main { padding-inline:16px }.C { margin-inline:-16px; padding-inline:16px } }
+  </style>
+</head>
+<body>
+  <main id="main"><section class="app A" id="app"></section></main>
+  <nav class="switcher"><button id="prev" aria-label="Previous visual direction">←</button><strong id="name"></strong><button id="next" aria-label="Next visual direction">→</button></nav>
+  <script>
+    // Three visual systems for the accepted search-first lookup layout, switchable with ?variant=.
+    const variants = { A:"Quiet editorial", B:"Practical tool", C:"Night focus" };
+    const model = { state:"normal", query:"fika", library:["fika","lagom","tack"] };
+    const $ = s => document.querySelector(s);
+    function result() { return `<header class="header"><div class="brand">svenska</div><button class="count" aria-label="Open library">Library · ${model.library.length}</button></header><form class="search" id="search"><span aria-hidden="true">⌕</span><input aria-label="Search Swedish or Russian" value="${model.query}"><button>Search</button></form><article><div class="label">Swedish · noun</div><h1>fika</h1><div class="kind">/ˈfiːka/</div><div class="translation">перерыв на кофе</div><p class="description">Coffee and something sweet, usually shared with someone.</p></article><section class="section"><div class="section-head"><span>Recent lookups</span><span>3 words</span></div>${["smörgås","tack","lagom"].map((word,i)=>`<button class="row"><span><strong>${word}</strong><span>${["бутерброд","спасибо","в меру"][i]}</span></span><b>›</b></button>`).join("")}</section>`; }
+    function empty() { return `<header class="header"><div class="brand">svenska</div></header><form class="search" id="search"><span aria-hidden="true">⌕</span><input aria-label="Search Swedish or Russian" value="katter"><button>Search</button></form><section class="empty"><div><h1>No exact match</h1><p>Try a shorter word or a different spelling.</p><button>Show words starting with kat</button></div></section>`; }
+    function offline() { return `<header class="header"><div class="brand">svenska</div><button class="count">Library · ${model.library.length}</button></header><section class="offline"><div><h1>Dictionary is not on this device</h1><p>Connect once to download it, then look up words offline.</p><button>Download dictionary</button></div></section>`; }
+    function render() { const requested=new URLSearchParams(location.search).get("variant"); const key=variants[requested]?requested:"A"; const app=$("#app"); app.className=`app ${key}`; app.innerHTML=`<div class="test" aria-label="Prototype state"><button data-state="normal" aria-pressed="${model.state==="normal"}">Result</button><button data-state="empty" aria-pressed="${model.state==="empty"}">No match</button><button data-state="offline" aria-pressed="${model.state==="offline"}">Offline</button></div>${model.state==="normal"?result():model.state==="empty"?empty():offline()}`; $("#name").textContent=`${key} · ${variants[key]}`; document.querySelectorAll("[data-state]").forEach(b=>b.onclick=()=>{model.state=b.dataset.state;render()}); const form=$("#search"); if(form) form.onsubmit=e=>{e.preventDefault();model.state="normal";render()}; }
+    function move(delta) { const keys=Object.keys(variants);const active=new URLSearchParams(location.search).get("variant")||"A";const next=keys[(keys.indexOf(active)+delta+keys.length)%keys.length];history.replaceState(null,"",`${location.pathname}?variant=${next}`);render() }
+    $("#prev").onclick=()=>move(-1);$("#next").onclick=()=>move(1);addEventListener("keydown",e=>{if(document.activeElement.tagName!=="INPUT"){if(e.key==="ArrowLeft")move(-1);if(e.key==="ArrowRight")move(1)}});render();
+  </script>
+</body>
+</html>

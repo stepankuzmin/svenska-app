@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PROTOTYPE: Svenska lookup</title>
+    <style>
+      :root { --ink:#14261b;--muted:#607064;--paper:#f6f4ed;--card:#fffefa;--line:#dfe2d8;--accent:#d7f164;--deep:#183c2d;font:16px/1.45 ui-rounded,"SF Pro Rounded","Avenir Next",system-ui,sans-serif; }
+      * { box-sizing:border-box; } body { margin:0;color:var(--ink);background:var(--paper); } button,input { font:inherit; } button { cursor:pointer; }
+      .shell { width:min(100%,760px);min-height:100dvh;margin:auto;padding:20px 20px 108px; } .topline { display:flex;align-items:center;justify-content:space-between;margin-bottom:22px; }
+      .brand { font-size:1.1rem;font-weight:800;letter-spacing:-.04em; } .brand i { color:#51863d;font-style:normal; } .library-link { border:0;background:none;color:var(--ink);font-weight:700;padding:6px 0; }
+      .search { display:flex;align-items:center;gap:10px;border-radius:17px;background:var(--card);border:1px solid var(--line);padding:7px 8px 7px 15px;box-shadow:0 4px 16px #1b2d1820; }
+      .search span { color:var(--muted);font-size:1.2rem; } .search input { flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--ink); } .search button { border:0;border-radius:12px;background:var(--accent);color:#193516;font-weight:800;padding:10px 14px; }
+      .eyebrow { color:#66825e;font-size:.73rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase; } .word { letter-spacing:-.065em;font-size:clamp(3rem,12vw,5.6rem);line-height:.92;margin:22px 0 6px; } .grammar { color:var(--muted);font-size:.95rem; }
+      .translation { font-size:clamp(1.45rem,5vw,2rem);font-weight:720;letter-spacing:-.035em;line-height:1.15;margin:27px 0 13px; } .detail { margin:0;color:#4d5b50;max-width:48ch; } .divider { height:1px;margin:29px 0 19px;background:var(--line); }
+      .section-title { display:flex;align-items:baseline;justify-content:space-between;margin:0 0 11px;font-size:.82rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase; } .section-title span { color:var(--muted);font-size:.73rem;font-weight:700;letter-spacing:0;text-transform:none; }
+      .list { display:grid;gap:2px; } .row { display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;border:0;border-radius:12px;background:transparent;color:var(--ink);padding:11px 8px;text-align:left; } .row:hover { background:#e9eee3; } .row strong { display:block;font-size:1rem; } .row small { color:var(--muted); } .chevron { color:#799072;font-size:1.3rem; }
+      .panel { border:1px solid var(--line);border-radius:24px;background:var(--card);padding:22px;box-shadow:0 6px 20px #1b2d1814; } .hero { padding:28px 0 19px; } .chips { display:flex;flex-wrap:wrap;gap:8px; } .chip { border:1px solid #cdd9c6;border-radius:999px;background:#f9fcf4;color:var(--deep);padding:8px 12px;font-weight:680; }
+      .split { display:grid;grid-template-columns:1.15fr .85fr;gap:16px;margin-top:20px; } .side { padding:18px;background:var(--deep);border-radius:22px;color:white; } .side .section-title { color:#d9f4cb; } .side .row { color:white;padding-inline:0;border-radius:0;border-bottom:1px solid #ffffff24; } .side .row small,.side .chevron { color:#bdd2b7; }
+      .paper-card { position:relative;overflow:hidden;margin-top:22px;padding:26px;border-radius:4px 24px 24px;background:var(--card);box-shadow:0 11px 30px #1b2d1822; } .paper-card::before { position:absolute;top:0;left:0;width:5px;height:100%;background:var(--accent);content:""; }
+      .state { margin:25px 0 0;border-top:1px dashed #bfc5b9;color:var(--muted);font:12px/1.45 ui-monospace,SFMono-Regular,monospace;padding-top:12px; } .state summary { cursor:pointer;font-family:ui-rounded,system-ui,sans-serif;font-size:.75rem;font-weight:700; } .state pre { margin:10px 0 0;white-space:pre-wrap; }
+      .switcher { position:fixed;z-index:2;bottom:20px;left:50%;display:flex;align-items:center;gap:10px;transform:translateX(-50%);border:1px solid #2c4934;border-radius:999px;background:#17271d;box-shadow:0 10px 30px #1521194d;color:white;padding:7px; } .switcher button { display:grid;place-items:center;width:34px;height:34px;border:0;border-radius:50%;background:#31523c;color:white;font-size:1.2rem; } .switcher strong { min-width:142px;font-size:.78rem;text-align:center; }
+      @media (max-width:560px) { .shell { padding-inline:16px; } .split { grid-template-columns:1fr; } .word { font-size:4.1rem; } }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topline"><div class="brand">svenska<i>.</i></div><button class="library-link" id="library">Library <span id="library-count"></span></button></header>
+      <form class="search" id="search"><span>⌕</span><input id="query" value="fika" autocomplete="off" aria-label="Search Swedish or Russian" /><button>Search</button></form>
+      <section id="screen"></section><details class="state"><summary>Prototype state</summary><pre id="state"></pre></details>
+    </main>
+    <nav class="switcher" aria-label="Prototype variations"><button id="previous" aria-label="Previous variation">←</button><strong id="variant-label"></strong><button id="next" aria-label="Next variation">→</button></nav>
+    <script>
+      // Three lookup layouts, switchable with ?variant=A, B, or C. This is a throwaway prototype.
+      const names = { A: 'Search first', B: 'Reference desk', C: 'Library led' };
+      const entries = {
+        fika: { word: 'fika', kind: 'noun', russian: 'перерыв на кофе', detail: 'Coffee and something sweet, usually shared with someone.' },
+        tack: { word: 'tack', kind: 'interjection', russian: 'спасибо', detail: 'Also appears in “tack så mycket”, thank you very much.' },
+        lagom: { word: 'lagom', kind: 'adjective', russian: 'в меру, как раз', detail: 'Neither too much nor too little.' },
+        smörgås: { word: 'smörgås', kind: 'noun', russian: 'бутерброд', detail: 'An open sandwich, often served for lunch.' }
+      };
+      const model = { current: 'fika', library: ['fika', 'lagom', 'hej'], recent: ['fika', 'smörgås', 'tack'] };
+      const $ = selector => document.querySelector(selector);
+      const wordList = words => `<div class="list">${words.map(word => { const entry = entries[word] || { russian: 'привет' }; return `<button class="row" data-word="${word}"><span><strong>${word}</strong><small>${entry.russian}</small></span><span class="chevron">›</span></button>`; }).join('')}</div>`;
+      const entry = ({ word, kind, russian, detail }) => `<div class="eyebrow">Swedish · ${kind}</div><h1 class="word">${word}</h1><div class="translation">${russian}</div><p class="detail">${detail}</p>`;
+      function render() {
+        const wanted = new URLSearchParams(location.search).get('variant'); const variant = names[wanted] ? wanted : 'A'; const current = entries[model.current];
+        if (variant === 'A') $('#screen').innerHTML = `<article class="hero">${entry(current)}</article><div class="divider"></div><section><h2 class="section-title">Recent <span>your last lookups</span></h2>${wordList(model.recent)}</section>`;
+        if (variant === 'B') $('#screen').innerHTML = `<div class="split"><article class="panel">${entry(current)}</article><aside class="side"><h2 class="section-title">Library <span>${model.library.length} words</span></h2>${wordList(model.library)}</aside></div><section class="panel" style="margin-top:16px"><h2 class="section-title">Also looked up</h2><div class="chips">${model.recent.map(word => `<button class="chip" data-word="${word}">${word}</button>`).join('')}</div></section>`;
+        if (variant === 'C') $('#screen').innerHTML = `<section class="panel" style="margin-top:20px"><h2 class="section-title">Your library <span>${model.library.length} words</span></h2><div class="chips">${model.library.map(word => `<button class="chip" data-word="${word}">${word}</button>`).join('')}</div></section><article class="paper-card">${entry(current)}</article><section style="margin-top:26px"><h2 class="section-title">Continue from</h2>${wordList(model.recent)}</section>`;
+        $('#variant-label').textContent = `${variant} · ${names[variant]}`; $('#library-count').textContent = model.library.length;
+        $('#state').textContent = JSON.stringify({ openEntry: model.current, automaticLibrary: model.library, recentLookups: model.recent, persistence: 'in memory only' }, null, 2);
+        document.querySelectorAll('[data-word]').forEach(button => button.onclick = () => open(button.dataset.word));
+      }
+      function open(word) { model.current = word; model.library = [word, ...model.library.filter(item => item !== word)]; model.recent = [word, ...model.recent.filter(item => item !== word)].slice(0, 5); render(); }
+      function move(delta) { const keys = Object.keys(names); const active = new URLSearchParams(location.search).get('variant') || 'A'; const next = keys[(keys.indexOf(active) + delta + keys.length) % keys.length]; history.replaceState(null, '', `${location.pathname}?variant=${next}`); render(); }
+      $('#search').onsubmit = event => { event.preventDefault(); const requested = $('#query').value.trim().toLowerCase(); open(entries[requested] ? requested : 'fika'); };
+      $('#previous').onclick = () => move(-1); $('#next').onclick = () => move(1); $('#library').onclick = () => { history.replaceState(null, '', `${location.pathname}?variant=C`); render(); };
+      addEventListener('keydown', event => { if (document.activeElement.tagName !== 'INPUT') { if (event.key === 'ArrowLeft') move(-1); if (event.key === 'ArrowRight') move(1); } }); render();
+    </script>
+  </body>
+</html>
