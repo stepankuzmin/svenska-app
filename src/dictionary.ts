@@ -21,8 +21,6 @@ export type LookupOutcome =
   | { kind: "choices"; choices: readonly LookupChoice[] }
   | { kind: "no-match" };
 
-const maximumChoices = 8;
-
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
@@ -69,9 +67,6 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
 
       if (displayedSense !== undefined) {
         choices.push({ headword, translation: displayedSense.translation });
-      }
-      if (choices.length === maximumChoices) {
-        break;
       }
     }
 

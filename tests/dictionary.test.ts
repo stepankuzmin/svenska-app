@@ -66,7 +66,7 @@ describe("dictionary lookup", () => {
     });
   });
 
-  it("returns one canonical choice per headword for Swedish and Russian prefixes", () => {
+  it("returns every canonical choice for Swedish and Russian prefixes", () => {
     expect(search("bo")).toEqual({
       kind: "choices",
       choices: [{ headword: "bok", translation: "книга" }],
@@ -74,6 +74,20 @@ describe("dictionary lookup", () => {
     expect(search("бро")).toEqual({
       kind: "choices",
       choices: [{ headword: "bok", translation: "бронировать" }],
+    });
+    expect(search("д")).toEqual({
+      kind: "choices",
+      choices: [
+        { headword: "hus", translation: "дом" },
+        { headword: "hem", translation: "дом" },
+        { headword: "koja", translation: "дом" },
+        { headword: "torp", translation: "дом" },
+        { headword: "villa", translation: "дом" },
+        { headword: "stuga", translation: "дом" },
+        { headword: "residens", translation: "дом" },
+        { headword: "hemvist", translation: "дом" },
+        { headword: "byggnad", translation: "дом" },
+      ],
     });
   });
 
