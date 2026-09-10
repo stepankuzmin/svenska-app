@@ -26,7 +26,7 @@ test("lookup remains available after an online visit and offline reload", async 
   await expect(page.getByRole("heading", { name: "No matching word" })).toBeVisible();
 });
 
-test("a missing installed dictionary explains that one connection is required", async ({ context, page }) => {
+test("a first offline visit explains that one connection is required", async ({ context, page }) => {
   await page.route("**/lexin-dictionary.*.json", async (route) => {
     await context.setOffline(true);
     await route.abort("internetdisconnected");
