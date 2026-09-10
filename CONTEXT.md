@@ -5,16 +5,16 @@ An offline Swedish-Russian vocabulary application. It turns a versioned Lexin so
 ## Language
 
 **Dictionary release**:
-A content-hashed, gzip-compressed JSON lookup file produced from one Lexin source edition and deployed with a specific application release.
+A content-hashed JSON lookup file produced from one Lexin source edition and deployed with a specific application release. The browser and static host handle ordinary HTTP compression.
 _Avoid_: Live dictionary, downloaded source XML
 
 **Source edition**:
 The dated Lexin XML publication from which a dictionary release is derived.
 _Avoid_: Live source, current Lexin data
 
-**Installed dictionary**:
-A dictionary release stored by the browser for offline lookup on one device.
-_Avoid_: Permanent dictionary, synced library
+**Cached dictionary**:
+The dictionary release precached with the application by its generated service worker for offline lookup after one online visit.
+_Avoid_: Installed dictionary, downloaded dictionary, permanent dictionary
 
 **Lookup library**:
 The device-local collection of dictionary entries opened by the user. Opening an entry adds it automatically.
