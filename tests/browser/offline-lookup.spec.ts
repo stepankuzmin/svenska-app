@@ -34,6 +34,6 @@ test("a first offline visit explains that one connection is required", async ({ 
 
   await page.goto("/");
 
-  await expect(page.getByText(/connect once/i)).toBeVisible();
+  await expect(page.getByRole("status")).toHaveText(/connect once/i);
   await expect(page.getByRole("button", { name: "Look up" })).toBeDisabled();
 });

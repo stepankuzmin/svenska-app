@@ -7,7 +7,11 @@ import "./styles.css";
 
 type LookupState =
   | { kind: "loading" }
-  | { kind: "ready"; search: (query: string) => LookupOutcome }
+  | {
+      kind: "ready";
+      search: (query: string) => LookupOutcome;
+      sourceEditionDate: string;
+    }
   | { kind: "unavailable-offline" };
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
@@ -48,7 +52,11 @@ function LookupApp() {
         if (!isDictionaryAsset(asset)) {
           throw new Error("Dictionary asset has an invalid format.");
         }
-        setLookupState({ kind: "ready", search: createSearch({ dictionary: asset }) });
+        setLookupState({
+          kind: "ready",
+          search: createSearch({ dictionary: asset }),
+          sourceEditionDate: asset.metadata.sourceEditionDate,
+        });
       })
       .catch(() => {
         if (!navigator.onLine) {
@@ -110,7 +118,7 @@ function LookupApp() {
         <h1>Swedish–Russian lookup</h1>
         <a href="#lookup-library">Library</a>
       </header>
-      <form onSubmit={submit} method="get">
+      <form className="search" onSubmit={submit} method="get">
         <label htmlFor="dictionary-query">Swedish or Russian word</label>
         <div className="search-row">
           <input
@@ -125,11 +133,13 @@ function LookupApp() {
           <button type="submit" disabled={lookupState.kind !== "ready"}>Look up</button>
         </div>
       </form>
-      <section aria-live="polite">
-        {lookupState.kind === "loading" ? <p>Loading dictionary…</p> : null}
-        {lookupState.kind === "unavailable-offline" ? (
-          <p>Connect once while online. After that, you can look up words offline.</p>
-        ) : null}
+      <section className="lookup">
+        <div className="status" role="status" aria-live="polite">
+          {lookupState.kind === "loading" ? <p>Loading dictionary…</p> : null}
+          {lookupState.kind === "unavailable-offline" ? (
+            <p>Connect once while online. After that, you can look up words offline.</p>
+          ) : null}
+        </div>
         {outcome?.kind === "no-match" ? (
           <div className="no-match">
             <h2>No matching word</h2>
@@ -142,7 +152,11 @@ function LookupApp() {
             <ul>
               {outcome.choices.map((choice, index) => (
                 <li key={`${choice.headword}-${choice.translation}-${index}`}>
-                  <button type="button" onClick={() => selectChoice(choice.headword)}>
+                  <button
+                    type="button"
+                    aria-label={`${choice.headword}, ${choice.translation}`}
+                    onClick={() => selectChoice(choice.headword)}
+                  >
                     <strong lang="sv">{choice.headword}</strong>
                     <span lang="ru">{choice.translation}</span>
                   </button>
@@ -166,7 +180,7 @@ function LookupApp() {
           </article>
         ) : null}
       </section>
-      <section id="lookup-library" aria-labelledby="lookup-library-heading">
+      <section className="library" id="lookup-library" aria-labelledby="lookup-library-heading">
         <div className="library-heading">
           <h2 id="lookup-library-heading">Lookup library</h2>
           {libraryHeadwords.length > 0 ? (
@@ -208,6 +222,20 @@ function LookupApp() {
           </ul>
         ) : null}
       </section>
+      <footer>
+        <p>
+          Dictionary data from <strong>Lexin</strong>, published by the{" "}
+          <strong>Institute for Language and Folklore (ISOF)</strong>.
+        </p>
+        {lookupState.kind === "ready" ? <p>Source edition: {lookupState.sourceEditionDate}</p> : null}
+        <p>
+          Licensed under{" "}
+          <a href="https://creativecommons.org/licenses/by/4.0/">
+            Creative Commons Attribution 4.0
+          </a>
+          .
+        </p>
+      </footer>
     </main>
   );
 }
