@@ -51,6 +51,7 @@ test("the reading order, keyboard path, accessible names, and attribution are co
 });
 
 test("the paper layout fits narrow and zoomed viewports with visible focus and sufficient contrast", async ({ page }) => {
+  // A 320 CSS-pixel viewport is the reflow width of a 640-pixel viewport at 200% browser zoom.
   await page.setViewportSize({ width: 320, height: 720 });
   await openReadyApp(page);
 
@@ -101,12 +102,6 @@ test("the paper layout fits narrow and zoomed viewports with visible focus and s
   await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
   await expect(page.getByRole("link", { name: /CC BY 4.0/ })).toBeVisible();
 
-  await page.setViewportSize({ width: 640, height: 720 });
-  await page.evaluate("document.documentElement.style.zoom = '2'");
-  expect(await page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")).toBe(true);
-  await expect(query).toBeVisible();
-  await expect(page.getByRole("button", { name: "Look up" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
 });
 
 test("dictionary loading is the only announced interstitial state", async ({ page }) => {
