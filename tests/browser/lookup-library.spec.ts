@@ -23,7 +23,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("opened lookups persist in most-recent order and can be reopened or removed", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fika");
@@ -54,7 +54,7 @@ test("opened lookups persist in most-recent order and can be reopened or removed
 });
 
 test("the header link reaches the library and clearing requires confirmation", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fika");

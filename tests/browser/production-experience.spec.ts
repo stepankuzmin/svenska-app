@@ -19,7 +19,7 @@ async function openReadyApp(page: Page) {
   await page.route("**/lexin-dictionary.*.json", (route) =>
     route.fulfill({ contentType: "application/json", json: dictionary }),
   );
-  await page.goto("/");
+  await page.goto(".");
   await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
 }
 
@@ -111,7 +111,7 @@ test("the paper layout fits narrow and zoomed viewports with visible focus and s
 
 test("dictionary loading is the only announced interstitial state", async ({ page }) => {
   await page.route("**/lexin-dictionary.*.json", () => new Promise(() => {}));
-  await page.goto("/");
+  await page.goto(".");
   await expect(page.getByRole("status")).toHaveText("Loading dictionary…");
 });
 

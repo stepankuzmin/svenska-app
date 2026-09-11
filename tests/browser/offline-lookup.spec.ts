@@ -7,7 +7,7 @@ async function searchFor(page: Page, query: string) {
 }
 
 test("lookup remains available after an online visit and offline reload", async ({ context, page }) => {
-  await page.goto("/");
+  await page.goto(".");
   await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
 
   await page.waitForFunction("navigator.serviceWorker?.controller !== null");
@@ -32,7 +32,7 @@ test("a first offline visit explains that one connection is required", async ({ 
     await route.abort("internetdisconnected");
   });
 
-  await page.goto("/");
+  await page.goto(".");
 
   await expect(page.getByRole("status")).toHaveText(/connect once/i);
   await expect(page.getByRole("button", { name: "Look up" })).toBeDisabled();

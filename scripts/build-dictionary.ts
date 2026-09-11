@@ -108,7 +108,6 @@ async function main(): Promise<void> {
   const digest = createHash("sha256").update(serializedDictionary).digest("hex").slice(0, 16);
   const publicDirectory = resolve(repositoryRoot, "public");
   const assetName = `lexin-dictionary.${digest}.json`;
-  const assetUrl = `/${assetName}`;
   const assetOutput = resolve(publicDirectory, assetName);
   const sourceOutput = resolve(repositoryRoot, "src/generated/dictionary-asset.ts");
 
@@ -121,7 +120,10 @@ async function main(): Promise<void> {
   );
   await mkdir(dirname(sourceOutput), { recursive: true });
   await writeFile(assetOutput, serializedDictionary);
-  await writeFile(sourceOutput, `export const dictionaryAssetUrl = "${assetUrl}";\n`);
+  await writeFile(
+    sourceOutput,
+    `export const dictionaryAssetUrl = \`${"${import.meta.env.BASE_URL}"}${assetName}\`;\n`,
+  );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
