@@ -32,7 +32,9 @@ test("the reading order, keyboard path, accessible names, and attribution are co
   await expect(mainChildren.nth(3)).toHaveClass("library");
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.focus();
+  await page.getByRole("link", { name: "Library" }).focus();
+  await page.keyboard.press("Tab");
+  await expect(query).toBeFocused();
   await query.fill("fik");
   await query.press("Enter");
   await expect(page.getByRole("button", { name: "fika, перерыв на кофе" })).toBeVisible();
@@ -45,7 +47,7 @@ test("the reading order, keyboard path, accessible names, and attribution are co
   await expect(page.getByText("Lexin", { exact: true })).toBeVisible();
   await expect(page.getByText("Institute for Language and Folklore (ISOF)", { exact: true })).toBeVisible();
   await expect(page.getByText("Source edition: 2010-07-07", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Creative Commons Attribution 4.0" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /CC BY 4.0/ })).toBeVisible();
 });
 
 test("the paper layout fits narrow and zoomed viewports with visible focus and sufficient contrast", async ({ page }) => {
@@ -60,7 +62,7 @@ test("the paper layout fits narrow and zoomed viewports with visible focus and s
   await query.focus();
   await expect(query).not.toHaveCSS("outline-style", "none");
 
-  const contrast = await page.evaluate(`(() => {
+  const contrastChecksPass = await page.evaluate(`(() => {
     function luminance(color) {
       const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number) ?? [];
       const linear = channels.map((channel) => {
@@ -70,16 +72,41 @@ test("the paper layout fits narrow and zoomed viewports with visible focus and s
       return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
     }
 
-    const styles = getComputedStyle(document.body);
-    const foreground = luminance(styles.color);
-    const background = luminance(styles.backgroundColor);
-    return (Math.max(foreground, background) + 0.05) / (Math.min(foreground, background) + 0.05);
+    function ratio(foreground, background) {
+      const foregroundLuminance = luminance(foreground);
+      const backgroundLuminance = luminance(background);
+      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+        (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+    }
+
+    const body = getComputedStyle(document.body);
+    const input = getComputedStyle(document.querySelector("input"));
+    const button = getComputedStyle(document.querySelector("button"));
+    const link = getComputedStyle(document.querySelector("a"));
+    const footer = getComputedStyle(document.querySelector("footer"));
+    return [
+      ratio(body.color, body.backgroundColor) >= 4.5,
+      ratio(input.color, input.backgroundColor) >= 4.5,
+      ratio(input.borderTopColor, body.backgroundColor) >= 3,
+      ratio(button.color, button.backgroundColor) >= 4.5,
+      ratio(link.color, body.backgroundColor) >= 4.5,
+      ratio(footer.color, body.backgroundColor) >= 4.5,
+      ratio(input.outlineColor, body.backgroundColor) >= 3,
+    ].every(Boolean);
   })()`);
-  expect(contrast).toBeGreaterThanOrEqual(4.5);
+  expect(contrastChecksPass).toBe(true);
+
+  await expect(query).toBeVisible();
+  await expect(page.getByRole("button", { name: "Look up" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /CC BY 4.0/ })).toBeVisible();
 
   await page.setViewportSize({ width: 640, height: 720 });
   await page.evaluate("document.documentElement.style.zoom = '2'");
   expect(await page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")).toBe(true);
+  await expect(query).toBeVisible();
+  await expect(page.getByRole("button", { name: "Look up" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
 });
 
 test("dictionary loading is the only announced interstitial state", async ({ page }) => {
@@ -88,7 +115,7 @@ test("dictionary loading is the only announced interstitial state", async ({ pag
   await expect(page.getByRole("status")).toHaveText("Loading dictionary…");
 });
 
-test("reduced motion removes the only scrolling transition", async ({ page }) => {
+test("reduced motion leaves the reading experience free of scrolling motion", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openReadyApp(page);
   await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");

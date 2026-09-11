@@ -12,7 +12,6 @@
   line-height: 1.5;
 }
 * { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
 body { background: var(--paper); margin: 0; overflow-wrap: break-word; }
 main { max-width: 40rem; min-height: 100vh; margin: auto; padding: 3rem 1.5rem; }
 header { align-items: baseline; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 1fr auto; padding-bottom: 1.5rem; }
@@ -61,8 +60,4 @@ footer strong { color: inherit; }
   .search-row { flex-direction: column; }
   .library-list li { align-items: stretch; flex-direction: column; }
   .library-remove { align-self: start; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  html { scroll-behavior: auto; }
 }
