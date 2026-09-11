@@ -4,13 +4,17 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dictionaryAssetSchema } from "../src/dictionary-contract.ts";
 
-type DictionaryRelease = {
+type DictionaryReleaseValidation = {
   basePath: string;
   directory: string;
   sourceEditionDate: string;
 };
 
-export async function validateDictionaryRelease({ basePath, directory, sourceEditionDate }: DictionaryRelease): Promise<void> {
+export async function validateDictionaryRelease({
+  basePath,
+  directory,
+  sourceEditionDate,
+}: DictionaryReleaseValidation): Promise<void> {
   const indexHtml = await readFile(resolve(directory, "index.html"), "utf8");
   const assetUrls = [...indexHtml.matchAll(/(?:src|href)=["']([^"']+)/g)].map((match) => match[1]);
   if (assetUrls.some((url) => url.startsWith("/") && !url.startsWith(basePath))) {
