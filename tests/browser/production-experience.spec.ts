@@ -3,6 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
+    abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
@@ -54,6 +55,14 @@ test("autocomplete selection keeps Lexin segment markers out of the input", asyn
 
   await expect(query).toHaveValue("abortrådgivning");
   await expect(page.getByRole("region", { name: "Library" }).getByText("abortrådgivning", { exact: true })).toBeVisible();
+});
+
+test("an exact Swedish match does not hide longer autocomplete matches", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("abort");
+
+  await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
 });
 
 test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {

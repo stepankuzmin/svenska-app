@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
+    abborre: [{ partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
   },
@@ -12,6 +13,12 @@ const dictionary = {
 const details = {
   sourceEditionDate: "2010-07-07",
   entries: {
+    abborre: [{
+      phonetic: "²ab:ɔr:e",
+      inflections: ["abborren", "abborrar", "abborrarna"],
+      examples: [],
+      compounds: [{ swedish: "abborrpinne", russian: "окунёк" }],
+    }],
     fika: [{
       phonetic: "²fi:ka",
       inflections: ["fikan", "fikor", "fikorna"],
@@ -34,6 +41,16 @@ test.beforeEach(async ({ page }) => {
   );
 });
 
+test("an extended card includes compounds associated with the Lexin entry", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abborre");
+  await query.press("Enter");
+
+  await expect(page.getByRole("region", { name: "Words containing abborre" }).getByText("abborrpinne")).toBeVisible();
+});
+
 test("chosen words persist in most-recent order and only one card is extended", async ({ page }) => {
   await page.goto(".");
 
@@ -47,7 +64,7 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await expect(library.getByText("fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
   await expect(library.getByText("fikapaus", { exact: true })).toBeVisible();
-  await expect(library.getByText("kaffepaus", { exact: true })).toHaveCount(0);
+  await expect(library.getByText("kaffepaus", { exact: true })).toBeVisible();
 
   await query.fill("спасибо");
   await query.press("ArrowDown");

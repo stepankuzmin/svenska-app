@@ -85,11 +85,37 @@ function getSuggestionItems({
       });
   }
 
-  return [{
+  const normalizedQuery = normalizeLookupText(query);
+  const isExactSwedishResult =
+    normalizeLookupText(cleanLexinText(outcome.headword)) === normalizedQuery;
+  if (!isExactSwedishResult) {
+    return [{
+      headword: outcome.headword,
+      senses: outcome.senses,
+      details: details?.[outcome.headword] ?? [],
+    }];
+  }
+
+  const matches: WordItem[] = [{
     headword: outcome.headword,
     senses: outcome.senses,
     details: details?.[outcome.headword] ?? [],
   }];
+  for (const headword in entries) {
+    if (headword === outcome.headword) {
+      continue;
+    }
+
+    if (normalizeLookupText(cleanLexinText(headword)).startsWith(normalizedQuery)) {
+      const senses = entries[headword];
+      matches.push({ headword, senses, details: details?.[headword] ?? [] });
+      if (matches.length === 6) {
+        break;
+      }
+    }
+  }
+
+  return matches;
 }
 
 function getLibraryItems(
@@ -119,10 +145,7 @@ function getRelatedWords(
   for (const compound of item.details.flatMap((details) => details.compounds)) {
     const headword = cleanLexinText(compound.swedish);
     const normalizedCompound = normalizeLookupText(headword);
-    if (
-      normalizedCompound !== normalizedHeadword &&
-      normalizedCompound.includes(normalizedHeadword)
-    ) {
+    if (normalizedCompound !== normalizedHeadword) {
       related.set(normalizedCompound, { headword, translation: compound.russian });
     }
   }
