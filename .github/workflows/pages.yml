@@ -20,11 +20,11 @@ jobs:
       VITE_BASE_PATH: /${{ github.event.repository.name }}/
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Set up Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 26
           cache: npm
       - name: Install dependencies
         run: npm ci
@@ -40,7 +40,7 @@ jobs:
         run: npm run test:browser:release
       - name: Upload validated Pages artifact
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
@@ -57,4 +57,4 @@ jobs:
     steps:
       - name: Deploy validated artifact
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
