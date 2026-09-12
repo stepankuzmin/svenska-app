@@ -36,9 +36,10 @@ function writeLookupLibrary(headwords: readonly string[]) {
 
 function LookupApp() {
   const [query, setQuery] = useState("");
-  const [outcome, setOutcome] = useState<LookupOutcome | null>(null);
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
+  const outcome: LookupOutcome | null =
+    lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null;
 
   useEffect(() => {
     fetch(dictionaryAssetUrl)
@@ -71,7 +72,6 @@ function LookupApp() {
     }
 
     const nextOutcome = lookupState.search(lookupQuery);
-    setOutcome(nextOutcome);
     if (nextOutcome.kind === "result") {
       setLibraryHeadwords((currentHeadwords) => {
         const nextHeadwords = [

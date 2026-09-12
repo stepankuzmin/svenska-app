@@ -23,3 +23,9 @@ _Avoid_: Saved words, favourites
 **Lookup result**:
 All matching senses for one Swedish headword, shown together whether the search began in Swedish or Russian.
 _Avoid_: Russian-Swedish entry, individual sense result
+
+## Lookup interaction
+
+The lookup area responds to every non-blank change in the search field. It shows a lookup result, matching word choices, or the no-match message while the user types.
+
+Typing previews a lookup without adding it to the lookup library. Submitting an exact word or choosing a matching word opens that lookup and adds it to the library.

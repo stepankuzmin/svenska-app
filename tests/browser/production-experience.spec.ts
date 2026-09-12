@@ -36,8 +36,8 @@ test("the reading order, keyboard path, accessible names, and attribution are co
   await page.keyboard.press("Tab");
   await expect(query).toBeFocused();
   await query.fill("fik");
-  await query.press("Enter");
   await expect(page.getByRole("button", { name: "fika, перерыв на кофе" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open fika, перерыв на кофе" })).toHaveCount(0);
   await page.getByRole("button", { name: "fika, перерыв на кофе" }).press("Enter");
   await expect(page.getByRole("heading", { name: "fika" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Open fika, перерыв на кофе" })).toBeVisible();
