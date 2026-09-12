@@ -1,17 +1,17 @@
 import { z } from "zod";
 
-export const senseSchema = z.object({
+const senseSchema = z.object({
   partOfSpeech: z.string(),
   meaning: z.string(),
   translation: z.string(),
 });
 
-export const bilingualTextSchema = z.object({
+const bilingualTextSchema = z.object({
   swedish: z.string(),
   russian: z.string(),
 });
 
-export const wordDetailsSchema = z.object({
+const wordDetailsSchema = z.object({
   phonetic: z.string(),
   inflections: z.array(z.string()),
   examples: z.array(bilingualTextSchema),

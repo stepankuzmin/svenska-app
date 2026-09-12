@@ -6,7 +6,7 @@ import {
 } from "./dictionary-contract";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
-export type LookupResult = {
+type LookupResult = {
   kind: "result";
   headword: string;
   senses: readonly DictionaryAsset["entries"][string][number][];
