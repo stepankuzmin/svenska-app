@@ -6,7 +6,6 @@
   "scripts": {
     "build": "npm run dictionary:build && tsc -b && vite build",
     "dev": "npm run dictionary:build && vite",
-    "prototype": "npm run dictionary:build && vite --open '/?variant=A'",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
     "test:browser": "npm run build && playwright test",
     "test:browser:release": "playwright test",

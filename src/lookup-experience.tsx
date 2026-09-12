@@ -3,21 +3,17 @@ import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contr
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
-// Three minimal word-card treatments, switchable with ?variant=, on the existing root route.
-export type PrototypeVariant = "A" | "B" | "C";
-
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
 
-type PrototypeLookupState =
+type LookupAvailability =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "unavailable-offline" };
 
-type LookupPrototypeProps = {
-  variant: PrototypeVariant;
+type LookupExperienceProps = {
   query: string;
-  lookupState: PrototypeLookupState;
+  lookupState: LookupAvailability;
   outcome: LookupOutcome | null;
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
@@ -29,7 +25,6 @@ type LookupPrototypeProps = {
 
 type WordItem = {
   headword: string;
-  translation: string;
   senses: readonly DictionarySense[];
   details: readonly WordDetails[];
 };
@@ -38,14 +33,6 @@ type RelatedWord = {
   headword: string;
   translation: string;
 };
-
-export function readPrototypeVariant(): PrototypeVariant {
-  const variant = new URLSearchParams(window.location.search).get("variant");
-  if (variant === "B" || variant === "C") {
-    return variant;
-  }
-  return "A";
-}
 
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
@@ -94,13 +81,12 @@ function getSuggestionItems({
         const senses = entries[choice.headword];
         return senses === undefined
           ? []
-          : [{ ...choice, senses, details: details?.[choice.headword] ?? [] }];
+          : [{ headword: choice.headword, senses, details: details?.[choice.headword] ?? [] }];
       });
   }
 
   return [{
     headword: outcome.headword,
-    translation: translationFor(outcome.senses),
     senses: outcome.senses,
     details: details?.[outcome.headword] ?? [],
   }];
@@ -119,7 +105,7 @@ function getLibraryItems(
     const senses = entries[headword];
     return senses === undefined
       ? []
-      : [{ headword, translation: translationFor(senses), senses, details: details?.[headword] ?? [] }];
+      : [{ headword, senses, details: details?.[headword] ?? [] }];
   });
 }
 
@@ -132,7 +118,13 @@ function getRelatedWords(
 
   for (const compound of item.details.flatMap((details) => details.compounds)) {
     const headword = cleanLexinText(compound.swedish);
-    related.set(normalizeLookupText(headword), { headword, translation: compound.russian });
+    const normalizedCompound = normalizeLookupText(headword);
+    if (
+      normalizedCompound !== normalizedHeadword &&
+      normalizedCompound.includes(normalizedHeadword)
+    ) {
+      related.set(normalizedCompound, { headword, translation: compound.russian });
+    }
   }
 
   if (normalizedHeadword.length > 0) {
@@ -240,7 +232,7 @@ const WordCard = memo(function WordCard({
   );
 });
 
-function MinimalLookup(props: LookupPrototypeProps) {
+export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems({
     outcome: props.outcome,
     query: props.query,
@@ -251,8 +243,8 @@ function MinimalLookup(props: LookupPrototypeProps) {
     () => getLibraryItems(props.libraryHeadwords, props.entries, props.details),
     [props.libraryHeadwords, props.entries, props.details],
   );
-  const inputId = `prototype-query-${props.variant.toLowerCase()}`;
-  const listId = `prototype-suggestions-${props.variant.toLowerCase()}`;
+  const inputId = "dictionary-query";
+  const listId = "lookup-suggestions";
   const placeholder = props.lookupState.kind === "loading"
     ? "Loading dictionary…"
     : "Swedish or Russian";
@@ -274,9 +266,18 @@ function MinimalLookup(props: LookupPrototypeProps) {
     setExpandedHeadword((currentHeadword) => currentHeadword === headword ? null : headword);
   }, []);
 
+  function submitLookup(event: FormEvent<HTMLFormElement>) {
+    props.onSubmit(event);
+    if (props.outcome?.kind === "result") {
+      setAutocompleteOpen(false);
+      setActiveSuggestionIndex(-1);
+      setExpandedHeadword(props.outcome.headword);
+    }
+  }
+
   return (
-    <main className={`minimal-prototype minimal-${props.variant.toLowerCase()}`}>
-      <form className="lookup-autocomplete" action="/" method="get" onSubmit={props.onSubmit}>
+    <main className="minimal-lookup">
+      <form className="lookup-autocomplete" action="/" method="get" onSubmit={submitLookup}>
         <label className="visually-hidden" htmlFor={inputId}>Swedish or Russian word</label>
         <input
           id={inputId}
@@ -329,7 +330,7 @@ function MinimalLookup(props: LookupPrototypeProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.headword}-${item.translation}-${index}`}
+                key={`${item.headword}-${index}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 onPointerDown={(event) => event.preventDefault()}
@@ -342,9 +343,16 @@ function MinimalLookup(props: LookupPrototypeProps) {
         ) : null}
       </form>
 
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {props.lookupState.kind === "loading" ? "Loading dictionary…" : null}
+        {props.lookupState.kind === "unavailable-offline"
+          ? "Connect once while online. After that, you can look up words offline."
+          : null}
+      </div>
+
       {library.length > 0 && dictionaryEntries !== null ? (
-        <section className="word-library" aria-labelledby="prototype-library-heading">
-          <h2 id="prototype-library-heading">Library</h2>
+        <section className="word-library" aria-labelledby="lookup-library-heading">
+          <h2 id="lookup-library-heading">Library</h2>
           <ul className="word-card-list" role="list">
             {library.map((item) => (
               <WordCard
@@ -360,8 +368,4 @@ function MinimalLookup(props: LookupPrototypeProps) {
       ) : null}
     </main>
   );
-}
-
-export function LookupPrototype(props: LookupPrototypeProps) {
-  return <MinimalLookup {...props} />;
 }
