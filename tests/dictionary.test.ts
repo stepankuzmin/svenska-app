@@ -26,6 +26,7 @@ const dictionary = {
     residens: [sense("subst.", "officiell bostad", "дом")],
     hemvist: [sense("subst.", "stadigvarande plats", "дом")],
     byggnad: [sense("subst.", "uppförd konstruktion", "дом")],
+    "abort|rådgivning": [sense("subst.", "rådgivning om abort", "консультация по аборту")],
   },
   russianIndex: {
     "бронировать": ["bok"],
@@ -42,6 +43,14 @@ describe("dictionary lookup", () => {
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
+    });
+  });
+
+  it("accepts the displayed form of a canonical Swedish headword containing segment markers", () => {
+    expect(search("abortrådgivning")).toEqual({
+      kind: "result",
+      headword: "abort|rådgivning",
+      senses: dictionary.entries["abort|rådgivning"],
     });
   });
 

@@ -22,10 +22,14 @@ export type LookupOutcome =
   | { kind: "choices"; choices: readonly LookupChoice[] }
   | { kind: "no-match" };
 
+function normalizeSwedishLookupText(value: string): string {
+  return normalizeLookupText(value.replaceAll("|", ""));
+}
+
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
-    normalizedHeadword: normalizeLookupText(headword),
+    normalizedHeadword: normalizeSwedishLookupText(headword),
     normalizedTranslations: senses.map((sense) => normalizeLookupText(sense.translation)),
     senses,
   }));
@@ -33,7 +37,10 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
-    const exactSwedishEntry = entries.find(({ normalizedHeadword }) => normalizedHeadword === normalizedQuery);
+    const normalizedSwedishQuery = normalizeSwedishLookupText(query);
+    const exactSwedishEntry = entries.find(
+      ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
+    );
     const russianHeadwords = dictionary.russianIndex[normalizedQuery] ?? [];
     const exactRussianEntries = russianHeadwords.flatMap((headword) => {
       const entry = entriesByHeadword.get(headword);
@@ -66,7 +73,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         translation.includes(normalizedQuery),
       );
       const matchingTranslation = matchingTranslationIndex === -1 ? undefined : senses[matchingTranslationIndex];
-      const displayedSense = matchingTranslation ?? (normalizedHeadword.includes(normalizedQuery) ? senses[0] : undefined);
+      const displayedSense =
+        matchingTranslation ??
+        (normalizedSwedishQuery.length > 0 && normalizedHeadword.includes(normalizedSwedishQuery)
+          ? senses[0]
+          : undefined);
 
       if (displayedSense !== undefined) {
         choices.push({ headword, translation: displayedSense.translation });
