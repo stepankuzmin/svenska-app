@@ -20,7 +20,7 @@ type LookupExperienceProps = {
   libraryHeadwords: readonly string[];
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (headword: string) => void;
+  onSelectSuggestion: (selection: { headword: string; displayQuery: string }) => void;
 };
 
 type WordItem = {
@@ -259,7 +259,10 @@ export function LookupExperience(props: LookupExperienceProps) {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
     setExpandedHeadword(item.headword);
-    props.onSelectSuggestion(item.headword);
+    props.onSelectSuggestion({
+      headword: item.headword,
+      displayQuery: cleanLexinText(item.headword),
+    });
   }
 
   const toggleExpanded = useCallback((headword: string) => {

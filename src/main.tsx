@@ -115,8 +115,8 @@ function LookupApp() {
     openLookup(query);
   }
 
-  function selectChoice(headword: string) {
-    setQuery(headword);
+  function selectChoice({ headword, displayQuery }: { headword: string; displayQuery: string }) {
+    setQuery(displayQuery);
     openLookup(headword);
   }
 
