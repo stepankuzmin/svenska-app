@@ -24,12 +24,16 @@ describe("dictionary release contract", () => {
       '{"metadata":{"sourceEditionDate":"2010-07-07","attribution":"Lexin","license":"CC BY 4.0"},"entries":{"bok":[{"partOfSpeech":"subst.","meaning":"","translation":"книга"}]},"russianIndex":{"книга":["bok"]}}\n',
     );
     await writeFile(
+      join(directory, "lexin-details.8b49adde90b45818.json"),
+      '{"sourceEditionDate":"2010-07-07","entries":{"bok":[{"phonetic":"bu:k","inflections":["boken"],"examples":[],"compounds":[]}]}}\n',
+    );
+    await writeFile(
       join(directory, "index.html"),
       '<script type="module" src="./assets/app.js"></script><link rel="manifest" href="./manifest.webmanifest">',
     );
     await writeFile(
       join(directory, "sw.js"),
-      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.edbebe6d7037e6c9.json"}]);',
+      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.edbebe6d7037e6c9.json"},{url:"lexin-details.8b49adde90b45818.json"}]);',
     );
 
     await expect(

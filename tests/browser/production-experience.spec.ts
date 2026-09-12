@@ -23,6 +23,16 @@ async function openReadyApp(page: Page) {
   await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
 }
 
+test("the search input accepts typing as soon as the app starts", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", () => new Promise(() => {}));
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await expect(query).toBeFocused();
+  await page.keyboard.type("fika");
+  await expect(query).toHaveValue("fika");
+});
+
 test("the reading order, keyboard path, accessible names, and attribution are complete", async ({ page }) => {
   await openReadyApp(page);
 

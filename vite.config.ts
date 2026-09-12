@@ -10,7 +10,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       workbox: {
         globPatterns: ["**/*.{css,html,js,json,webmanifest}"],
-        maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+        maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },
       manifest: {
         name: "Svenska.app",

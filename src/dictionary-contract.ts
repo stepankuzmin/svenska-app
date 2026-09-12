@@ -6,6 +6,18 @@ export const senseSchema = z.object({
   translation: z.string(),
 });
 
+export const bilingualTextSchema = z.object({
+  swedish: z.string(),
+  russian: z.string(),
+});
+
+export const wordDetailsSchema = z.object({
+  phonetic: z.string(),
+  inflections: z.array(z.string()),
+  examples: z.array(bilingualTextSchema),
+  compounds: z.array(bilingualTextSchema),
+});
+
 export const dictionaryAssetSchema = z.object({
   metadata: z.object({
     sourceEditionDate: z.string(),
@@ -16,4 +28,10 @@ export const dictionaryAssetSchema = z.object({
   russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
 });
 
+export const dictionaryDetailsAssetSchema = z.object({
+  sourceEditionDate: z.string(),
+  entries: z.record(z.string(), z.array(wordDetailsSchema)),
+});
+
 export type DictionaryAsset = z.infer<typeof dictionaryAssetSchema>;
+export type DictionaryDetailsAsset = z.infer<typeof dictionaryDetailsAssetSchema>;

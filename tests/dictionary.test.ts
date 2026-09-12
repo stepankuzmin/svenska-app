@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
 import { createSearch } from "../src/dictionary.ts";
 
+function sense(partOfSpeech: string, meaning: string, translation: string) {
+  return { partOfSpeech, meaning, translation };
+}
+
 const dictionary = {
   metadata: {
     sourceEditionDate: "2010-07-07",
@@ -10,18 +14,18 @@ const dictionary = {
   },
   entries: {
     bok: [
-      { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
-      { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+      sense("subst.", "en samling sidor", "книга"),
+      sense("verb", "reservera", "бронировать"),
     ],
-    hus: [{ partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" }],
-    hem: [{ partOfSpeech: "subst.", meaning: "plats där någon bor", translation: "дом" }],
-    koja: [{ partOfSpeech: "subst.", meaning: "enkel bostad", translation: "дом" }],
-    torp: [{ partOfSpeech: "subst.", meaning: "litet lantställe", translation: "дом" }],
-    villa: [{ partOfSpeech: "subst.", meaning: "fristående bostad", translation: "дом" }],
-    stuga: [{ partOfSpeech: "subst.", meaning: "litet hus", translation: "дом" }],
-    residens: [{ partOfSpeech: "subst.", meaning: "officiell bostad", translation: "дом" }],
-    hemvist: [{ partOfSpeech: "subst.", meaning: "stadigvarande plats", translation: "дом" }],
-    byggnad: [{ partOfSpeech: "subst.", meaning: "uppförd konstruktion", translation: "дом" }],
+    hus: [sense("subst.", "byggnad", "дом")],
+    hem: [sense("subst.", "plats där någon bor", "дом")],
+    koja: [sense("subst.", "enkel bostad", "дом")],
+    torp: [sense("subst.", "litet lantställe", "дом")],
+    villa: [sense("subst.", "fristående bostad", "дом")],
+    stuga: [sense("subst.", "litet hus", "дом")],
+    residens: [sense("subst.", "officiell bostad", "дом")],
+    hemvist: [sense("subst.", "stadigvarande plats", "дом")],
+    byggnad: [sense("subst.", "uppförd konstruktion", "дом")],
   },
   russianIndex: {
     "бронировать": ["bok"],

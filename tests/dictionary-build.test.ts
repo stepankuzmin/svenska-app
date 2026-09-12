@@ -1,13 +1,13 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
-import { buildDictionary } from "../scripts/build-dictionary.ts";
+import { buildDictionaryAssets } from "../scripts/build-dictionary.ts";
 import { createSearch, isDictionaryAsset } from "../src/dictionary.ts";
 
 describe("Lexin source edition import", () => {
   it("preserves source metadata and groups every exact Swedish headword sense", async () => {
     const xml = await readFile(new URL("./fixtures/lexin-small.xml", import.meta.url), "utf8");
 
-    const dictionary = buildDictionary({ xml });
+    const { dictionary, details } = buildDictionaryAssets({ xml });
 
     expect(dictionary.metadata).toMatchObject({
       sourceEditionDate: "2010-07-07",
@@ -15,8 +15,25 @@ describe("Lexin source edition import", () => {
       license: "CC BY 4.0",
     });
     expect(dictionary.entries.bok).toEqual([
-      { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
-      { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+      {
+        partOfSpeech: "subst.",
+        meaning: "en samling sidor",
+        translation: "книга",
+      },
+      {
+        partOfSpeech: "verb",
+        meaning: "reservera",
+        translation: "бронировать",
+      },
+    ]);
+    expect(details.entries.bok).toEqual([
+      {
+        phonetic: "bu:k",
+        inflections: ["boken", "böcker", "böckerna"],
+        examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
+        compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
+      },
+      { phonetic: "", inflections: [], examples: [], compounds: [] },
     ]);
     expect(dictionary.russianIndex).toEqual({
       "бронировать": ["bok"],

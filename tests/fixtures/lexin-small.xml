@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Dictionary BaseLang="Swedish" TargetLang="Russian" Version="2010-07-07">
   <Word ID="1" MatchingID="100" Type="subst." Value="bok">
-    <BaseLang><Meaning>en samling sidor</Meaning></BaseLang>
-    <TargetLang><Translation>книга</Translation></TargetLang>
+    <BaseLang>
+      <Meaning>en samling sidor</Meaning>
+      <Phonetic>bu:k</Phonetic>
+      <Inflection>boken</Inflection>
+      <Inflection>böcker<Variant>böckerna</Variant></Inflection>
+      <Example ID="10">jag läser en bok</Example>
+      <Compound ID="20">bokhylla</Compound>
+    </BaseLang>
+    <TargetLang>
+      <Translation>книга</Translation>
+      <Example ID="10">я читаю книгу</Example>
+      <Compound ID="20">книжная полка</Compound>
+    </TargetLang>
   </Word>
   <Word ID="1" MatchingID="101" Type="verb" Value="bok">
     <BaseLang><Meaning>reservera</Meaning></BaseLang>

@@ -5,7 +5,7 @@ An offline Swedish-Russian vocabulary application. It turns a versioned Lexin so
 ## Language
 
 **Dictionary release**:
-A content-hashed JSON lookup file produced from one Lexin source edition and deployed with a specific application release. The browser and static host handle ordinary HTTP compression.
+A set of content-hashed JSON lookup and word-detail files produced from one Lexin source edition and deployed with a specific application release. The browser and static host handle ordinary HTTP compression.
 _Avoid_: Live dictionary, downloaded source XML
 
 **Source edition**:
@@ -24,8 +24,20 @@ _Avoid_: Saved words, favourites
 All matching senses for one Swedish headword, shown together whether the search began in Swedish or Russian.
 _Avoid_: Russian-Swedish entry, individual sense result
 
+**Word card**:
+The compact, left-aligned presentation of one lookup-library entry. Its closed state shows the headword, transcription, word type, inflections, meanings, and Russian translations.
+_Avoid_: Suggestion card, library row
+
+**Extended word card**:
+The open state of a word card, adding Lexin examples and related words that contain the headword. At most one word card is extended in the lookup library.
+_Avoid_: Expanded result, accordion item
+
+**Lookup autocomplete**:
+The transient, headword-only listbox attached directly to the search field while the user types. Selecting a suggestion closes the listbox, opens its word card, and adds that entry to the lookup library.
+_Avoid_: Suggestions section, suggestion cards
+
 ## Lookup interaction
 
 The lookup area responds to every non-blank change in the search field. It shows a lookup result, matching word choices, or the no-match message while the user types.
 
-Typing previews a lookup without adding it to the lookup library. Submitting an exact word or choosing a matching word opens that lookup and adds it to the library.
+Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.

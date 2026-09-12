@@ -1,15 +1,27 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { z } from "zod";
-import { createSearch, isDictionaryAsset, type LookupOutcome } from "./dictionary";
-import { dictionaryAssetUrl } from "./generated/dictionary-asset";
+import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
+import {
+  createSearch,
+  isDictionaryAsset,
+  isDictionaryDetailsAsset,
+  type LookupOutcome,
+} from "./dictionary";
+import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
+import {
+  LookupPrototype,
+  readPrototypeVariant,
+} from "./lookup-prototype";
 import "./styles.css";
+import "./lookup-prototype.css";
 
 type LookupState =
   | { kind: "loading" }
   | {
       kind: "ready";
       search: (query: string) => LookupOutcome;
+      entries: DictionaryAsset["entries"];
       sourceEditionDate: string;
     }
   | { kind: "unavailable-offline" };
@@ -35,9 +47,15 @@ function writeLookupLibrary(headwords: readonly string[]) {
 }
 
 function LookupApp() {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(() =>
+    import.meta.env.DEV ? new URLSearchParams(window.location.search).get("q") ?? "" : "",
+  );
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
-  const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
+  const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
+  const [libraryHeadwords, setLibraryHeadwords] = useState(() =>
+    import.meta.env.DEV ? ["tack", "lagom", "hej"] : readLookupLibrary(),
+  );
+  const prototypeVariant = readPrototypeVariant();
   const outcome: LookupOutcome | null =
     lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null;
 
@@ -56,8 +74,28 @@ function LookupApp() {
         setLookupState({
           kind: "ready",
           search: createSearch({ dictionary: asset }),
+          entries: asset.entries,
           sourceEditionDate: asset.metadata.sourceEditionDate,
         });
+
+        if (import.meta.env.DEV) {
+          void fetch(dictionaryDetailsAssetUrl)
+            .then(async (response) => {
+              if (!response.ok) {
+                throw new Error("Dictionary details could not be loaded.");
+              }
+              return response.json();
+            })
+            .then((details) => {
+              if (
+                isDictionaryDetailsAsset(details) &&
+                details.sourceEditionDate === asset.metadata.sourceEditionDate
+              ) {
+                setDictionaryDetails(details.entries);
+              }
+            })
+            .catch(() => {});
+        }
       })
       .catch(() => {
         if (!navigator.onLine) {
@@ -73,15 +111,18 @@ function LookupApp() {
 
     const nextOutcome = lookupState.search(lookupQuery);
     if (nextOutcome.kind === "result") {
-      setLibraryHeadwords((currentHeadwords) => {
-        const nextHeadwords = [
-          nextOutcome.headword,
-          ...currentHeadwords.filter((headword) => headword !== nextOutcome.headword),
-        ];
-        writeLookupLibrary(nextHeadwords);
-        return nextHeadwords;
-      });
+      addToLibrary(nextOutcome.headword);
     }
+  }
+
+  function addToLibrary(headword: string) {
+    setLibraryHeadwords((currentHeadwords) => {
+      const nextHeadwords = [headword, ...currentHeadwords.filter((item) => item !== headword)];
+      if (!import.meta.env.DEV) {
+        writeLookupLibrary(nextHeadwords);
+      }
+      return nextHeadwords;
+    });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -97,7 +138,9 @@ function LookupApp() {
   function removeFromLibrary(headwordToRemove: string) {
     setLibraryHeadwords((currentHeadwords) => {
       const nextHeadwords = currentHeadwords.filter((headword) => headword !== headwordToRemove);
-      writeLookupLibrary(nextHeadwords);
+      if (!import.meta.env.DEV) {
+        writeLookupLibrary(nextHeadwords);
+      }
       return nextHeadwords;
     });
   }
@@ -107,12 +150,31 @@ function LookupApp() {
       return;
     }
 
-    writeLookupLibrary([]);
+    if (!import.meta.env.DEV) {
+      writeLookupLibrary([]);
+    }
     setLibraryHeadwords([]);
   }
 
+  if (import.meta.env.DEV) {
+    return (
+      <LookupPrototype
+        variant={prototypeVariant}
+        query={query}
+        lookupState={lookupState}
+        outcome={outcome}
+        entries={lookupState.kind === "ready" ? lookupState.entries : null}
+        details={dictionaryDetails}
+        libraryHeadwords={libraryHeadwords}
+        onQueryChange={setQuery}
+        onSubmit={submit}
+        onSelectSuggestion={selectChoice}
+      />
+    );
+  }
+
   return (
-    <main>
+    <main className="production-app">
       <header>
         <p className="eyebrow">Svenska.app</p>
         <h1>Swedish–Russian lookup</h1>
@@ -126,6 +188,7 @@ function LookupApp() {
             name="q"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            autoFocus
             enterKeyHint="search"
             autoComplete="off"
             spellCheck="false"

@@ -1,14 +1,15 @@
-import { dictionaryAssetSchema, type DictionaryAsset } from "./dictionary-contract";
+import {
+  dictionaryAssetSchema,
+  dictionaryDetailsAssetSchema,
+  type DictionaryAsset,
+  type DictionaryDetailsAsset,
+} from "./dictionary-contract";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
 export type LookupResult = {
   kind: "result";
   headword: string;
-  senses: readonly {
-    partOfSpeech: string;
-    meaning: string;
-    translation: string;
-  }[];
+  senses: readonly DictionaryAsset["entries"][string][number][];
 };
 
 export type LookupChoice = {
@@ -25,6 +26,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
     normalizedHeadword: normalizeLookupText(headword),
+    normalizedTranslations: senses.map((sense) => normalizeLookupText(sense.translation)),
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
@@ -59,10 +61,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
 
     const choices: LookupChoice[] = [];
-    for (const { headword, normalizedHeadword, senses } of entries) {
-      const matchingTranslation = senses.find((sense) =>
-        normalizeLookupText(sense.translation).includes(normalizedQuery),
+    for (const { headword, normalizedHeadword, normalizedTranslations, senses } of entries) {
+      const matchingTranslationIndex = normalizedTranslations.findIndex((translation) =>
+        translation.includes(normalizedQuery),
       );
+      const matchingTranslation = matchingTranslationIndex === -1 ? undefined : senses[matchingTranslationIndex];
       const displayedSense = matchingTranslation ?? (normalizedHeadword.includes(normalizedQuery) ? senses[0] : undefined);
 
       if (displayedSense !== undefined) {
@@ -76,4 +79,8 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
 
 export function isDictionaryAsset(value: unknown): value is DictionaryAsset {
   return dictionaryAssetSchema.safeParse(value).success;
+}
+
+export function isDictionaryDetailsAsset(value: unknown): value is DictionaryDetailsAsset {
+  return dictionaryDetailsAssetSchema.safeParse(value).success;
 }

@@ -4,7 +4,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
-import type { DictionaryAsset } from "../src/dictionary-contract.ts";
+import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { normalizeLookupText } from "../src/normalize-lookup-text.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
@@ -27,6 +27,11 @@ const sourceEditionSchema = z.object({
 
 export type Dictionary = DictionaryAsset;
 
+type DictionaryAssets = {
+  dictionary: DictionaryAsset;
+  details: DictionaryDetailsAsset;
+};
+
 function text(value: unknown): string {
   if (typeof value === "string") {
     return value.trim();
@@ -47,7 +52,10 @@ function text(value: unknown): string {
   return "";
 }
 
-function childText(value: string | Record<string, unknown> | undefined, child: "Meaning" | "Translation"): string {
+function childText(
+  value: string | Record<string, unknown> | undefined,
+  child: "Meaning" | "Phonetic" | "Translation",
+): string {
   if (typeof value === "object" && value !== null && child in value) {
     return text(value[child]);
   }
@@ -55,14 +63,86 @@ function childText(value: string | Record<string, unknown> | undefined, child: "
   return "";
 }
 
-export function buildDictionary({ xml }: { xml: string }): Dictionary {
+function inflectionTexts(value: string | Record<string, unknown> | undefined): string[] {
+  if (typeof value !== "object" || value === null || !("Inflection" in value)) {
+    return [];
+  }
+
+  const inflections = Array.isArray(value.Inflection) ? value.Inflection : [value.Inflection];
+  return inflections.flatMap((inflection) => {
+    if (typeof inflection !== "object" || inflection === null) {
+      const inflectionText = text(inflection);
+      return inflectionText.length === 0 ? [] : [inflectionText];
+    }
+
+    const primary = "#text" in inflection ? text(inflection["#text"]) : "";
+    const variants = "Variant" in inflection
+      ? (Array.isArray(inflection.Variant) ? inflection.Variant : [inflection.Variant]).map(text)
+      : [];
+    return [primary, ...variants].filter((item) => item.length > 0);
+  });
+}
+
+function childValues(
+  value: string | Record<string, unknown> | undefined,
+  child: "Compound" | "Example",
+): unknown[] {
+  if (typeof value !== "object" || value === null || !(child in value)) {
+    return [];
+  }
+
+  return Array.isArray(value[child]) ? value[child] : [value[child]];
+}
+
+function identifier(value: unknown): string {
+  if (typeof value !== "object" || value === null || !("@_ID" in value)) {
+    return "";
+  }
+
+  return text(value["@_ID"]);
+}
+
+function pairedTexts({
+  base,
+  target,
+  child,
+}: {
+  base: string | Record<string, unknown> | undefined;
+  target: string | Record<string, unknown> | undefined;
+  child: "Compound" | "Example";
+}): Array<{ swedish: string; russian: string }> {
+  const baseValues = childValues(base, child);
+  const targetValues = childValues(target, child);
+  const targetsById = new Map(
+    targetValues.flatMap((value) => {
+      const id = identifier(value);
+      return id.length === 0 ? [] : [[id, text(value)] as const];
+    }),
+  );
+
+  return baseValues.flatMap((value, index) => {
+    const swedish = text(value).replaceAll("|", "");
+    if (swedish.length === 0) {
+      return [];
+    }
+
+    const id = identifier(value);
+    return [{
+      swedish,
+      russian: (id.length > 0 ? targetsById.get(id) : undefined) ?? text(targetValues[index]),
+    }];
+  });
+}
+
+export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAssets {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
   const source = sourceEditionSchema.parse(parser.parse(xml));
-  const dictionary = source.Dictionary;
+  const sourceDictionary = source.Dictionary;
 
   const entries: DictionaryAsset["entries"] = {};
+  const detailEntries: DictionaryDetailsAsset["entries"] = {};
   const russianIndex: DictionaryAsset["russianIndex"] = {};
-  const words = Array.isArray(dictionary.Word) ? dictionary.Word : [dictionary.Word];
+  const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
 
   for (const word of words) {
     const headword = word["@_Value"]?.trim();
@@ -71,13 +151,21 @@ export function buildDictionary({ xml }: { xml: string }): Dictionary {
     }
 
     const senses = entries[headword] ?? [];
+    const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
     senses.push({
       partOfSpeech: word["@_Type"]?.trim() ?? "",
       meaning: childText(word.BaseLang, "Meaning"),
       translation,
     });
+    wordDetails.push({
+      phonetic: childText(word.BaseLang, "Phonetic"),
+      inflections: inflectionTexts(word.BaseLang),
+      examples: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Example" }),
+      compounds: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Compound" }),
+    });
     entries[headword] = senses;
+    detailEntries[headword] = wordDetails;
 
     const normalizedTranslation = normalizeLookupText(translation);
     if (normalizedTranslation.length > 0) {
@@ -90,39 +178,60 @@ export function buildDictionary({ xml }: { xml: string }): Dictionary {
   }
 
   return {
-    metadata: {
-      sourceEditionDate: dictionary["@_Version"],
-      attribution: sourceAttribution,
-      license: "CC BY 4.0",
+    dictionary: {
+      metadata: {
+        sourceEditionDate: sourceDictionary["@_Version"],
+        attribution: sourceAttribution,
+        license: "CC BY 4.0",
+      },
+      entries,
+      russianIndex,
     },
-    entries,
-    russianIndex,
+    details: {
+      sourceEditionDate: sourceDictionary["@_Version"],
+      entries: detailEntries,
+    },
   };
+}
+
+export function buildDictionary({ xml }: { xml: string }): Dictionary {
+  return buildDictionaryAssets({ xml }).dictionary;
 }
 
 async function main(): Promise<void> {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const xml = await readFile(resolve(repositoryRoot, "data/lexin/swe_rus-2010-07-07.xml"), "utf8");
-  const dictionary = buildDictionary({ xml });
+  const { dictionary, details } = buildDictionaryAssets({ xml });
   const serializedDictionary = `${JSON.stringify(dictionary)}\n`;
-  const digest = createHash("sha256").update(serializedDictionary).digest("hex").slice(0, 16);
+  const serializedDetails = `${JSON.stringify(details)}\n`;
+  const dictionaryDigest = createHash("sha256").update(serializedDictionary).digest("hex").slice(0, 16);
+  const detailsDigest = createHash("sha256").update(serializedDetails).digest("hex").slice(0, 16);
   const publicDirectory = resolve(repositoryRoot, "public");
-  const assetName = `lexin-dictionary.${digest}.json`;
-  const assetOutput = resolve(publicDirectory, assetName);
+  const dictionaryAssetName = `lexin-dictionary.${dictionaryDigest}.json`;
+  const detailsAssetName = `lexin-details.${detailsDigest}.json`;
   const sourceOutput = resolve(repositoryRoot, "src/generated/dictionary-asset.ts");
 
   await mkdir(publicDirectory, { recursive: true });
   const previousAssets = await readdir(publicDirectory);
+  const currentAssets = new Set([dictionaryAssetName, detailsAssetName]);
   await Promise.all(
     previousAssets
-      .filter((file) => file.startsWith("lexin-dictionary.") && file.endsWith(".json") && file !== assetName)
+      .filter((file) =>
+        (file.startsWith("lexin-dictionary.") || file.startsWith("lexin-details.")) &&
+        file.endsWith(".json") &&
+        !currentAssets.has(file),
+      )
       .map((file) => unlink(resolve(publicDirectory, file))),
   );
   await mkdir(dirname(sourceOutput), { recursive: true });
-  await writeFile(assetOutput, serializedDictionary);
+  await Promise.all([
+    writeFile(resolve(publicDirectory, dictionaryAssetName), serializedDictionary),
+    writeFile(resolve(publicDirectory, detailsAssetName), serializedDetails),
+  ]);
   await writeFile(
     sourceOutput,
-    `export const dictionaryAssetUrl = \`${"${import.meta.env.BASE_URL}"}${assetName}\`;\n`,
+    `export const dictionaryAssetUrl = \`${"${import.meta.env.BASE_URL}"}${dictionaryAssetName}\`;\n` +
+      `export const dictionaryDetailsAssetUrl = \`${"${import.meta.env.BASE_URL}"}${detailsAssetName}\`;\n`,
   );
 }
 

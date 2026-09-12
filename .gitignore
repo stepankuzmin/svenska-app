@@ -1,6 +1,7 @@
 node_modules/
 dist/
 public/lexin-dictionary.*.json
+public/lexin-details.*.json
 src/generated/dictionary-asset.ts
 *.tsbuildinfo
 playwright-report/
