@@ -57,6 +57,42 @@ test("the minimal layout fits a narrow zoomed viewport and keeps visible focus",
   await expect(page.locator("header, footer, main button")).toHaveCount(0);
 });
 
+test("the shipped interface credits the dictionary source and license", async ({ page }) => {
+  await openReadyApp(page);
+
+  await expect(page.getByText("Lexin, ISOF", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute(
+    "href",
+    "https://creativecommons.org/licenses/by/4.0/",
+  );
+});
+
+test("the dark-mode focus indicator meets non-text contrast", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").focus();
+  const contrast = await page.evaluate(`(() => {
+    function luminance(color) {
+      const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number) ?? [];
+      const linear = channels.map((channel) => {
+        const value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+    }
+
+    const inputStyle = getComputedStyle(document.querySelector("input"));
+    const mainStyle = getComputedStyle(document.querySelector("main"));
+    const foreground = luminance(inputStyle.outlineColor);
+    const background = luminance(mainStyle.backgroundColor);
+    return (Math.max(foreground, background) + 0.05) /
+      (Math.min(foreground, background) + 0.05);
+  })()`);
+
+  expect(contrast).toBeGreaterThanOrEqual(3);
+});
+
 test("dictionary loading is the only announced interstitial state", async ({ page }) => {
   await page.route("**/lexin-dictionary.*.json", () => new Promise(() => {}));
   await page.goto(".");

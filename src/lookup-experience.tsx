@@ -366,6 +366,14 @@ export function LookupExperience(props: LookupExperienceProps) {
           </ul>
         </section>
       ) : null}
+
+      <p className="lookup-attribution">
+        <span>Lexin, ISOF</span>
+        <span aria-hidden="true"> · </span>
+        <a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
+          CC BY 4.0
+        </a>
+      </p>
     </main>
   );
 }
