@@ -1,18 +1,34 @@
 import { expect, test } from "@playwright/test";
 
 const dictionary = {
-  metadata: {
-    sourceEditionDate: "2010-07-07",
-    attribution: "Lexin",
-    license: "CC BY 4.0",
-  },
+  metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
+    abborre: [{ partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
   },
-  russianIndex: {
-    "перерыв на кофе": ["fika"],
-    "спасибо": ["tack"],
+  russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"] },
+};
+
+const details = {
+  sourceEditionDate: "2010-07-07",
+  entries: {
+    abborre: [{
+      phonetic: "²ab:ɔr:e",
+      inflections: ["abborren", "abborrar", "abborrarna"],
+      examples: [],
+      compounds: [{ swedish: "abborrpinne", russian: "окунёк" }],
+    }],
+    fika: [{
+      phonetic: "²fi:ka",
+      inflections: ["fikan", "fikor", "fikorna"],
+      examples: [{ swedish: "ska vi fika?", russian: "пойдём выпьем кофе?" }],
+      compounds: [
+        { swedish: "fikapaus", russian: "перерыв на кофе" },
+        { swedish: "kaffepaus", russian: "перерыв на кофе" },
+      ],
+    }],
+    tack: [{ phonetic: "tak", inflections: [], examples: [], compounds: [] }],
   },
 };
 
@@ -20,54 +36,44 @@ test.beforeEach(async ({ page }) => {
   await page.route("**/lexin-dictionary.*.json", (route) =>
     route.fulfill({ contentType: "application/json", json: dictionary }),
   );
+  await page.route("**/lexin-details.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: details }),
+  );
 });
 
-test("opened lookups persist in most-recent order and can be reopened or removed", async ({ page }) => {
+test("an extended card includes compounds associated with the Lexin entry", async ({ page }) => {
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fika");
+  await query.fill("abborre");
   await query.press("Enter");
-  await expect(page.getByRole("heading", { name: "fika" })).toBeVisible();
+
+  await expect(page.getByRole("region", { name: "Words containing abborre" }).getByText("abborrpinne")).toBeVisible();
+});
+
+test("chosen words persist in most-recent order and only one card is extended", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fik");
+  await expect(page.getByRole("option", { name: "fika", exact: true })).toBeVisible();
+  await page.getByRole("option", { name: "fika", exact: true }).click();
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
+  await expect(library.getByText("fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
+  await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
+  await expect(library.getByText("fikapaus", { exact: true })).toBeVisible();
+  await expect(library.getByText("kaffepaus", { exact: true })).toBeVisible();
 
   await query.fill("спасибо");
+  await query.press("ArrowDown");
   await query.press("Enter");
-  await expect(page.getByRole("heading", { name: "tack" })).toBeVisible();
-
-  await query.fill("fika");
-  await query.press("Enter");
-
-  const library = page.getByRole("region", { name: "Lookup library" });
-  await expect(library.getByRole("button", { name: "Open fika, перерыв на кофе" })).toBeVisible();
-  await expect(library.getByRole("button", { name: "Open tack, спасибо" })).toBeVisible();
-  await expect(library.getByRole("listitem")).toHaveText([/fika/, /tack/]);
-
-  await page.reload();
-  await expect(library.getByRole("listitem")).toHaveText([/fika/, /tack/]);
-
-  await library.getByRole("button", { name: "Open tack, спасибо" }).click();
-  await expect(page.getByRole("heading", { name: "tack" })).toBeVisible();
+  await expect(library.getByText("tack", { exact: true })).toBeVisible();
+  await expect(library.getByText("ska vi fika?", { exact: true })).toBeHidden();
   await expect(library.getByRole("listitem")).toHaveText([/tack/, /fika/]);
 
-  await library.getByRole("button", { name: "Remove fika from library" }).click();
-  await expect(library.getByRole("button", { name: "Open fika, перерыв на кофе" })).toHaveCount(0);
-});
-
-test("the header link reaches the library and clearing requires confirmation", async ({ page }) => {
-  await page.goto(".");
-
-  const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fika");
-  await query.press("Enter");
-
-  await page.getByRole("link", { name: "Library" }).click();
-  await expect(page).toHaveURL(/#lookup-library$/);
-  await expect(page.getByRole("region", { name: "Lookup library" })).toBeInViewport();
-
-  page.once("dialog", async (dialog) => {
-    expect(dialog.type()).toBe("confirm");
-    await dialog.accept();
-  });
-  await page.getByRole("button", { name: "Clear library" }).click();
-  await expect(page.getByText("Opened words will appear here.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText([/tack/, /fika/]);
+  await expect(query).toBeFocused();
 });

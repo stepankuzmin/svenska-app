@@ -8,22 +8,22 @@ async function searchFor(page: Page, query: string) {
 
 test("lookup remains available after an online visit and offline reload", async ({ context, page }) => {
   await page.goto(".");
-  await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
+  await expect(page.getByRole("status")).toBeEmpty();
 
   await page.waitForFunction("navigator.serviceWorker?.controller !== null");
 
   await context.setOffline(true);
   await page.evaluate("location.reload()");
-  await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
+  await expect(page.getByRole("status")).toBeEmpty();
 
   await searchFor(page, "bok");
-  await expect(page.getByRole("heading", { name: "bok" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^bok$/ })).toBeVisible();
 
-  await searchFor(page, "bokst");
-  await expect(page.getByRole("heading", { name: "Choose a word" })).toBeVisible();
-
-  await searchFor(page, "definitely-not-a-swedish-word");
-  await expect(page.getByRole("heading", { name: "No matching word" })).toBeVisible();
+  const field = page.getByLabel("Swedish or Russian word");
+  await field.fill("bokst");
+  await expect(page.getByRole("listbox")).toBeVisible();
+  await field.fill("definitely-not-a-swedish-word");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
 test("a first offline visit explains that one connection is required", async ({ context, page }) => {
@@ -35,5 +35,5 @@ test("a first offline visit explains that one connection is required", async ({ 
   await page.goto(".");
 
   await expect(page.getByRole("status")).toHaveText(/connect once/i);
-  await expect(page.getByRole("button", { name: "Look up" })).toBeDisabled();
+  await expect(page.getByLabel("Swedish or Russian word")).toBeFocused();
 });

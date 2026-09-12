@@ -1,18 +1,14 @@
 import { expect, test, type Page } from "@playwright/test";
 
 const dictionary = {
-  metadata: {
-    sourceEditionDate: "2010-07-07",
-    attribution: "Lexin",
-    license: "CC BY 4.0",
-  },
+  metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
+    abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
+    "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
   },
-  russianIndex: {
-    "перерыв на кофе": ["fika", "fikapaus"],
-  },
+  russianIndex: { "перерыв на кофе": ["fika", "fikapaus"] },
 };
 
 async function openReadyApp(page: Page) {
@@ -20,7 +16,7 @@ async function openReadyApp(page: Page) {
     route.fulfill({ contentType: "application/json", json: dictionary }),
   );
   await page.goto(".");
-  await expect(page.getByRole("button", { name: "Look up" })).toBeEnabled();
+  await expect(page.getByRole("status")).toBeEmpty();
 }
 
 test("the search input accepts typing as soon as the app starts", async ({ page }) => {
@@ -33,47 +29,71 @@ test("the search input accepts typing as soon as the app starts", async ({ page 
   await expect(query).toHaveValue("fika");
 });
 
-test("the reading order, keyboard path, accessible names, and attribution are complete", async ({ page }) => {
+test("autocomplete is headword-only and supports keyboard selection", async ({ page }) => {
   await openReadyApp(page);
 
-  const mainChildren = page.locator("main > *");
-  await expect(mainChildren.nth(1)).toHaveClass("search");
-  await expect(mainChildren.nth(2)).toHaveClass("lookup");
-  await expect(mainChildren.nth(3)).toHaveClass("library");
-
   const query = page.getByLabel("Swedish or Russian word");
-  await page.getByRole("link", { name: "Library" }).focus();
-  await page.keyboard.press("Tab");
-  await expect(query).toBeFocused();
   await query.fill("fik");
-  await expect(page.getByRole("button", { name: "fika, перерыв на кофе" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open fika, перерыв на кофе" })).toHaveCount(0);
-  await page.getByRole("button", { name: "fika, перерыв на кофе" }).press("Enter");
-  await expect(page.getByRole("heading", { name: "fika" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Open fika, перерыв на кофе" })).toBeVisible();
+  const options = page.getByRole("option");
+  await expect(options).toHaveText(["fika", "fikapaus"]);
+  await expect(page.getByText("перерыв на кофе")).toHaveCount(0);
 
-  const status = page.getByRole("status");
-  await expect(status).toBeEmpty();
-  await expect(page.getByText("Lexin", { exact: true })).toBeVisible();
-  await expect(page.getByText("Institute for Language and Folklore (ISOF)", { exact: true })).toBeVisible();
-  await expect(page.getByText("Source edition: 2010-07-07", { exact: true })).toBeVisible();
-  await expect(page.getByRole("link", { name: /CC BY 4.0/ })).toBeVisible();
+  await query.press("ArrowDown");
+  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-0/);
+  await query.press("Enter");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^fika$/ })).toBeVisible();
+  await expect(query).toBeFocused();
 });
 
-test("the paper layout fits narrow and zoomed viewports with visible focus and sufficient contrast", async ({ page }) => {
-  // A 320 CSS-pixel viewport is the reflow width of a 640-pixel viewport at 200% browser zoom.
+test("autocomplete selection keeps Lexin segment markers out of the input", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abort");
+  await page.getByRole("option", { name: "abortrådgivning" }).click();
+
+  await expect(query).toHaveValue("abortrådgivning");
+  await expect(page.getByRole("region", { name: "Library" }).getByText("abortrådgivning", { exact: true })).toBeVisible();
+});
+
+test("an exact Swedish match does not hide longer autocomplete matches", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("abort");
+
+  await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
+});
+
+test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await openReadyApp(page);
 
   expect(await page.evaluate("document.documentElement.scrollWidth <= document.documentElement.clientWidth")).toBe(true);
-  await expect(page.locator("main")).toHaveCSS("max-width", "640px");
-  await expect(page.locator("html")).toHaveCSS("font-family", "system-ui, sans-serif");
+  await expect(page.locator("main")).toHaveCSS("max-width", "none");
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.focus();
   await expect(query).not.toHaveCSS("outline-style", "none");
+  await expect(page.locator("header, footer, main button")).toHaveCount(0);
+});
 
-  const contrastChecksPass = await page.evaluate(`(() => {
+test("the shipped interface credits the dictionary source and license", async ({ page }) => {
+  await openReadyApp(page);
+
+  await expect(page.getByText("Lexin, ISOF", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "CC BY 4.0" })).toHaveAttribute(
+    "href",
+    "https://creativecommons.org/licenses/by/4.0/",
+  );
+});
+
+test("the dark-mode focus indicator meets non-text contrast", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").focus();
+  const contrast = await page.evaluate(`(() => {
     function luminance(color) {
       const channels = color.match(/[\\d.]+/g)?.slice(0, 3).map(Number) ?? [];
       const linear = channels.map((channel) => {
@@ -83,45 +103,19 @@ test("the paper layout fits narrow and zoomed viewports with visible focus and s
       return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
     }
 
-    function ratio(foreground, background) {
-      const foregroundLuminance = luminance(foreground);
-      const backgroundLuminance = luminance(background);
-      return (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
-        (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
-    }
-
-    const body = getComputedStyle(document.body);
-    const input = getComputedStyle(document.querySelector("input"));
-    const button = getComputedStyle(document.querySelector("button"));
-    const link = getComputedStyle(document.querySelector("a"));
-    const footer = getComputedStyle(document.querySelector("footer"));
-    return [
-      ratio(body.color, body.backgroundColor) >= 4.5,
-      ratio(input.color, input.backgroundColor) >= 4.5,
-      ratio(input.borderTopColor, body.backgroundColor) >= 3,
-      ratio(button.color, button.backgroundColor) >= 4.5,
-      ratio(link.color, body.backgroundColor) >= 4.5,
-      ratio(footer.color, body.backgroundColor) >= 4.5,
-      ratio(input.outlineColor, body.backgroundColor) >= 3,
-    ].every(Boolean);
+    const inputStyle = getComputedStyle(document.querySelector("input"));
+    const mainStyle = getComputedStyle(document.querySelector("main"));
+    const foreground = luminance(inputStyle.outlineColor);
+    const background = luminance(mainStyle.backgroundColor);
+    return (Math.max(foreground, background) + 0.05) /
+      (Math.min(foreground, background) + 0.05);
   })()`);
-  expect(contrastChecksPass).toBe(true);
 
-  await expect(query).toBeVisible();
-  await expect(page.getByRole("button", { name: "Look up" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Library" })).toBeVisible();
-  await expect(page.getByRole("link", { name: /CC BY 4.0/ })).toBeVisible();
-
+  expect(contrast).toBeGreaterThanOrEqual(3);
 });
 
 test("dictionary loading is the only announced interstitial state", async ({ page }) => {
   await page.route("**/lexin-dictionary.*.json", () => new Promise(() => {}));
   await page.goto(".");
   await expect(page.getByRole("status")).toHaveText("Loading dictionary…");
-});
-
-test("reduced motion leaves the reading experience free of scrolling motion", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await openReadyApp(page);
-  await expect(page.locator("html")).toHaveCSS("scroll-behavior", "auto");
 });

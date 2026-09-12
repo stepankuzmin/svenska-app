@@ -3,33 +3,28 @@ import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contr
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
-// Three minimal word-card treatments, switchable with ?variant=, on the existing root route.
-export type PrototypeVariant = "A" | "B" | "C";
-
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
 
-type PrototypeLookupState =
+type LookupAvailability =
   | { kind: "loading" }
   | { kind: "ready" }
   | { kind: "unavailable-offline" };
 
-type LookupPrototypeProps = {
-  variant: PrototypeVariant;
+type LookupExperienceProps = {
   query: string;
-  lookupState: PrototypeLookupState;
+  lookupState: LookupAvailability;
   outcome: LookupOutcome | null;
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
   libraryHeadwords: readonly string[];
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (headword: string) => void;
+  onSelectSuggestion: (selection: { headword: string; displayQuery: string }) => void;
 };
 
 type WordItem = {
   headword: string;
-  translation: string;
   senses: readonly DictionarySense[];
   details: readonly WordDetails[];
 };
@@ -38,14 +33,6 @@ type RelatedWord = {
   headword: string;
   translation: string;
 };
-
-export function readPrototypeVariant(): PrototypeVariant {
-  const variant = new URLSearchParams(window.location.search).get("variant");
-  if (variant === "B" || variant === "C") {
-    return variant;
-  }
-  return "A";
-}
 
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
@@ -94,16 +81,41 @@ function getSuggestionItems({
         const senses = entries[choice.headword];
         return senses === undefined
           ? []
-          : [{ ...choice, senses, details: details?.[choice.headword] ?? [] }];
+          : [{ headword: choice.headword, senses, details: details?.[choice.headword] ?? [] }];
       });
   }
 
-  return [{
+  const normalizedQuery = normalizeLookupText(query);
+  const isExactSwedishResult =
+    normalizeLookupText(cleanLexinText(outcome.headword)) === normalizedQuery;
+  if (!isExactSwedishResult) {
+    return [{
+      headword: outcome.headword,
+      senses: outcome.senses,
+      details: details?.[outcome.headword] ?? [],
+    }];
+  }
+
+  const matches: WordItem[] = [{
     headword: outcome.headword,
-    translation: translationFor(outcome.senses),
     senses: outcome.senses,
     details: details?.[outcome.headword] ?? [],
   }];
+  for (const headword in entries) {
+    if (headword === outcome.headword) {
+      continue;
+    }
+
+    if (normalizeLookupText(cleanLexinText(headword)).startsWith(normalizedQuery)) {
+      const senses = entries[headword];
+      matches.push({ headword, senses, details: details?.[headword] ?? [] });
+      if (matches.length === 6) {
+        break;
+      }
+    }
+  }
+
+  return matches;
 }
 
 function getLibraryItems(
@@ -119,7 +131,7 @@ function getLibraryItems(
     const senses = entries[headword];
     return senses === undefined
       ? []
-      : [{ headword, translation: translationFor(senses), senses, details: details?.[headword] ?? [] }];
+      : [{ headword, senses, details: details?.[headword] ?? [] }];
   });
 }
 
@@ -132,7 +144,10 @@ function getRelatedWords(
 
   for (const compound of item.details.flatMap((details) => details.compounds)) {
     const headword = cleanLexinText(compound.swedish);
-    related.set(normalizeLookupText(headword), { headword, translation: compound.russian });
+    const normalizedCompound = normalizeLookupText(headword);
+    if (normalizedCompound !== normalizedHeadword) {
+      related.set(normalizedCompound, { headword, translation: compound.russian });
+    }
   }
 
   if (normalizedHeadword.length > 0) {
@@ -240,7 +255,7 @@ const WordCard = memo(function WordCard({
   );
 });
 
-function MinimalLookup(props: LookupPrototypeProps) {
+export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems({
     outcome: props.outcome,
     query: props.query,
@@ -251,8 +266,8 @@ function MinimalLookup(props: LookupPrototypeProps) {
     () => getLibraryItems(props.libraryHeadwords, props.entries, props.details),
     [props.libraryHeadwords, props.entries, props.details],
   );
-  const inputId = `prototype-query-${props.variant.toLowerCase()}`;
-  const listId = `prototype-suggestions-${props.variant.toLowerCase()}`;
+  const inputId = "dictionary-query";
+  const listId = "lookup-suggestions";
   const placeholder = props.lookupState.kind === "loading"
     ? "Loading dictionary…"
     : "Swedish or Russian";
@@ -267,16 +282,28 @@ function MinimalLookup(props: LookupPrototypeProps) {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
     setExpandedHeadword(item.headword);
-    props.onSelectSuggestion(item.headword);
+    props.onSelectSuggestion({
+      headword: item.headword,
+      displayQuery: cleanLexinText(item.headword),
+    });
   }
 
   const toggleExpanded = useCallback((headword: string) => {
     setExpandedHeadword((currentHeadword) => currentHeadword === headword ? null : headword);
   }, []);
 
+  function submitLookup(event: FormEvent<HTMLFormElement>) {
+    props.onSubmit(event);
+    if (props.outcome?.kind === "result") {
+      setAutocompleteOpen(false);
+      setActiveSuggestionIndex(-1);
+      setExpandedHeadword(props.outcome.headword);
+    }
+  }
+
   return (
-    <main className={`minimal-prototype minimal-${props.variant.toLowerCase()}`}>
-      <form className="lookup-autocomplete" action="/" method="get" onSubmit={props.onSubmit}>
+    <main className="minimal-lookup">
+      <form className="lookup-autocomplete" action="/" method="get" onSubmit={submitLookup}>
         <label className="visually-hidden" htmlFor={inputId}>Swedish or Russian word</label>
         <input
           id={inputId}
@@ -329,7 +356,7 @@ function MinimalLookup(props: LookupPrototypeProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.headword}-${item.translation}-${index}`}
+                key={`${item.headword}-${index}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 onPointerDown={(event) => event.preventDefault()}
@@ -342,9 +369,16 @@ function MinimalLookup(props: LookupPrototypeProps) {
         ) : null}
       </form>
 
+      <div className="visually-hidden" role="status" aria-live="polite">
+        {props.lookupState.kind === "loading" ? "Loading dictionary…" : null}
+        {props.lookupState.kind === "unavailable-offline"
+          ? "Connect once while online. After that, you can look up words offline."
+          : null}
+      </div>
+
       {library.length > 0 && dictionaryEntries !== null ? (
-        <section className="word-library" aria-labelledby="prototype-library-heading">
-          <h2 id="prototype-library-heading">Library</h2>
+        <section className="word-library" aria-labelledby="lookup-library-heading">
+          <h2 id="lookup-library-heading">Library</h2>
           <ul className="word-card-list" role="list">
             {library.map((item) => (
               <WordCard
@@ -358,10 +392,14 @@ function MinimalLookup(props: LookupPrototypeProps) {
           </ul>
         </section>
       ) : null}
+
+      <p className="lookup-attribution">
+        <span>Lexin, ISOF</span>
+        <span aria-hidden="true"> · </span>
+        <a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
+          CC BY 4.0
+        </a>
+      </p>
     </main>
   );
-}
-
-export function LookupPrototype(props: LookupPrototypeProps) {
-  return <MinimalLookup {...props} />;
 }
