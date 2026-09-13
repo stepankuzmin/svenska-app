@@ -40,7 +40,9 @@ _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It shows matching Swedish headwords in the lookup autocomplete. No visible message replaces the library when there is no match.
+The lookup area responds to every non-blank change in the search field. It matches Swedish headwords and their inflected forms, then shows the canonical headwords in the lookup autocomplete. No visible message replaces the library when there is no match.
+
+A Russian query matches every translation containing the entered text. Exact translations appear first, and the scrollable lookup autocomplete includes every matching Swedish headword.
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.
 

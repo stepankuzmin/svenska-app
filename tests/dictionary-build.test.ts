@@ -29,7 +29,7 @@ describe("Lexin source edition import", () => {
     expect(details.entries.bok).toEqual([
       {
         phonetic: "bu:k",
-        inflections: ["boken", "böcker", "böckerna"],
+        inflections: ["boken", "böcker"],
         examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
         compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
       },
@@ -39,11 +39,43 @@ describe("Lexin source edition import", () => {
       "бронировать": ["bok"],
       "дом": ["hus", "hem"],
       "книга": ["bok"],
+      "правдивый": ["sann"],
+      "сообщать": ["anger"],
+    });
+    expect(dictionary.swedishIndex).toMatchObject({
+      ange: ["anger"],
+      angav: ["anger"],
+      anger: ["anger"],
+      angett: ["anger"],
+      bok: ["bok"],
+      boken: ["bok"],
+      böcker: ["bok"],
+      böckerna: ["bok"],
+      sann: ["sann"],
+      sanna: ["sann"],
+      sannare: ["sann"],
+      sannast: ["sann"],
+      sant: ["sann"],
     });
     expect(createSearch({ dictionary })("книга")).toEqual({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
+    });
+    expect(createSearch({ dictionary })("ange")).toEqual({
+      kind: "result",
+      headword: "anger",
+      senses: dictionary.entries.anger,
+    });
+    expect(createSearch({ dictionary })("böckerna")).toEqual({
+      kind: "result",
+      headword: "bok",
+      senses: dictionary.entries.bok,
+    });
+    expect(createSearch({ dictionary })("sannare")).toEqual({
+      kind: "result",
+      headword: "sann",
+      senses: dictionary.entries.sann,
     });
   });
 

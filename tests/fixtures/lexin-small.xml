@@ -5,7 +5,7 @@
       <Meaning>en samling sidor</Meaning>
       <Phonetic>bu:k</Phonetic>
       <Inflection>boken</Inflection>
-      <Inflection>böcker<Variant>böckerna</Variant></Inflection>
+      <Inflection>böcker</Inflection>
       <Example ID="10">jag läser en bok</Example>
       <Compound ID="20">bokhylla</Compound>
     </BaseLang>
@@ -26,5 +26,22 @@
   <Word ID="3" MatchingID="103" Type="subst." Value="hem">
     <BaseLang><Meaning>plats där någon bor</Meaning></BaseLang>
     <TargetLang><Translation>дом</Translation></TargetLang>
+  </Word>
+  <Word ID="4" MatchingID="104" Type="verb" Value="anger">
+    <BaseLang>
+      <Meaning>meddela, uppge</Meaning>
+      <Inflection>angav</Inflection>
+      <Inflection>angett</Inflection>
+      <Inflection>ange</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>сообщать</Translation></TargetLang>
+  </Word>
+  <Word ID="5" MatchingID="105" Type="adj." Value="sann">
+    <BaseLang>
+      <Meaning>som stämmer med verkligheten</Meaning>
+      <Inflection>sant</Inflection>
+      <Inflection>sanna</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>правдивый</Translation></TargetLang>
   </Word>
 </Dictionary>

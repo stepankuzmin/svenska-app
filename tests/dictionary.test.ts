@@ -26,7 +26,25 @@ const dictionary = {
     residens: [sense("subst.", "officiell bostad", "дом")],
     hemvist: [sense("subst.", "stadigvarande plats", "дом")],
     byggnad: [sense("subst.", "uppförd konstruktion", "дом")],
+    bostad: [sense("subst.", "plats där någon bor", "жилой дом")],
+    dominant: [sense("adj.", "som har störst inflytande", "доминирующий")],
     "abort|rådgivning": [sense("subst.", "rådgivning om abort", "консультация по аборту")],
+  },
+  swedishIndex: {
+    bok: ["bok"],
+    boken: ["bok"],
+    bostad: ["bostad"],
+    dominant: ["dominant"],
+    byggnad: ["byggnad"],
+    hem: ["hem"],
+    hemvist: ["hemvist"],
+    hus: ["hus"],
+    koja: ["koja"],
+    residens: ["residens"],
+    stuga: ["stuga"],
+    torp: ["torp"],
+    villa: ["villa"],
+    abortrådgivning: ["abort|rådgivning"],
   },
   russianIndex: {
     "бронировать": ["bok"],
@@ -62,7 +80,7 @@ describe("dictionary lookup", () => {
     });
   });
 
-  it("returns canonical choices when an exact Russian translation matches multiple headwords", () => {
+  it("returns every Swedish headword whose Russian translation contains the query", () => {
     expect(search("дом")).toEqual({
       kind: "choices",
       choices: [
@@ -75,6 +93,8 @@ describe("dictionary lookup", () => {
         { headword: "residens", translation: "дом" },
         { headword: "hemvist", translation: "дом" },
         { headword: "byggnad", translation: "дом" },
+        { headword: "bostad", translation: "жилой дом" },
+        { headword: "dominant", translation: "доминирующий" },
       ],
     });
   });
@@ -100,6 +120,8 @@ describe("dictionary lookup", () => {
         { headword: "residens", translation: "дом" },
         { headword: "hemvist", translation: "дом" },
         { headword: "byggnad", translation: "дом" },
+        { headword: "dominant", translation: "доминирующий" },
+        { headword: "bostad", translation: "жилой дом" },
       ],
     });
   });

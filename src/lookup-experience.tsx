@@ -1,6 +1,6 @@
-import { memo, useCallback, useMemo, useState, type FormEvent } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
-import type { LookupChoice, LookupOutcome } from "./dictionary";
+import type { LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
@@ -62,21 +62,10 @@ function getSuggestionItems({
   }
 
   if (outcome.kind === "choices") {
-    const normalizedQuery = normalizeLookupText(query);
-    const prefixMatches: LookupChoice[] = [];
-    const otherMatches: LookupChoice[] = [];
-    for (const choice of outcome.choices) {
-      const startsWithQuery =
-        normalizeLookupText(choice.headword).startsWith(normalizedQuery) ||
-        normalizeLookupText(choice.translation).startsWith(normalizedQuery);
-      const matches = startsWithQuery ? prefixMatches : otherMatches;
-      if (matches.length < 6) {
-        matches.push(choice);
-      }
-    }
-
-    return [...prefixMatches, ...otherMatches]
-      .slice(0, 6)
+    const visibleChoices = /\p{Script=Cyrillic}/u.test(query)
+      ? outcome.choices
+      : outcome.choices.slice(0, 6);
+    return visibleChoices
       .flatMap((choice) => {
         const senses = entries[choice.headword];
         return senses === undefined
@@ -277,6 +266,12 @@ export function LookupExperience(props: LookupExperienceProps) {
   const visibleSuggestions = autocompleteOpen ? suggestions : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
   const dictionaryEntries = props.entries;
+
+  useEffect(() => {
+    if (activeSuggestionIndex >= 0) {
+      document.getElementById(`${listId}-${activeSuggestionIndex}`)?.scrollIntoView({ block: "nearest" });
+    }
+  }, [activeSuggestionIndex, visibleSuggestions.length]);
 
   function selectSuggestion(item: WordItem) {
     setAutocompleteOpen(false);

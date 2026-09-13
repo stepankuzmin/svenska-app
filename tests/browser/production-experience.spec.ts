@@ -5,10 +5,40 @@ const dictionary = {
   entries: {
     abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
+    anger: [{ partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    hem: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    hus: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    villa: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    stuga: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    koja: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    residens: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    bostad: [{ partOfSpeech: "substantiv", meaning: "", translation: "жилой дом" }],
+    dominant: [{ partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
   },
-  russianIndex: { "перерыв на кофе": ["fika", "fikapaus"] },
+  swedishIndex: {
+    abort: ["abort"],
+    abortrådgivning: ["abort|rådgivning"],
+    ange: ["anger"],
+    anger: ["anger"],
+    fika: ["fika"],
+    fikapaus: ["fikapaus"],
+    hem: ["hem"],
+    hus: ["hus"],
+    villa: ["villa"],
+    stuga: ["stuga"],
+    koja: ["koja"],
+    residens: ["residens"],
+    bostad: ["bostad"],
+    dominant: ["dominant"],
+  },
+  russianIndex: {
+    "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
+    "доминирующий": ["dominant"],
+    "перерыв на кофе": ["fika", "fikapaus"],
+    "жилой дом": ["bostad"],
+  },
 };
 
 async function openReadyApp(page: Page) {
@@ -63,6 +93,37 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
   await page.getByLabel("Swedish or Russian word").fill("abort");
 
   await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
+});
+
+test("an inflected Swedish form suggests its canonical headword", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("ange");
+
+  await expect(page.getByRole("option")).toHaveText(["anger"]);
+});
+
+test("a Russian word shows every Swedish headword with a containing translation", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("дом");
+
+  await expect(page.getByRole("option")).toHaveText([
+    "hem",
+    "hus",
+    "villa",
+    "stuga",
+    "koja",
+    "residens",
+    "bostad",
+    "dominant",
+  ]);
+
+  for (let index = 0; index < 8; index += 1) {
+    await page.getByLabel("Swedish or Russian word").press("ArrowDown");
+  }
+  await expect(page.getByRole("option", { name: "dominant" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("option", { name: "dominant" })).toBeInViewport();
 });
 
 test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {
