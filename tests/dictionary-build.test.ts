@@ -42,7 +42,9 @@ describe("Lexin source edition import", () => {
       "книга": ["bok"],
       "младенец": ["baby"],
       "правдивый": ["sann"],
+      "совместимый": ["förenlig"],
       "сообщать": ["anger"],
+      "такси": ["taxi"],
     });
     expect(dictionary.swedishIndex).toMatchObject({
       ange: ["anger"],
@@ -56,12 +58,21 @@ describe("Lexin source edition import", () => {
       boken: ["bok"],
       böcker: ["bok"],
       böckerna: ["bok"],
+      förenlig: ["förenlig"],
+      förenliga: ["förenlig"],
+      förenligt: ["förenlig"],
       sann: ["sann"],
       sanna: ["sann"],
       sannare: ["sann"],
       sannast: ["sann"],
       sant: ["sann"],
+      taxi: ["taxi"],
+      taxin: ["taxi"],
+      taxina: ["taxi"],
     });
+    expect(dictionary.swedishIndex).not.toHaveProperty("förenligare");
+    expect(dictionary.swedishIndex).not.toHaveProperty("förenligast");
+    expect(dictionary.swedishIndex).not.toHaveProperty("taxien");
     expect(createSearch({ dictionary })("книга")).toEqual({
       kind: "result",
       headword: "bok",

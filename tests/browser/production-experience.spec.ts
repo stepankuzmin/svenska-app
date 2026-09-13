@@ -1,5 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const manyRussianHeadwords = Array.from(
+  { length: 120 },
+  (_, index) => `result-${String(index).padStart(3, "0")}`,
+);
+
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
@@ -16,6 +21,10 @@ const dictionary = {
     residens: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
     bostad: [{ partOfSpeech: "substantiv", meaning: "", translation: "жилой дом" }],
     dominant: [{ partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [
+      headword,
+      [{ partOfSpeech: "substantiv", meaning: "", translation: "яц" }],
+    ])),
   },
   swedishIndex: {
     abort: ["abort"],
@@ -32,12 +41,14 @@ const dictionary = {
     residens: ["residens"],
     bostad: ["bostad"],
     dominant: ["dominant"],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [headword, [headword]])),
   },
   russianIndex: {
     "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
     "доминирующий": ["dominant"],
     "перерыв на кофе": ["fika", "fikapaus"],
     "жилой дом": ["bostad"],
+    "яц": manyRussianHeadwords,
   },
 };
 
@@ -124,6 +135,19 @@ test("a Russian word shows every Swedish headword with a containing translation"
   }
   await expect(page.getByRole("option", { name: "dominant" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("option", { name: "dominant" })).toBeInViewport();
+});
+
+test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("яц");
+
+  const options = page.getByRole("option");
+  await expect(options).toHaveCount(100);
+  await page.getByRole("listbox").evaluate((listbox) => {
+    listbox.scrollTop = listbox.scrollHeight;
+  });
+  await expect(options).toHaveCount(120);
 });
 
 test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {

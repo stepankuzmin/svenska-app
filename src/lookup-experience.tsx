@@ -1,4 +1,12 @@
-import { memo, useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type UIEvent,
+} from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
@@ -33,6 +41,8 @@ type RelatedWord = {
   headword: string;
   translation: string;
 };
+
+const suggestionBatchSize = 100;
 
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
@@ -262,8 +272,11 @@ export function LookupExperience(props: LookupExperienceProps) {
     : "Swedish or Russian";
   const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
   const [expandedHeadword, setExpandedHeadword] = useState<string | null>(null);
-  const visibleSuggestions = autocompleteOpen ? suggestions : [];
+  const visibleSuggestions = autocompleteOpen
+    ? suggestions.slice(0, renderedSuggestionCount)
+    : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
   const dictionaryEntries = props.entries;
 
@@ -281,6 +294,17 @@ export function LookupExperience(props: LookupExperienceProps) {
       headword: item.headword,
       displayQuery: cleanLexinText(item.headword),
     });
+  }
+
+  function revealMoreSuggestions(event: UIEvent<HTMLUListElement>) {
+    const list = event.currentTarget;
+    if (list.scrollTop + list.clientHeight < list.scrollHeight - 1) {
+      return;
+    }
+
+    setRenderedSuggestionCount((current) =>
+      Math.min(suggestions.length, current + suggestionBatchSize),
+    );
   }
 
   const toggleExpanded = useCallback((headword: string) => {
@@ -309,6 +333,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             props.onQueryChange(event.target.value);
             setAutocompleteOpen(event.target.value.trim().length > 0);
             setActiveSuggestionIndex(-1);
+            setRenderedSuggestionCount(suggestionBatchSize);
             setExpandedHeadword(null);
           }}
           onFocus={() => setAutocompleteOpen(props.query.trim().length > 0)}
@@ -321,12 +346,15 @@ export function LookupExperience(props: LookupExperienceProps) {
             if (event.key === "ArrowDown" && suggestions.length > 0) {
               event.preventDefault();
               setAutocompleteOpen(true);
-              setActiveSuggestionIndex((current) => (current + 1) % suggestions.length);
+              const nextIndex = Math.min(activeSuggestionIndex + 1, suggestions.length - 1);
+              setRenderedSuggestionCount((current) => Math.max(current, nextIndex + 1));
+              setActiveSuggestionIndex(nextIndex);
             } else if (event.key === "ArrowUp" && suggestions.length > 0) {
               event.preventDefault();
               setAutocompleteOpen(true);
-              setActiveSuggestionIndex((current) =>
-                current <= 0 ? suggestions.length - 1 : current - 1,
+              const lastVisibleIndex = Math.min(renderedSuggestionCount, suggestions.length) - 1;
+              setActiveSuggestionIndex(
+                activeSuggestionIndex <= 0 ? lastVisibleIndex : activeSuggestionIndex - 1,
               );
             } else if (event.key === "Enter" && activeSuggestion !== undefined) {
               event.preventDefault();
@@ -347,13 +375,21 @@ export function LookupExperience(props: LookupExperienceProps) {
           spellCheck="false"
         />
         {visibleSuggestions.length > 0 ? (
-          <ul id={listId} className="suggestion-menu" role="listbox" aria-label="Suggestions">
+          <ul
+            id={listId}
+            className="suggestion-menu"
+            role="listbox"
+            aria-label="Suggestions"
+            onScroll={revealMoreSuggestions}
+          >
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
                 key={`${item.headword}-${index}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
+                aria-posinset={index + 1}
+                aria-setsize={suggestions.length}
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => selectSuggestion(item)}
               >

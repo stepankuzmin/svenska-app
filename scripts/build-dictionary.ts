@@ -54,7 +54,7 @@ function text(value: unknown): string {
 
 function childText(
   value: string | Record<string, unknown> | undefined,
-  child: "Meaning" | "Phonetic" | "Translation",
+  child: "Meaning" | "Phonetic" | "Translation" | "Usage",
 ): string {
   if (typeof value === "object" && value !== null && child in value) {
     return text(value[child]);
@@ -87,13 +87,18 @@ function generatedInflectionTexts({
   headword,
   partOfSpeech,
   inflections,
+  usage,
 }: {
   headword: string;
   partOfSpeech: string;
   inflections: readonly string[][];
+  usage: string;
 }): string[] {
   if (partOfSpeech === "subst." && inflections.length === 2) {
     const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
+    const normalizedDefiniteSingular = normalizeLookupText(
+      (inflections[0][0] ?? "").replaceAll("|", ""),
+    );
     return inflections[1].map((plural) => {
       const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
       if (normalizedPlural.endsWith("r")) {
@@ -102,11 +107,21 @@ function generatedInflectionTexts({
       if (normalizedPlural === `${normalizedHeadword}n`) {
         return `${plural}a`;
       }
+      if (
+        normalizedPlural === normalizedHeadword &&
+        normalizedDefiniteSingular.endsWith("n")
+      ) {
+        return `${plural}na`;
+      }
       return `${plural}en`;
     });
   }
 
-  if (partOfSpeech === "adj." && inflections.length === 2) {
+  if (
+    partOfSpeech === "adj." &&
+    inflections.length === 2 &&
+    normalizeLookupText(usage) !== "ej komparation"
+  ) {
     return inflections[1].flatMap((plural) => {
       if (!plural.endsWith("a")) {
         return [];
@@ -231,7 +246,12 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     for (const form of [
       headword,
       ...inflections.flat(),
-      ...generatedInflectionTexts({ headword, partOfSpeech, inflections }),
+      ...generatedInflectionTexts({
+        headword,
+        partOfSpeech,
+        inflections,
+        usage: childText(word.BaseLang, "Usage"),
+      }),
     ]) {
       addToIndex({ index: swedishIndex, form, headword });
     }

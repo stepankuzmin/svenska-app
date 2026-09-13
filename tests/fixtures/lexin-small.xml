@@ -60,4 +60,21 @@
     </BaseLang>
     <TargetLang><Translation>младенец</Translation></TargetLang>
   </Word>
+  <Word ID="8" MatchingID="108" Type="subst." Value="taxi">
+    <BaseLang>
+      <Meaning>hyrbil</Meaning>
+      <Inflection>taxin</Inflection>
+      <Inflection>taxi</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>такси</Translation></TargetLang>
+  </Word>
+  <Word ID="9" MatchingID="109" Type="adj." Value="förenlig">
+    <BaseLang>
+      <Meaning>som kan förenas</Meaning>
+      <Usage>ej komparation</Usage>
+      <Inflection>förenligt</Inflection>
+      <Inflection>förenliga</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>совместимый</Translation></TargetLang>
+  </Word>
 </Dictionary>
