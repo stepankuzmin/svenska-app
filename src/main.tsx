@@ -13,21 +13,6 @@ import { LookupExperience } from "./lookup-experience";
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
-  let hasController = navigator.serviceWorker.controller !== null;
-  let isReloading = false;
-
-  navigator.serviceWorker.addEventListener("controllerchange", () => {
-    if (!hasController) {
-      hasController = true;
-      return;
-    }
-
-    if (!isReloading) {
-      isReloading = true;
-      window.location.reload();
-    }
-  });
-
   void navigator.serviceWorker
     .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
     .catch(() => {});
