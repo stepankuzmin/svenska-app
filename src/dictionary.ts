@@ -123,9 +123,9 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       normalizedTranslations,
       senses,
     } of entries) {
-      const matchingSwedishForm = normalizedSwedishForms.find((form) =>
-        form.includes(normalizedSwedishQuery),
-      );
+      const matchingSwedishForm = normalizedSwedishQuery.length === 0
+        ? undefined
+        : normalizedSwedishForms.find((form) => form.includes(normalizedSwedishQuery));
       let matchingTranslation: LookupChoice | undefined;
       let matchingTranslationRank: number | null = null;
       for (const [index, translation] of normalizedTranslations.entries()) {

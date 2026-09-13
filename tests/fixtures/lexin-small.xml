@@ -44,4 +44,20 @@
     </BaseLang>
     <TargetLang><Translation>правдивый</Translation></TargetLang>
   </Word>
+  <Word ID="6" MatchingID="106" Type="subst." Value="arsle">
+    <BaseLang>
+      <Meaning>stjärt</Meaning>
+      <Inflection>arslet</Inflection>
+      <Inflection>arslen</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>жопа</Translation></TargetLang>
+  </Word>
+  <Word ID="7" MatchingID="107" Type="subst." Value="baby">
+    <BaseLang>
+      <Meaning>spädbarn</Meaning>
+      <Inflection>babyn</Inflection>
+      <Inflection>babyar<Variant>babyer</Variant></Inflection>
+    </BaseLang>
+    <TargetLang><Translation>младенец</Translation></TargetLang>
+  </Word>
 </Dictionary>

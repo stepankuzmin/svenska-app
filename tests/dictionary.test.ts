@@ -127,6 +127,7 @@ describe("dictionary lookup", () => {
   });
 
   it("returns no match in either lookup direction", () => {
+    expect(search("|")).toEqual({ kind: "no-match" });
     expect(search("xyz")).toEqual({ kind: "no-match" });
     expect(search("жюри")).toEqual({ kind: "no-match" });
   });

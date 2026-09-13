@@ -84,14 +84,26 @@ function inflectionGroups(value: string | Record<string, unknown> | undefined): 
 }
 
 function generatedInflectionTexts({
+  headword,
   partOfSpeech,
   inflections,
 }: {
+  headword: string;
   partOfSpeech: string;
   inflections: readonly string[][];
 }): string[] {
   if (partOfSpeech === "subst." && inflections.length === 2) {
-    return inflections[1].map((plural) => `${plural}na`);
+    const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
+    return inflections[1].map((plural) => {
+      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      if (normalizedPlural.endsWith("r")) {
+        return `${plural}na`;
+      }
+      if (normalizedPlural === `${normalizedHeadword}n`) {
+        return `${plural}a`;
+      }
+      return `${plural}en`;
+    });
   }
 
   if (partOfSpeech === "adj." && inflections.length === 2) {
@@ -219,7 +231,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     for (const form of [
       headword,
       ...inflections.flat(),
-      ...generatedInflectionTexts({ partOfSpeech, inflections }),
+      ...generatedInflectionTexts({ headword, partOfSpeech, inflections }),
     ]) {
       addToIndex({ index: swedishIndex, form, headword });
     }

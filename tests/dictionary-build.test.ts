@@ -38,7 +38,9 @@ describe("Lexin source edition import", () => {
     expect(dictionary.russianIndex).toEqual({
       "бронировать": ["bok"],
       "дом": ["hus", "hem"],
+      "жопа": ["arsle"],
       "книга": ["bok"],
+      "младенец": ["baby"],
       "правдивый": ["sann"],
       "сообщать": ["anger"],
     });
@@ -47,6 +49,9 @@ describe("Lexin source edition import", () => {
       angav: ["anger"],
       anger: ["anger"],
       angett: ["anger"],
+      arslena: ["arsle"],
+      babyarna: ["baby"],
+      babyerna: ["baby"],
       bok: ["bok"],
       boken: ["bok"],
       böcker: ["bok"],
@@ -71,6 +76,11 @@ describe("Lexin source edition import", () => {
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
+    });
+    expect(createSearch({ dictionary })("arslena")).toEqual({
+      kind: "result",
+      headword: "arsle",
+      senses: dictionary.entries.arsle,
     });
     expect(createSearch({ dictionary })("sannare")).toEqual({
       kind: "result",
