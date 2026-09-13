@@ -42,7 +42,7 @@ _Avoid_: Suggestions section, suggestion cards
 
 The lookup area responds to every non-blank change in the search field. It shows every indexed Swedish word containing the query. Exact matches come first, followed by prefix matches and then other substring matches. Selecting an inflected form opens its canonical headword. No visible message replaces the library when there is no match.
 
-A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens its corresponding Swedish headword.
+A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens all corresponding Swedish headwords.
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.
 

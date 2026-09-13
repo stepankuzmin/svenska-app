@@ -15,8 +15,8 @@ type LookupResult = {
 
 export type LookupChoice = {
   displayWord: string;
-  headword: string;
-  translation: string;
+  headwords: readonly string[];
+  language: "ru" | "sv";
 };
 
 export type LookupOutcome =
@@ -65,7 +65,23 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
-  const swedishIndexEntries = Object.entries(dictionary.swedishIndex);
+  const swedishIndexEntries = Object.entries(dictionary.swedishIndex).map(
+    ([displayWord, headwords]) => ({
+      displayWord,
+      normalizedDisplayWord: normalizeSwedishLookupText(displayWord),
+      headwords,
+    }),
+  );
+  const swedishHeadwordsByForm = new Map<string, string[]>();
+  for (const { normalizedDisplayWord, headwords } of swedishIndexEntries) {
+    const indexedHeadwords = swedishHeadwordsByForm.get(normalizedDisplayWord) ?? [];
+    for (const headword of headwords) {
+      if (!indexedHeadwords.includes(headword)) {
+        indexedHeadwords.push(headword);
+      }
+    }
+    swedishHeadwordsByForm.set(normalizedDisplayWord, indexedHeadwords);
+  }
   const russianIndexEntries = Object.entries(dictionary.russianIndex);
 
   return (query) => {
@@ -74,9 +90,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const exactSwedishEntry = entries.find(
       ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
     );
-    const indexedHeadwords = Object.hasOwn(dictionary.swedishIndex, normalizedSwedishQuery)
-      ? dictionary.swedishIndex[normalizedSwedishQuery]
-      : [];
+    const indexedHeadwords = swedishHeadwordsByForm.get(normalizedSwedishQuery) ?? [];
     const exactIndexedEntries = indexedHeadwords.flatMap(
       (headword) => {
         const entry = entriesByHeadword.get(headword);
@@ -98,50 +112,36 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       return { kind: "no-match" };
     }
 
-    const isRussianQuery = /\p{Script=Cyrillic}/u.test(normalizedQuery);
     const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
-    if (isRussianQuery) {
-      for (const [displayWord, headwords] of russianIndexEntries) {
-        const rank = russianMatchRank({ text: displayWord, query: normalizedQuery });
-        const headword = headwords[0];
-        if (rank !== null && headword !== undefined && entriesByHeadword.has(headword)) {
-          rankedChoices.push({
-            choice: { displayWord, headword, translation: displayWord },
-            rank,
-          });
-        }
+    for (const [displayWord, indexedRussianHeadwords] of russianIndexEntries) {
+      const rank = russianMatchRank({ text: displayWord, query: normalizedQuery });
+      const headwords = indexedRussianHeadwords.filter((headword) => entriesByHeadword.has(headword));
+      if (rank !== null && headwords.length > 0) {
+        rankedChoices.push({ choice: { displayWord, headwords, language: "ru" }, rank });
       }
-    } else {
-      for (const [displayWord, headwords] of swedishIndexEntries) {
-        if (
-          normalizedSwedishQuery.length === 0 ||
-          !displayWord.includes(normalizedSwedishQuery)
-        ) {
-          continue;
-        }
+    }
 
-        const rank = displayWord === normalizedSwedishQuery
-          ? 0
-          : displayWord.startsWith(normalizedSwedishQuery)
-            ? 1
-            : 2;
-        const headword = headwords.find(
-          (candidate) => normalizeSwedishLookupText(candidate) === displayWord,
-        ) ?? headwords[0];
-        const entry = headword === undefined ? undefined : entriesByHeadword.get(headword);
-        if (entry === undefined) {
-          continue;
-        }
-
-        rankedChoices.push({
-          choice: {
-            displayWord,
-            headword,
-            translation: entry.senses[0]?.translation ?? "",
-          },
-          rank,
-        });
+    for (const { displayWord, normalizedDisplayWord, headwords } of swedishIndexEntries) {
+      if (
+        normalizedSwedishQuery.length === 0 ||
+        !normalizedDisplayWord.includes(normalizedSwedishQuery)
+      ) {
+        continue;
       }
+
+      const rank = normalizedDisplayWord === normalizedSwedishQuery
+        ? 0
+        : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
+          ? 1
+          : 2;
+      const headword = headwords.find(
+        (candidate) => normalizeSwedishLookupText(candidate) === normalizedDisplayWord,
+      ) ?? headwords[0];
+      if (headword === undefined || !entriesByHeadword.has(headword)) {
+        continue;
+      }
+
+      rankedChoices.push({ choice: { displayWord, headwords: [headword], language: "sv" }, rank });
     }
 
     rankedChoices.sort((left, right) => {
@@ -155,7 +155,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         ? lengthDifference
         : left.choice.displayWord.localeCompare(
             right.choice.displayWord,
-            isRussianQuery ? "ru" : "sv",
+            left.choice.language,
           );
     });
     const choices = rankedChoices.map(({ choice }) => choice);

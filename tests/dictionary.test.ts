@@ -61,6 +61,7 @@ const dictionary = {
     abortrådgivning: ["abort|rådgivning"],
   },
   russianIndex: {
+    "100 граммов": ["hus"],
     "бронировать": ["bok"],
     "доносить": ["anger"],
     "доносительство": ["anger"],
@@ -87,11 +88,11 @@ describe("dictionary lookup", () => {
       headword: "anger",
       senses: dictionary.entries.anger,
       suggestions: [
-        { displayWord: "ange", headword: "anger", translation: "сообщать" },
-        { displayWord: "anger", headword: "anger", translation: "сообщать" },
-        { displayWord: "angett", headword: "angett", translation: "указанный" },
-        { displayWord: "angelägen", headword: "angelägen", translation: "важный" },
-        { displayWord: "arrangemang", headword: "arrangemang", translation: "мероприятие" },
+        { displayWord: "ange", headwords: ["anger"], language: "sv" },
+        { displayWord: "anger", headwords: ["anger"], language: "sv" },
+        { displayWord: "angett", headwords: ["angett"], language: "sv" },
+        { displayWord: "angelägen", headwords: ["angelägen"], language: "sv" },
+        { displayWord: "arrangemang", headwords: ["arrangemang"], language: "sv" },
       ],
     });
   });
@@ -116,10 +117,18 @@ describe("dictionary lookup", () => {
     expect(search("доноси")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "доносить", headword: "anger", translation: "доносить" },
-        { displayWord: "доносительство", headword: "anger", translation: "доносительство" },
-        { displayWord: "недоносить", headword: "anger", translation: "недоносить" },
+        { displayWord: "доносить", headwords: ["anger"], language: "ru" },
+        { displayWord: "доносительство", headwords: ["anger"], language: "ru" },
+        { displayWord: "недоносить", headwords: ["anger"], language: "ru" },
       ],
+    });
+    expect(search("дом")).toMatchObject({
+      kind: "choices",
+      choices: [{
+        displayWord: "дом",
+        headwords: ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
+        language: "ru",
+      }],
     });
   });
 
@@ -127,13 +136,17 @@ describe("dictionary lookup", () => {
     expect(search("ok")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "bok", headword: "bok", translation: "книга" },
-        { displayWord: "boken", headword: "bok", translation: "книга" },
+        { displayWord: "bok", headwords: ["bok"], language: "sv" },
+        { displayWord: "boken", headwords: ["bok"], language: "sv" },
       ],
     });
     expect(search("ниров")).toMatchObject({
       kind: "choices",
-      choices: [{ headword: "bok", translation: "бронировать" }],
+      choices: [{ displayWord: "бронировать", headwords: ["bok"], language: "ru" }],
+    });
+    expect(search("100")).toMatchObject({
+      kind: "choices",
+      choices: [{ displayWord: "100 граммов", headwords: ["hus"], language: "ru" }],
     });
   });
 

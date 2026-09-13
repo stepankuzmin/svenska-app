@@ -171,16 +171,16 @@ function addToIndex({
   form: string;
   headword: string;
 }): void {
-  const normalizedForm = normalizeLookupText(form.replaceAll("|", ""));
-  if (normalizedForm.length === 0) {
+  const displayForm = form.replaceAll("|", "").trim();
+  if (displayForm.length === 0) {
     return;
   }
 
-  const matchingHeadwords = index[normalizedForm] ?? [];
+  const matchingHeadwords = index[displayForm] ?? [];
   if (!matchingHeadwords.includes(headword)) {
     matchingHeadwords.push(headword);
   }
-  index[normalizedForm] = matchingHeadwords;
+  index[displayForm] = matchingHeadwords;
 }
 
 function childValues(

@@ -48,8 +48,10 @@ describe("Lexin source edition import", () => {
       "такси": ["taxi"],
       "хуже": ["värre"],
       "экшн": ["action"],
+      "акционерное общество": ["AB"],
     });
     expect(dictionary.swedishIndex).toMatchObject({
+      AB: ["AB"],
       ange: ["anger"],
       angav: ["anger"],
       anger: ["anger"],
@@ -109,6 +111,16 @@ describe("Lexin source edition import", () => {
       kind: "result",
       headword: "sann",
       senses: dictionary.entries.sann,
+    });
+    const uppercaseResult = createSearch({ dictionary })("ab");
+    expect(uppercaseResult).toMatchObject({
+      kind: "result",
+      headword: "AB",
+    });
+    expect(uppercaseResult.kind === "result" ? uppercaseResult.suggestions[0] : null).toEqual({
+      displayWord: "AB",
+      headwords: ["AB"],
+      language: "sv",
     });
   });
 

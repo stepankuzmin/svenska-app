@@ -102,4 +102,8 @@
     </BaseLang>
     <TargetLang><Translation>хуже</Translation></TargetLang>
   </Word>
+  <Word ID="13" MatchingID="113" Type="subst." Value="AB">
+    <BaseLang><Meaning>aktiebolag</Meaning></BaseLang>
+    <TargetLang><Translation>акционерное общество</Translation></TargetLang>
+  </Word>
 </Dictionary>

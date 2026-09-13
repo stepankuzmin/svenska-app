@@ -8,6 +8,7 @@ const manyRussianHeadwords = Array.from(
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
+    AB: [{ partOfSpeech: "substantiv", meaning: "aktiebolag", translation: "акционерное общество" }],
     abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
     anger: [{ partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
@@ -28,6 +29,7 @@ const dictionary = {
     ])),
   },
   swedishIndex: {
+    AB: ["AB"],
     abort: ["abort"],
     abortrådgivning: ["abort|rådgivning"],
     ange: ["anger"],
@@ -46,6 +48,7 @@ const dictionary = {
     ...Object.fromEntries(manyRussianHeadwords.map((headword) => [headword, [headword]])),
   },
   russianIndex: {
+    "100 граммов": ["hus"],
     "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
     "доминирующий": ["dominant"],
     "перерыв на кофе": ["fika", "fikapaus"],
@@ -114,12 +117,19 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
   await page.getByLabel("Swedish or Russian word").fill("ange");
 
   await expect(page.getByRole("option")).toHaveText(["ange", "anger", "angett"]);
+
+  await page.getByLabel("Swedish or Russian word").fill("ab");
+  await expect(page.getByRole("option").first()).toHaveText("AB");
 });
 
 test("a Russian word shows every matching Russian index entry", async ({ page }) => {
   await openReadyApp(page);
 
-  await page.getByLabel("Swedish or Russian word").fill("дом");
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("100");
+  await expect(page.getByRole("option")).toHaveText(["100 граммов"]);
+
+  await query.fill("дом");
 
   await expect(page.getByRole("option")).toHaveText(["дом", "жилой дом", "доминирующий"]);
   await expect(page.getByText("дом", { exact: true })).toHaveAttribute("lang", "ru");
@@ -129,6 +139,16 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
   }
   await expect(page.getByRole("option", { name: "доминирующий" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("option", { name: "доминирующий" })).toBeInViewport();
+
+  await page.getByRole("option", { name: "дом", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText([
+    "hem",
+    "hus",
+    "villa",
+    "stuga",
+    "koja",
+    "residens",
+  ]);
 });
 
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
