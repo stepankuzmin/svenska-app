@@ -77,4 +77,29 @@
     </BaseLang>
     <TargetLang><Translation>совместимый</Translation></TargetLang>
   </Word>
+  <Word ID="10" MatchingID="110" Type="subst." Value="affektions|värde">
+    <BaseLang>
+      <Meaning>personligt värde</Meaning>
+      <Inflection>affektionsvärden</Inflection>
+      <Inflection>affektionsvärdena</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>сентиментальная ценность</Translation></TargetLang>
+  </Word>
+  <Word ID="11" MatchingID="111" Type="subst." Value="action">
+    <BaseLang>
+      <Meaning>spännande handling</Meaning>
+      <Inflection>en</Inflection>
+      <Inflection>action</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>экшн</Translation></TargetLang>
+  </Word>
+  <Word ID="12" MatchingID="112" Type="adj." Value="värre">
+    <BaseLang>
+      <Meaning>mer ogynnsam</Meaning>
+      <Usage>komparativ</Usage>
+      <Inflection>värst</Inflection>
+      <Inflection>värsta</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>хуже</Translation></TargetLang>
+  </Word>
 </Dictionary>

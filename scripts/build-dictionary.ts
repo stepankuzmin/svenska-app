@@ -99,7 +99,23 @@ function generatedInflectionTexts({
     const normalizedDefiniteSingular = normalizeLookupText(
       (inflections[0][0] ?? "").replaceAll("|", ""),
     );
-    return inflections[1].map((plural) => {
+    const normalizedSecondGroup = new Set(
+      inflections[1].map((form) => normalizeLookupText(form.replaceAll("|", ""))),
+    );
+    const alreadyIncludesDefinitePlural = inflections[0].some((plural) => {
+      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      const definitePlural = normalizedPlural.endsWith("r")
+        ? `${normalizedPlural}na`
+        : normalizedPlural === `${normalizedHeadword}n`
+          ? `${normalizedPlural}a`
+          : `${normalizedPlural}en`;
+      return normalizedSecondGroup.has(definitePlural);
+    });
+    if (alreadyIncludesDefinitePlural) {
+      return [];
+    }
+
+    return inflections[1].flatMap((plural) => {
       const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
       if (normalizedPlural.endsWith("r")) {
         return `${plural}na`;
@@ -107,20 +123,31 @@ function generatedInflectionTexts({
       if (normalizedPlural === `${normalizedHeadword}n`) {
         return `${plural}a`;
       }
-      if (
-        normalizedPlural === normalizedHeadword &&
-        normalizedDefiniteSingular.endsWith("n")
-      ) {
-        return `${plural}na`;
+      if (normalizedPlural === normalizedHeadword) {
+        if (
+          normalizedDefiniteSingular.startsWith(normalizedHeadword) &&
+          normalizedDefiniteSingular.endsWith("n")
+        ) {
+          return `${plural}na`;
+        }
+        if (
+          normalizedDefiniteSingular.startsWith(normalizedHeadword) &&
+          normalizedDefiniteSingular.endsWith("t")
+        ) {
+          return `${plural}en`;
+        }
+        return [];
       }
       return `${plural}en`;
     });
   }
 
+  const normalizedUsage = normalizeLookupText(usage);
   if (
     partOfSpeech === "adj." &&
     inflections.length === 2 &&
-    normalizeLookupText(usage) !== "ej komparation"
+    !normalizedUsage.includes("kompar") &&
+    !normalizedUsage.includes("superlativ")
   ) {
     return inflections[1].flatMap((plural) => {
       if (!plural.endsWith("a")) {

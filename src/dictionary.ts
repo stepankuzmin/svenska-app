@@ -81,7 +81,10 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const exactSwedishEntry = entries.find(
       ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
     );
-    const exactIndexedEntries = (dictionary.swedishIndex[normalizedSwedishQuery] ?? []).flatMap(
+    const indexedHeadwords = Object.hasOwn(dictionary.swedishIndex, normalizedSwedishQuery)
+      ? dictionary.swedishIndex[normalizedSwedishQuery]
+      : [];
+    const exactIndexedEntries = indexedHeadwords.flatMap(
       (headword) => {
         const entry = entriesByHeadword.get(headword);
         return entry === undefined || entry === exactSwedishEntry ? [] : [entry];
@@ -90,7 +93,9 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const exactSwedishEntries = exactSwedishEntry === undefined
       ? exactIndexedEntries
       : [exactSwedishEntry, ...exactIndexedEntries];
-    const russianHeadwords = dictionary.russianIndex[normalizedQuery] ?? [];
+    const russianHeadwords = Object.hasOwn(dictionary.russianIndex, normalizedQuery)
+      ? dictionary.russianIndex[normalizedQuery]
+      : [];
     const exactRussianEntries = russianHeadwords.flatMap((headword) => {
       const entry = entriesByHeadword.get(headword);
       return entry === undefined ? [] : [entry];

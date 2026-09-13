@@ -42,9 +42,12 @@ describe("Lexin source edition import", () => {
       "книга": ["bok"],
       "младенец": ["baby"],
       "правдивый": ["sann"],
+      "сентиментальная ценность": ["affektions|värde"],
       "совместимый": ["förenlig"],
       "сообщать": ["anger"],
       "такси": ["taxi"],
+      "хуже": ["värre"],
+      "экшн": ["action"],
     });
     expect(dictionary.swedishIndex).toMatchObject({
       ange: ["anger"],
@@ -52,6 +55,7 @@ describe("Lexin source edition import", () => {
       anger: ["anger"],
       angett: ["anger"],
       arslena: ["arsle"],
+      affektionsvärdena: ["affektions|värde"],
       babyarna: ["baby"],
       babyerna: ["baby"],
       bok: ["bok"],
@@ -69,10 +73,18 @@ describe("Lexin source edition import", () => {
       taxi: ["taxi"],
       taxin: ["taxi"],
       taxina: ["taxi"],
+      värre: ["värre"],
+      värst: ["värre"],
+      värsta: ["värre"],
     });
+    expect(dictionary.swedishIndex).not.toHaveProperty("actionen");
+    expect(dictionary.swedishIndex).not.toHaveProperty("actionna");
+    expect(dictionary.swedishIndex).not.toHaveProperty("affektionsvärdenaen");
     expect(dictionary.swedishIndex).not.toHaveProperty("förenligare");
     expect(dictionary.swedishIndex).not.toHaveProperty("förenligast");
     expect(dictionary.swedishIndex).not.toHaveProperty("taxien");
+    expect(dictionary.swedishIndex).not.toHaveProperty("värstare");
+    expect(dictionary.swedishIndex).not.toHaveProperty("värstast");
     expect(createSearch({ dictionary })("книга")).toEqual({
       kind: "result",
       headword: "bok",
