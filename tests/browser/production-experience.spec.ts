@@ -127,7 +127,11 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("100");
-  await expect(page.getByRole("option")).toHaveText(["100 граммов"]);
+  await expect(page.getByRole("option")).toHaveText([
+    "100 граммов",
+    "яц-result-100",
+    "result-100",
+  ]);
 
   await query.fill("дом");
 
