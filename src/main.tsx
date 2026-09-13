@@ -12,6 +12,12 @@ import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dicti
 import { LookupExperience } from "./lookup-experience";
 import "./lookup-experience.css";
 
+if ("serviceWorker" in navigator) {
+  void navigator.serviceWorker
+    .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
+    .catch(() => {});
+}
+
 type LookupState =
   | { kind: "loading" }
   | {

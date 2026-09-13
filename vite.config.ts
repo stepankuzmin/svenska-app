@@ -7,8 +7,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      injectRegister: false,
       registerType: "autoUpdate",
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         globPatterns: ["**/*.{css,html,js,json,webmanifest}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
       },

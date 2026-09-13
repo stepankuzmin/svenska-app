@@ -16,6 +16,8 @@ _Avoid_: Live source, current Lexin data
 The dictionary release precached with the application by its generated service worker for offline lookup after one online visit.
 _Avoid_: Installed dictionary, downloaded dictionary, permanent dictionary
 
+The application registers that service worker during startup. A first installation claims the page without interrupting it; when a later dictionary release takes control of an existing page, the page reloads once so it cannot remain on the previous application shell.
+
 **Lookup library**:
 The device-local collection of dictionary entries opened by the user. Opening an entry adds it automatically.
 _Avoid_: Saved words, favourites
