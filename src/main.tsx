@@ -123,7 +123,7 @@ function LookupApp() {
 
   function selectChoice({ headword, displayQuery }: { headword: string; displayQuery: string }) {
     setQuery(displayQuery);
-    openLookup(headword);
+    addToLibrary(headword);
   }
 
   return (

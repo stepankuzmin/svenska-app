@@ -85,27 +85,27 @@ describe("Lexin source edition import", () => {
     expect(dictionary.swedishIndex).not.toHaveProperty("taxien");
     expect(dictionary.swedishIndex).not.toHaveProperty("värstare");
     expect(dictionary.swedishIndex).not.toHaveProperty("värstast");
-    expect(createSearch({ dictionary })("книга")).toEqual({
+    expect(createSearch({ dictionary })("книга")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
-    expect(createSearch({ dictionary })("ange")).toEqual({
+    expect(createSearch({ dictionary })("ange")).toMatchObject({
       kind: "result",
       headword: "anger",
       senses: dictionary.entries.anger,
     });
-    expect(createSearch({ dictionary })("böckerna")).toEqual({
+    expect(createSearch({ dictionary })("böckerna")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
-    expect(createSearch({ dictionary })("arslena")).toEqual({
+    expect(createSearch({ dictionary })("arslena")).toMatchObject({
       kind: "result",
       headword: "arsle",
       senses: dictionary.entries.arsle,
     });
-    expect(createSearch({ dictionary })("sannare")).toEqual({
+    expect(createSearch({ dictionary })("sannare")).toMatchObject({
       kind: "result",
       headword: "sann",
       senses: dictionary.entries.sann,

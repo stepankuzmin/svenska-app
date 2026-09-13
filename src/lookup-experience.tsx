@@ -37,6 +37,10 @@ type WordItem = {
   details: readonly WordDetails[];
 };
 
+type SuggestionItem = WordItem & {
+  displayWord: string;
+};
+
 type RelatedWord = {
   headword: string;
   translation: string;
@@ -58,63 +62,29 @@ function translationFor(senses: readonly DictionarySense[]): string {
 
 function getSuggestionItems({
   outcome,
-  query,
   entries,
   details,
 }: {
   outcome: LookupOutcome | null;
-  query: string;
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
-}): readonly WordItem[] {
+}): readonly SuggestionItem[] {
   if (outcome === null || outcome.kind === "no-match" || entries === null) {
     return [];
   }
 
-  if (outcome.kind === "choices") {
-    const visibleChoices = /\p{Script=Cyrillic}/u.test(query)
-      ? outcome.choices
-      : outcome.choices.slice(0, 6);
-    return visibleChoices
-      .flatMap((choice) => {
-        const senses = entries[choice.headword];
-        return senses === undefined
-          ? []
-          : [{ headword: choice.headword, senses, details: details?.[choice.headword] ?? [] }];
-      });
-  }
-
-  const normalizedQuery = normalizeLookupText(query);
-  const isExactSwedishResult =
-    normalizeLookupText(cleanLexinText(outcome.headword)) === normalizedQuery;
-  if (!isExactSwedishResult) {
-    return [{
-      headword: outcome.headword,
-      senses: outcome.senses,
-      details: details?.[outcome.headword] ?? [],
-    }];
-  }
-
-  const matches: WordItem[] = [{
-    headword: outcome.headword,
-    senses: outcome.senses,
-    details: details?.[outcome.headword] ?? [],
-  }];
-  for (const headword in entries) {
-    if (headword === outcome.headword) {
-      continue;
-    }
-
-    if (normalizeLookupText(cleanLexinText(headword)).startsWith(normalizedQuery)) {
-      const senses = entries[headword];
-      matches.push({ headword, senses, details: details?.[headword] ?? [] });
-      if (matches.length === 6) {
-        break;
-      }
-    }
-  }
-
-  return matches;
+  const choices = outcome.kind === "result" ? outcome.suggestions : outcome.choices;
+  return choices.flatMap((choice) => {
+    const senses = entries[choice.headword];
+    return senses === undefined
+      ? []
+      : [{
+          displayWord: choice.displayWord,
+          headword: choice.headword,
+          senses,
+          details: details?.[choice.headword] ?? [],
+        }];
+  });
 }
 
 function getLibraryItems(
@@ -257,7 +227,6 @@ const WordCard = memo(function WordCard({
 export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems({
     outcome: props.outcome,
-    query: props.query,
     entries: props.entries,
     details: props.details,
   });
@@ -286,13 +255,13 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
-  function selectSuggestion(item: WordItem) {
+  function selectSuggestion(item: SuggestionItem) {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
     setExpandedHeadword(item.headword);
     props.onSelectSuggestion({
       headword: item.headword,
-      displayQuery: cleanLexinText(item.headword),
+      displayQuery: item.displayWord,
     });
   }
 
@@ -385,7 +354,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.headword}-${index}`}
+                key={`${item.displayWord}-${item.headword}-${index}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
@@ -393,7 +362,9 @@ export function LookupExperience(props: LookupExperienceProps) {
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => selectSuggestion(item)}
               >
-                <strong lang="sv">{cleanLexinText(item.headword)}</strong>
+                <strong lang={/\p{Script=Cyrillic}/u.test(item.displayWord) ? "ru" : "sv"}>
+                  {item.displayWord}
+                </strong>
               </li>
             ))}
           </ul>

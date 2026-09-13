@@ -11,6 +11,7 @@ const dictionary = {
     abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
     anger: [{ partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
+    angett: [{ partOfSpeech: "adjektiv", meaning: "uppgiven", translation: "указанный" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     hem: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
@@ -23,7 +24,7 @@ const dictionary = {
     dominant: [{ partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
     ...Object.fromEntries(manyRussianHeadwords.map((headword) => [
       headword,
-      [{ partOfSpeech: "substantiv", meaning: "", translation: "яц" }],
+      [{ partOfSpeech: "substantiv", meaning: "", translation: `яц-${headword}` }],
     ])),
   },
   swedishIndex: {
@@ -31,6 +32,7 @@ const dictionary = {
     abortrådgivning: ["abort|rådgivning"],
     ange: ["anger"],
     anger: ["anger"],
+    angett: ["anger", "angett"],
     fika: ["fika"],
     fikapaus: ["fikapaus"],
     hem: ["hem"],
@@ -48,7 +50,7 @@ const dictionary = {
     "доминирующий": ["dominant"],
     "перерыв на кофе": ["fika", "fikapaus"],
     "жилой дом": ["bostad"],
-    "яц": manyRussianHeadwords,
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [`яц-${headword}`, [headword]])),
   },
 };
 
@@ -70,7 +72,7 @@ test("the search input accepts typing as soon as the app starts", async ({ page 
   await expect(query).toHaveValue("fika");
 });
 
-test("autocomplete is headword-only and supports keyboard selection", async ({ page }) => {
+test("autocomplete hides translations and supports keyboard selection", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
@@ -106,35 +108,27 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
   await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
 });
 
-test("an inflected Swedish form suggests its canonical headword", async ({ page }) => {
+test("an inflected Swedish query lists every matching indexed word", async ({ page }) => {
   await openReadyApp(page);
 
   await page.getByLabel("Swedish or Russian word").fill("ange");
 
-  await expect(page.getByRole("option")).toHaveText(["anger"]);
+  await expect(page.getByRole("option")).toHaveText(["ange", "anger", "angett"]);
 });
 
-test("a Russian word shows every Swedish headword with a containing translation", async ({ page }) => {
+test("a Russian word shows every matching Russian index entry", async ({ page }) => {
   await openReadyApp(page);
 
   await page.getByLabel("Swedish or Russian word").fill("дом");
 
-  await expect(page.getByRole("option")).toHaveText([
-    "hem",
-    "hus",
-    "villa",
-    "stuga",
-    "koja",
-    "residens",
-    "bostad",
-    "dominant",
-  ]);
+  await expect(page.getByRole("option")).toHaveText(["дом", "жилой дом", "доминирующий"]);
+  await expect(page.getByText("дом", { exact: true })).toHaveAttribute("lang", "ru");
 
-  for (let index = 0; index < 8; index += 1) {
+  for (let index = 0; index < 3; index += 1) {
     await page.getByLabel("Swedish or Russian word").press("ArrowDown");
   }
-  await expect(page.getByRole("option", { name: "dominant" })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("option", { name: "dominant" })).toBeInViewport();
+  await expect(page.getByRole("option", { name: "доминирующий" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("option", { name: "доминирующий" })).toBeInViewport();
 });
 
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
