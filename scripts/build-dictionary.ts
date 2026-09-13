@@ -54,7 +54,7 @@ function text(value: unknown): string {
 
 function childText(
   value: string | Record<string, unknown> | undefined,
-  child: "Meaning" | "Phonetic" | "Translation",
+  child: "Meaning" | "Phonetic" | "Translation" | "Usage",
 ): string {
   if (typeof value === "object" && value !== null && child in value) {
     return text(value[child]);
@@ -63,13 +63,13 @@ function childText(
   return "";
 }
 
-function inflectionTexts(value: string | Record<string, unknown> | undefined): string[] {
+function inflectionGroups(value: string | Record<string, unknown> | undefined): string[][] {
   if (typeof value !== "object" || value === null || !("Inflection" in value)) {
     return [];
   }
 
   const inflections = Array.isArray(value.Inflection) ? value.Inflection : [value.Inflection];
-  return inflections.flatMap((inflection) => {
+  return inflections.map((inflection) => {
     if (typeof inflection !== "object" || inflection === null) {
       const inflectionText = text(inflection);
       return inflectionText.length === 0 ? [] : [inflectionText];
@@ -81,6 +81,106 @@ function inflectionTexts(value: string | Record<string, unknown> | undefined): s
       : [];
     return [primary, ...variants].filter((item) => item.length > 0);
   });
+}
+
+function generatedInflectionTexts({
+  headword,
+  partOfSpeech,
+  inflections,
+  usage,
+}: {
+  headword: string;
+  partOfSpeech: string;
+  inflections: readonly string[][];
+  usage: string;
+}): string[] {
+  if (partOfSpeech === "subst." && inflections.length === 2) {
+    const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
+    const normalizedDefiniteSingular = normalizeLookupText(
+      (inflections[0][0] ?? "").replaceAll("|", ""),
+    );
+    const normalizedSecondGroup = new Set(
+      inflections[1].map((form) => normalizeLookupText(form.replaceAll("|", ""))),
+    );
+    const alreadyIncludesDefinitePlural = inflections[0].some((plural) => {
+      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      const definitePlural = normalizedPlural.endsWith("r")
+        ? `${normalizedPlural}na`
+        : normalizedPlural === `${normalizedHeadword}n`
+          ? `${normalizedPlural}a`
+          : `${normalizedPlural}en`;
+      return normalizedSecondGroup.has(definitePlural);
+    });
+    if (alreadyIncludesDefinitePlural) {
+      return [];
+    }
+
+    return inflections[1].flatMap((plural) => {
+      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      if (normalizedPlural.endsWith("r")) {
+        return `${plural}na`;
+      }
+      if (normalizedPlural === `${normalizedHeadword}n`) {
+        return `${plural}a`;
+      }
+      if (normalizedPlural === normalizedHeadword) {
+        if (
+          normalizedDefiniteSingular.startsWith(normalizedHeadword) &&
+          normalizedDefiniteSingular.endsWith("n")
+        ) {
+          return `${plural}na`;
+        }
+        if (
+          normalizedDefiniteSingular.startsWith(normalizedHeadword) &&
+          normalizedDefiniteSingular.endsWith("t")
+        ) {
+          return `${plural}en`;
+        }
+        return [];
+      }
+      return `${plural}en`;
+    });
+  }
+
+  const normalizedUsage = normalizeLookupText(usage);
+  if (
+    partOfSpeech === "adj." &&
+    inflections.length === 2 &&
+    !normalizedUsage.includes("kompar") &&
+    !normalizedUsage.includes("superlativ")
+  ) {
+    return inflections[1].flatMap((plural) => {
+      if (!plural.endsWith("a")) {
+        return [];
+      }
+
+      const stem = plural.slice(0, -1);
+      return [`${stem}are`, `${stem}ast`];
+    });
+  }
+
+  return [];
+}
+
+function addToIndex({
+  index,
+  form,
+  headword,
+}: {
+  index: Record<string, string[]>;
+  form: string;
+  headword: string;
+}): void {
+  const normalizedForm = normalizeLookupText(form.replaceAll("|", ""));
+  if (normalizedForm.length === 0) {
+    return;
+  }
+
+  const matchingHeadwords = index[normalizedForm] ?? [];
+  if (!matchingHeadwords.includes(headword)) {
+    matchingHeadwords.push(headword);
+  }
+  index[normalizedForm] = matchingHeadwords;
 }
 
 function childValues(
@@ -141,6 +241,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
   const entries: DictionaryAsset["entries"] = {};
   const detailEntries: DictionaryDetailsAsset["entries"] = {};
+  const swedishIndex: DictionaryAsset["swedishIndex"] = {};
   const russianIndex: DictionaryAsset["russianIndex"] = {};
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
 
@@ -150,22 +251,37 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       continue;
     }
 
+    const partOfSpeech = word["@_Type"]?.trim() ?? "";
+    const inflections = inflectionGroups(word.BaseLang);
     const senses = entries[headword] ?? [];
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
     senses.push({
-      partOfSpeech: word["@_Type"]?.trim() ?? "",
+      partOfSpeech,
       meaning: childText(word.BaseLang, "Meaning"),
       translation,
     });
     wordDetails.push({
       phonetic: childText(word.BaseLang, "Phonetic"),
-      inflections: inflectionTexts(word.BaseLang),
+      inflections: inflections.flat(),
       examples: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Example" }),
       compounds: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Compound" }),
     });
     entries[headword] = senses;
     detailEntries[headword] = wordDetails;
+
+    for (const form of [
+      headword,
+      ...inflections.flat(),
+      ...generatedInflectionTexts({
+        headword,
+        partOfSpeech,
+        inflections,
+        usage: childText(word.BaseLang, "Usage"),
+      }),
+    ]) {
+      addToIndex({ index: swedishIndex, form, headword });
+    }
 
     const normalizedTranslation = normalizeLookupText(translation);
     if (normalizedTranslation.length > 0) {
@@ -185,6 +301,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
         license: "CC BY 4.0",
       },
       entries,
+      swedishIndex,
       russianIndex,
     },
     details: {

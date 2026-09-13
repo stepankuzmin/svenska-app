@@ -7,6 +7,17 @@ const dictionary = {
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
   },
+  swedishIndex: {
+    abborre: ["abborre"],
+    abborren: ["abborre"],
+    abborrar: ["abborre"],
+    abborrarna: ["abborre"],
+    fika: ["fika"],
+    fikan: ["fika"],
+    fikor: ["fika"],
+    fikorna: ["fika"],
+    tack: ["tack"],
+  },
   russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"] },
 };
 

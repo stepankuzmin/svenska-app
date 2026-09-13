@@ -26,10 +26,50 @@ function normalizeSwedishLookupText(value: string): string {
   return normalizeLookupText(value.replaceAll("|", ""));
 }
 
+function isWordCharacter(value: string | undefined): boolean {
+  return value !== undefined && /[\p{L}\p{N}]/u.test(value);
+}
+
+function containsWholeQuery({ text, query }: { text: string; query: string }): boolean {
+  let matchIndex = text.indexOf(query);
+  while (matchIndex !== -1) {
+    const before = text[matchIndex - 1];
+    const after = text[matchIndex + query.length];
+    if (!isWordCharacter(before) && !isWordCharacter(after)) {
+      return true;
+    }
+    matchIndex = text.indexOf(query, matchIndex + 1);
+  }
+  return false;
+}
+
+function russianMatchRank({ translation, query }: { translation: string; query: string }): number | null {
+  if (translation === query) {
+    return 4;
+  }
+  if (containsWholeQuery({ text: translation, query })) {
+    return 5;
+  }
+  if (translation.startsWith(query)) {
+    return 6;
+  }
+  return translation.includes(query) ? 7 : null;
+}
+
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
+  const formsByHeadword = new Map<string, string[]>();
+  for (const [form, headwords] of Object.entries(dictionary.swedishIndex)) {
+    for (const headword of headwords) {
+      const forms = formsByHeadword.get(headword) ?? [];
+      forms.push(form);
+      formsByHeadword.set(headword, forms);
+    }
+  }
+
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
     normalizedHeadword: normalizeSwedishLookupText(headword),
+    normalizedSwedishForms: formsByHeadword.get(headword) ?? [],
     normalizedTranslations: senses.map((sense) => normalizeLookupText(sense.translation)),
     senses,
   }));
@@ -41,24 +81,37 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const exactSwedishEntry = entries.find(
       ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
     );
-    const russianHeadwords = dictionary.russianIndex[normalizedQuery] ?? [];
+    const indexedHeadwords = Object.hasOwn(dictionary.swedishIndex, normalizedSwedishQuery)
+      ? dictionary.swedishIndex[normalizedSwedishQuery]
+      : [];
+    const exactIndexedEntries = indexedHeadwords.flatMap(
+      (headword) => {
+        const entry = entriesByHeadword.get(headword);
+        return entry === undefined || entry === exactSwedishEntry ? [] : [entry];
+      },
+    );
+    const exactSwedishEntries = exactSwedishEntry === undefined
+      ? exactIndexedEntries
+      : [exactSwedishEntry, ...exactIndexedEntries];
+    const russianHeadwords = Object.hasOwn(dictionary.russianIndex, normalizedQuery)
+      ? dictionary.russianIndex[normalizedQuery]
+      : [];
     const exactRussianEntries = russianHeadwords.flatMap((headword) => {
       const entry = entriesByHeadword.get(headword);
       return entry === undefined ? [] : [entry];
     });
 
-    const resultEntry = exactSwedishEntry ?? (exactRussianEntries.length === 1 ? exactRussianEntries[0] : undefined);
+    const resultEntry = exactSwedishEntries.length === 1 ? exactSwedishEntries[0] : undefined;
     if (resultEntry !== undefined) {
       return { kind: "result", headword: resultEntry.headword, senses: resultEntry.senses };
     }
 
-    if (exactRussianEntries.length > 1) {
+    if (exactSwedishEntries.length > 1) {
       return {
         kind: "choices",
-        choices: exactRussianEntries.map(({ headword, senses }) => ({
+        choices: exactSwedishEntries.map(({ headword, senses }) => ({
           headword,
-          translation:
-            senses.find((sense) => normalizeLookupText(sense.translation) === normalizedQuery)?.translation ?? "",
+          translation: senses[0]?.translation ?? "",
         })),
       };
     }
@@ -67,23 +120,55 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       return { kind: "no-match" };
     }
 
-    const choices: LookupChoice[] = [];
-    for (const { headword, normalizedHeadword, normalizedTranslations, senses } of entries) {
-      const matchingTranslationIndex = normalizedTranslations.findIndex((translation) =>
-        translation.includes(normalizedQuery),
-      );
-      const matchingTranslation = matchingTranslationIndex === -1 ? undefined : senses[matchingTranslationIndex];
-      const displayedSense =
-        matchingTranslation ??
-        (normalizedSwedishQuery.length > 0 && normalizedHeadword.includes(normalizedSwedishQuery)
-          ? senses[0]
-          : undefined);
-
-      if (displayedSense !== undefined) {
-        choices.push({ headword, translation: displayedSense.translation });
+    const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
+    for (const {
+      headword,
+      normalizedHeadword,
+      normalizedSwedishForms,
+      normalizedTranslations,
+      senses,
+    } of entries) {
+      const matchingSwedishForm = normalizedSwedishQuery.length === 0
+        ? undefined
+        : normalizedSwedishForms.find((form) => form.includes(normalizedSwedishQuery));
+      let matchingTranslation: LookupChoice | undefined;
+      let matchingTranslationRank: number | null = null;
+      for (const [index, translation] of normalizedTranslations.entries()) {
+        const rank = russianMatchRank({ translation, query: normalizedQuery });
+        if (rank !== null && (matchingTranslationRank === null || rank < matchingTranslationRank)) {
+          matchingTranslation = { headword, translation: senses[index].translation };
+          matchingTranslationRank = rank;
+        }
+      }
+      if (matchingSwedishForm !== undefined) {
+        const isHeadwordMatch = normalizedHeadword.includes(normalizedSwedishQuery);
+        const startsWithQuery = matchingSwedishForm.startsWith(normalizedSwedishQuery);
+        rankedChoices.push({
+          choice: {
+            headword,
+            translation: senses[0]?.translation ?? "",
+          },
+          rank: startsWithQuery ? (isHeadwordMatch ? 0 : 1) : (isHeadwordMatch ? 2 : 3),
+        });
+      } else if (matchingTranslation !== undefined && matchingTranslationRank !== null) {
+        rankedChoices.push({
+          choice: matchingTranslation,
+          rank: matchingTranslationRank,
+        });
       }
     }
 
+    if (exactRussianEntries.length === 1 && rankedChoices.length === 1) {
+      const [exactRussianEntry] = exactRussianEntries;
+      return {
+        kind: "result",
+        headword: exactRussianEntry.headword,
+        senses: exactRussianEntry.senses,
+      };
+    }
+
+    rankedChoices.sort((left, right) => left.rank - right.rank);
+    const choices = rankedChoices.map(({ choice }) => choice);
     return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
   };
 }

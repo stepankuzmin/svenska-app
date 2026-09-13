@@ -29,7 +29,7 @@ describe("Lexin source edition import", () => {
     expect(details.entries.bok).toEqual([
       {
         phonetic: "bu:k",
-        inflections: ["boken", "böcker", "böckerna"],
+        inflections: ["boken", "böcker"],
         examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
         compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
       },
@@ -38,12 +38,77 @@ describe("Lexin source edition import", () => {
     expect(dictionary.russianIndex).toEqual({
       "бронировать": ["bok"],
       "дом": ["hus", "hem"],
+      "жопа": ["arsle"],
       "книга": ["bok"],
+      "младенец": ["baby"],
+      "правдивый": ["sann"],
+      "сентиментальная ценность": ["affektions|värde"],
+      "совместимый": ["förenlig"],
+      "сообщать": ["anger"],
+      "такси": ["taxi"],
+      "хуже": ["värre"],
+      "экшн": ["action"],
     });
+    expect(dictionary.swedishIndex).toMatchObject({
+      ange: ["anger"],
+      angav: ["anger"],
+      anger: ["anger"],
+      angett: ["anger"],
+      arslena: ["arsle"],
+      affektionsvärdena: ["affektions|värde"],
+      babyarna: ["baby"],
+      babyerna: ["baby"],
+      bok: ["bok"],
+      boken: ["bok"],
+      böcker: ["bok"],
+      böckerna: ["bok"],
+      förenlig: ["förenlig"],
+      förenliga: ["förenlig"],
+      förenligt: ["förenlig"],
+      sann: ["sann"],
+      sanna: ["sann"],
+      sannare: ["sann"],
+      sannast: ["sann"],
+      sant: ["sann"],
+      taxi: ["taxi"],
+      taxin: ["taxi"],
+      taxina: ["taxi"],
+      värre: ["värre"],
+      värst: ["värre"],
+      värsta: ["värre"],
+    });
+    expect(dictionary.swedishIndex).not.toHaveProperty("actionen");
+    expect(dictionary.swedishIndex).not.toHaveProperty("actionna");
+    expect(dictionary.swedishIndex).not.toHaveProperty("affektionsvärdenaen");
+    expect(dictionary.swedishIndex).not.toHaveProperty("förenligare");
+    expect(dictionary.swedishIndex).not.toHaveProperty("förenligast");
+    expect(dictionary.swedishIndex).not.toHaveProperty("taxien");
+    expect(dictionary.swedishIndex).not.toHaveProperty("värstare");
+    expect(dictionary.swedishIndex).not.toHaveProperty("värstast");
     expect(createSearch({ dictionary })("книга")).toEqual({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
+    });
+    expect(createSearch({ dictionary })("ange")).toEqual({
+      kind: "result",
+      headword: "anger",
+      senses: dictionary.entries.anger,
+    });
+    expect(createSearch({ dictionary })("böckerna")).toEqual({
+      kind: "result",
+      headword: "bok",
+      senses: dictionary.entries.bok,
+    });
+    expect(createSearch({ dictionary })("arslena")).toEqual({
+      kind: "result",
+      headword: "arsle",
+      senses: dictionary.entries.arsle,
+    });
+    expect(createSearch({ dictionary })("sannare")).toEqual({
+      kind: "result",
+      headword: "sann",
+      senses: dictionary.entries.sann,
     });
   });
 

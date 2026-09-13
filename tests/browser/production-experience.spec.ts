@@ -1,14 +1,55 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const manyRussianHeadwords = Array.from(
+  { length: 120 },
+  (_, index) => `result-${String(index).padStart(3, "0")}`,
+);
+
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
     abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
+    anger: [{ partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    hem: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    hus: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    villa: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    stuga: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    koja: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    residens: [{ partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    bostad: [{ partOfSpeech: "substantiv", meaning: "", translation: "жилой дом" }],
+    dominant: [{ partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [
+      headword,
+      [{ partOfSpeech: "substantiv", meaning: "", translation: "яц" }],
+    ])),
   },
-  russianIndex: { "перерыв на кофе": ["fika", "fikapaus"] },
+  swedishIndex: {
+    abort: ["abort"],
+    abortrådgivning: ["abort|rådgivning"],
+    ange: ["anger"],
+    anger: ["anger"],
+    fika: ["fika"],
+    fikapaus: ["fikapaus"],
+    hem: ["hem"],
+    hus: ["hus"],
+    villa: ["villa"],
+    stuga: ["stuga"],
+    koja: ["koja"],
+    residens: ["residens"],
+    bostad: ["bostad"],
+    dominant: ["dominant"],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [headword, [headword]])),
+  },
+  russianIndex: {
+    "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
+    "доминирующий": ["dominant"],
+    "перерыв на кофе": ["fika", "fikapaus"],
+    "жилой дом": ["bostad"],
+    "яц": manyRussianHeadwords,
+  },
 };
 
 async function openReadyApp(page: Page) {
@@ -63,6 +104,50 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
   await page.getByLabel("Swedish or Russian word").fill("abort");
 
   await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
+});
+
+test("an inflected Swedish form suggests its canonical headword", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("ange");
+
+  await expect(page.getByRole("option")).toHaveText(["anger"]);
+});
+
+test("a Russian word shows every Swedish headword with a containing translation", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("дом");
+
+  await expect(page.getByRole("option")).toHaveText([
+    "hem",
+    "hus",
+    "villa",
+    "stuga",
+    "koja",
+    "residens",
+    "bostad",
+    "dominant",
+  ]);
+
+  for (let index = 0; index < 8; index += 1) {
+    await page.getByLabel("Swedish or Russian word").press("ArrowDown");
+  }
+  await expect(page.getByRole("option", { name: "dominant" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("option", { name: "dominant" })).toBeInViewport();
+});
+
+test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
+  await openReadyApp(page);
+
+  await page.getByLabel("Swedish or Russian word").fill("яц");
+
+  const options = page.getByRole("option");
+  await expect(options).toHaveCount(100);
+  await page.getByRole("listbox").evaluate((listbox) => {
+    listbox.scrollTop = listbox.scrollHeight;
+  });
+  await expect(options).toHaveCount(120);
 });
 
 test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {
