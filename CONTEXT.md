@@ -35,14 +35,14 @@ The open state of a word card, adding Lexin examples and related words that cont
 _Avoid_: Expanded result, accordion item
 
 **Lookup autocomplete**:
-The transient, headword-only listbox attached directly to the search field while the user types. Selecting a suggestion closes the listbox, opens its word card, and adds that entry to the lookup library.
+The transient listbox of matching indexed words attached directly to the search field while the user types. Selecting a suggestion closes the listbox, opens the word card for its canonical headword, and adds that entry to the lookup library.
 _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It matches Swedish headwords and their inflected forms, then shows the canonical headwords in the lookup autocomplete. No visible message replaces the library when there is no match.
+The lookup area responds to every non-blank change in the search field. It shows every indexed Swedish word containing the query. Exact matches come first, followed by prefix matches and then other substring matches. Selecting an inflected form opens its canonical headword. No visible message replaces the library when there is no match.
 
-A Russian query matches every translation containing the entered text. Exact translations appear first, and the scrollable lookup autocomplete includes every matching Swedish headword.
+A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens all corresponding Swedish headwords.
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.
 

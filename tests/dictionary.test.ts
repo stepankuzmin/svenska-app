@@ -28,9 +28,23 @@ const dictionary = {
     byggnad: [sense("subst.", "uppförd konstruktion", "дом")],
     bostad: [sense("subst.", "plats där någon bor", "жилой дом")],
     dominant: [sense("adj.", "som har störst inflytande", "доминирующий")],
+    anger: [
+      sense("verb", "meddela", "сообщать"),
+      sense("verb", "anmäla", "доносить"),
+      sense("verb", "anmäla upprepade gånger", "доносительство"),
+      sense("verb", "inte bära fram", "недоносить"),
+    ],
+    angelägen: [sense("adj.", "viktig", "важный")],
+    angett: [sense("adj.", "uppgiven", "указанный")],
+    arrangemang: [sense("subst.", "evenemang", "мероприятие")],
     "abort|rådgivning": [sense("subst.", "rådgivning om abort", "консультация по аборту")],
   },
   swedishIndex: {
+    ange: ["anger"],
+    anger: ["anger"],
+    angett: ["anger", "angett"],
+    angelägen: ["angelägen"],
+    arrangemang: ["arrangemang"],
     bok: ["bok"],
     boken: ["bok"],
     bostad: ["bostad"],
@@ -47,9 +61,13 @@ const dictionary = {
     abortrådgivning: ["abort|rådgivning"],
   },
   russianIndex: {
+    "100 граммов": ["hus"],
     "бронировать": ["bok"],
+    "доносить": ["anger"],
+    "доносительство": ["anger"],
     "дом": ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
     "книга": ["bok"],
+    "недоносить": ["anger"],
   },
 } satisfies DictionaryAsset;
 
@@ -57,15 +75,30 @@ describe("dictionary lookup", () => {
   const search = createSearch({ dictionary });
 
   it("returns every sense for an exact canonical Swedish headword", () => {
-    expect(search("bok")).toEqual({
+    expect(search("bok")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
   });
 
+  it("returns every indexed Swedish word containing the query in relevance order", () => {
+    expect(search("ange")).toEqual({
+      kind: "result",
+      headword: "anger",
+      senses: dictionary.entries.anger,
+      suggestions: [
+        { displayWord: "ange", headwords: ["anger"], language: "sv" },
+        { displayWord: "anger", headwords: ["anger"], language: "sv" },
+        { displayWord: "angett", headwords: ["anger", "angett"], language: "sv" },
+        { displayWord: "angelägen", headwords: ["angelägen"], language: "sv" },
+        { displayWord: "arrangemang", headwords: ["arrangemang"], language: "sv" },
+      ],
+    });
+  });
+
   it("accepts the displayed form of a canonical Swedish headword containing segment markers", () => {
-    expect(search("abortrådgivning")).toEqual({
+    expect(search("abortrådgivning")).toMatchObject({
       kind: "result",
       headword: "abort|rådgivning",
       senses: dictionary.entries["abort|rådgivning"],
@@ -73,56 +106,47 @@ describe("dictionary lookup", () => {
   });
 
   it("returns the canonical Swedish result with every sense for an exact Russian translation", () => {
-    expect(search(" КНИГА ")).toEqual({
+    expect(search(" КНИГА ")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
   });
 
-  it("returns every Swedish headword whose Russian translation contains the query", () => {
-    expect(search("дом")).toEqual({
+  it("returns every indexed Russian phrase containing the query in relevance order", () => {
+    expect(search("доноси")).toEqual({
       kind: "choices",
       choices: [
-        { headword: "hus", translation: "дом" },
-        { headword: "hem", translation: "дом" },
-        { headword: "koja", translation: "дом" },
-        { headword: "torp", translation: "дом" },
-        { headword: "villa", translation: "дом" },
-        { headword: "stuga", translation: "дом" },
-        { headword: "residens", translation: "дом" },
-        { headword: "hemvist", translation: "дом" },
-        { headword: "byggnad", translation: "дом" },
-        { headword: "bostad", translation: "жилой дом" },
-        { headword: "dominant", translation: "доминирующий" },
+        { displayWord: "доносить", headwords: ["anger"], language: "ru" },
+        { displayWord: "доносительство", headwords: ["anger"], language: "ru" },
+        { displayWord: "недоносить", headwords: ["anger"], language: "ru" },
       ],
+    });
+    expect(search("дом")).toMatchObject({
+      kind: "choices",
+      choices: [{
+        displayWord: "дом",
+        headwords: ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
+        language: "ru",
+      }],
     });
   });
 
-  it("returns every canonical choice containing the Swedish or Russian query", () => {
+  it("matches substrings in both language indexes", () => {
     expect(search("ok")).toEqual({
       kind: "choices",
-      choices: [{ headword: "bok", translation: "книга" }],
-    });
-    expect(search("ниров")).toEqual({
-      kind: "choices",
-      choices: [{ headword: "bok", translation: "бронировать" }],
-    });
-    expect(search("д")).toEqual({
-      kind: "choices",
       choices: [
-        { headword: "hus", translation: "дом" },
-        { headword: "hem", translation: "дом" },
-        { headword: "koja", translation: "дом" },
-        { headword: "torp", translation: "дом" },
-        { headword: "villa", translation: "дом" },
-        { headword: "stuga", translation: "дом" },
-        { headword: "residens", translation: "дом" },
-        { headword: "hemvist", translation: "дом" },
-        { headword: "byggnad", translation: "дом" },
-        { headword: "dominant", translation: "доминирующий" },
-        { headword: "bostad", translation: "жилой дом" },
+        { displayWord: "bok", headwords: ["bok"], language: "sv" },
+        { displayWord: "boken", headwords: ["bok"], language: "sv" },
       ],
+    });
+    expect(search("ниров")).toMatchObject({
+      kind: "choices",
+      choices: [{ displayWord: "бронировать", headwords: ["bok"], language: "ru" }],
+    });
+    expect(search("100")).toMatchObject({
+      kind: "choices",
+      choices: [{ displayWord: "100 граммов", headwords: ["hus"], language: "ru" }],
     });
   });
 

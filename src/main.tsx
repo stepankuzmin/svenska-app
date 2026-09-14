@@ -104,13 +104,16 @@ function LookupApp() {
 
     const nextOutcome = lookupState.search(lookupQuery);
     if (nextOutcome.kind === "result") {
-      addToLibrary(nextOutcome.headword);
+      addToLibrary([nextOutcome.headword]);
     }
   }
 
-  function addToLibrary(headword: string) {
+  function addToLibrary(headwords: readonly string[]) {
     setLibraryHeadwords((currentHeadwords) => {
-      const nextHeadwords = [headword, ...currentHeadwords.filter((item) => item !== headword)];
+      const nextHeadwords = [
+        ...headwords,
+        ...currentHeadwords.filter((item) => !headwords.includes(item)),
+      ];
       writeLookupLibrary(nextHeadwords);
       return nextHeadwords;
     });
@@ -121,9 +124,15 @@ function LookupApp() {
     openLookup(query);
   }
 
-  function selectChoice({ headword, displayQuery }: { headword: string; displayQuery: string }) {
+  function selectChoice({
+    headwords,
+    displayQuery,
+  }: {
+    headwords: readonly string[];
+    displayQuery: string;
+  }) {
     setQuery(displayQuery);
-    openLookup(headword);
+    addToLibrary(headwords);
   }
 
   return (

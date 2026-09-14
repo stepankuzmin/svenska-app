@@ -48,8 +48,10 @@ describe("Lexin source edition import", () => {
       "такси": ["taxi"],
       "хуже": ["värre"],
       "экшн": ["action"],
+      "АО": ["AB"],
     });
     expect(dictionary.swedishIndex).toMatchObject({
+      AB: ["AB"],
       ange: ["anger"],
       angav: ["anger"],
       anger: ["anger"],
@@ -85,30 +87,48 @@ describe("Lexin source edition import", () => {
     expect(dictionary.swedishIndex).not.toHaveProperty("taxien");
     expect(dictionary.swedishIndex).not.toHaveProperty("värstare");
     expect(dictionary.swedishIndex).not.toHaveProperty("värstast");
-    expect(createSearch({ dictionary })("книга")).toEqual({
+    expect(createSearch({ dictionary })("книга")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
-    expect(createSearch({ dictionary })("ange")).toEqual({
+    expect(createSearch({ dictionary })("ange")).toMatchObject({
       kind: "result",
       headword: "anger",
       senses: dictionary.entries.anger,
     });
-    expect(createSearch({ dictionary })("böckerna")).toEqual({
+    expect(createSearch({ dictionary })("böckerna")).toMatchObject({
       kind: "result",
       headword: "bok",
       senses: dictionary.entries.bok,
     });
-    expect(createSearch({ dictionary })("arslena")).toEqual({
+    expect(createSearch({ dictionary })("arslena")).toMatchObject({
       kind: "result",
       headword: "arsle",
       senses: dictionary.entries.arsle,
     });
-    expect(createSearch({ dictionary })("sannare")).toEqual({
+    expect(createSearch({ dictionary })("sannare")).toMatchObject({
       kind: "result",
       headword: "sann",
       senses: dictionary.entries.sann,
+    });
+    const uppercaseResult = createSearch({ dictionary })("ab");
+    expect(uppercaseResult).toMatchObject({
+      kind: "result",
+      headword: "AB",
+    });
+    expect(uppercaseResult.kind === "result" ? uppercaseResult.suggestions[0] : null).toEqual({
+      displayWord: "AB",
+      headwords: ["AB"],
+      language: "sv",
+    });
+    const uppercaseRussianResult = createSearch({ dictionary })("ао");
+    expect(
+      uppercaseRussianResult.kind === "result" ? uppercaseRussianResult.suggestions[0] : null,
+    ).toEqual({
+      displayWord: "АО",
+      headwords: ["AB"],
+      language: "ru",
     });
   });
 

@@ -171,16 +171,16 @@ function addToIndex({
   form: string;
   headword: string;
 }): void {
-  const normalizedForm = normalizeLookupText(form.replaceAll("|", ""));
-  if (normalizedForm.length === 0) {
+  const displayForm = form.replaceAll("|", "").trim();
+  if (displayForm.length === 0) {
     return;
   }
 
-  const matchingHeadwords = index[normalizedForm] ?? [];
+  const matchingHeadwords = index[displayForm] ?? [];
   if (!matchingHeadwords.includes(headword)) {
     matchingHeadwords.push(headword);
   }
-  index[normalizedForm] = matchingHeadwords;
+  index[displayForm] = matchingHeadwords;
 }
 
 function childValues(
@@ -283,13 +283,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       addToIndex({ index: swedishIndex, form, headword });
     }
 
-    const normalizedTranslation = normalizeLookupText(translation);
-    if (normalizedTranslation.length > 0) {
-      const matchingHeadwords = russianIndex[normalizedTranslation] ?? [];
+    const displayTranslation = translation.trim();
+    if (displayTranslation.length > 0) {
+      const matchingHeadwords = russianIndex[displayTranslation] ?? [];
       if (!matchingHeadwords.includes(headword)) {
         matchingHeadwords.push(headword);
       }
-      russianIndex[normalizedTranslation] = matchingHeadwords;
+      russianIndex[displayTranslation] = matchingHeadwords;
     }
   }
 

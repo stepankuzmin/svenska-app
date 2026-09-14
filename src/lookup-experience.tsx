@@ -8,7 +8,7 @@ import {
   type UIEvent,
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
-import type { LookupOutcome } from "./dictionary";
+import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
@@ -28,7 +28,7 @@ type LookupExperienceProps = {
   libraryHeadwords: readonly string[];
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (selection: { headword: string; displayQuery: string }) => void;
+  onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
 };
 
 type WordItem = {
@@ -36,6 +36,8 @@ type WordItem = {
   senses: readonly DictionarySense[];
   details: readonly WordDetails[];
 };
+
+type SuggestionItem = LookupChoice;
 
 type RelatedWord = {
   headword: string;
@@ -58,63 +60,14 @@ function translationFor(senses: readonly DictionarySense[]): string {
 
 function getSuggestionItems({
   outcome,
-  query,
-  entries,
-  details,
 }: {
   outcome: LookupOutcome | null;
-  query: string;
-  entries: DictionaryAsset["entries"] | null;
-  details: DictionaryDetailsAsset["entries"] | null;
-}): readonly WordItem[] {
-  if (outcome === null || outcome.kind === "no-match" || entries === null) {
+}): readonly SuggestionItem[] {
+  if (outcome === null || outcome.kind === "no-match") {
     return [];
   }
 
-  if (outcome.kind === "choices") {
-    const visibleChoices = /\p{Script=Cyrillic}/u.test(query)
-      ? outcome.choices
-      : outcome.choices.slice(0, 6);
-    return visibleChoices
-      .flatMap((choice) => {
-        const senses = entries[choice.headword];
-        return senses === undefined
-          ? []
-          : [{ headword: choice.headword, senses, details: details?.[choice.headword] ?? [] }];
-      });
-  }
-
-  const normalizedQuery = normalizeLookupText(query);
-  const isExactSwedishResult =
-    normalizeLookupText(cleanLexinText(outcome.headword)) === normalizedQuery;
-  if (!isExactSwedishResult) {
-    return [{
-      headword: outcome.headword,
-      senses: outcome.senses,
-      details: details?.[outcome.headword] ?? [],
-    }];
-  }
-
-  const matches: WordItem[] = [{
-    headword: outcome.headword,
-    senses: outcome.senses,
-    details: details?.[outcome.headword] ?? [],
-  }];
-  for (const headword in entries) {
-    if (headword === outcome.headword) {
-      continue;
-    }
-
-    if (normalizeLookupText(cleanLexinText(headword)).startsWith(normalizedQuery)) {
-      const senses = entries[headword];
-      matches.push({ headword, senses, details: details?.[headword] ?? [] });
-      if (matches.length === 6) {
-        break;
-      }
-    }
-  }
-
-  return matches;
+  return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
 }
 
 function getLibraryItems(
@@ -257,9 +210,6 @@ const WordCard = memo(function WordCard({
 export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems({
     outcome: props.outcome,
-    query: props.query,
-    entries: props.entries,
-    details: props.details,
   });
   const library = useMemo(
     () => getLibraryItems(props.libraryHeadwords, props.entries, props.details),
@@ -286,13 +236,13 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
-  function selectSuggestion(item: WordItem) {
+  function selectSuggestion(item: SuggestionItem) {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedHeadword(item.headword);
+    setExpandedHeadword(item.headwords[0] ?? null);
     props.onSelectSuggestion({
-      headword: item.headword,
-      displayQuery: cleanLexinText(item.headword),
+      headwords: item.headwords,
+      displayQuery: item.displayWord,
     });
   }
 
@@ -385,7 +335,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.headword}-${index}`}
+                key={`${item.displayWord}-${index}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
@@ -393,7 +343,9 @@ export function LookupExperience(props: LookupExperienceProps) {
                 onPointerDown={(event) => event.preventDefault()}
                 onClick={() => selectSuggestion(item)}
               >
-                <strong lang="sv">{cleanLexinText(item.headword)}</strong>
+                <strong lang={item.language}>
+                  {item.displayWord}
+                </strong>
               </li>
             ))}
           </ul>
