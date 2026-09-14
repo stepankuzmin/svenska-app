@@ -8,7 +8,7 @@ const manyRussianHeadwords = Array.from(
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    AB: [{ partOfSpeech: "substantiv", meaning: "aktiebolag", translation: "акционерное общество" }],
+    AB: [{ partOfSpeech: "substantiv", meaning: "aktiebolag", translation: "АО" }],
     abort: [{ partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
     "abort|rådgivning": [{ partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
     anger: [{ partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
@@ -49,6 +49,7 @@ const dictionary = {
   },
   russianIndex: {
     "100 граммов": ["hus"],
+    "АО": ["AB"],
     "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
     "доминирующий": ["dominant"],
     "перерыв на кофе": ["fika", "fikapaus"],
@@ -117,6 +118,11 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
   await page.getByLabel("Swedish or Russian word").fill("ange");
 
   await expect(page.getByRole("option")).toHaveText(["ange", "anger", "angett"]);
+  await page.getByRole("option", { name: "angett" }).click();
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText([
+    "anger",
+    "angett",
+  ]);
 
   await page.getByLabel("Swedish or Russian word").fill("ab");
   await expect(page.getByRole("option").first()).toHaveText("AB");
@@ -126,6 +132,10 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("ао");
+  await expect(page.getByRole("option")).toHaveText(["АО"]);
+  await expect(page.getByRole("option").locator("strong")).toHaveAttribute("lang", "ru");
+
   await query.fill("100");
   await expect(page.getByRole("option")).toHaveText([
     "100 граммов",

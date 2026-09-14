@@ -82,7 +82,23 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
     swedishHeadwordsByForm.set(normalizedDisplayWord, indexedHeadwords);
   }
-  const russianIndexEntries = Object.entries(dictionary.russianIndex);
+  const russianIndexEntries = Object.entries(dictionary.russianIndex).map(
+    ([displayWord, headwords]) => ({
+      displayWord,
+      normalizedDisplayWord: normalizeLookupText(displayWord),
+      headwords,
+    }),
+  );
+  const russianHeadwordsByForm = new Map<string, string[]>();
+  for (const { normalizedDisplayWord, headwords } of russianIndexEntries) {
+    const indexedHeadwords = russianHeadwordsByForm.get(normalizedDisplayWord) ?? [];
+    for (const headword of headwords) {
+      if (!indexedHeadwords.includes(headword)) {
+        indexedHeadwords.push(headword);
+      }
+    }
+    russianHeadwordsByForm.set(normalizedDisplayWord, indexedHeadwords);
+  }
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
@@ -100,9 +116,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     const exactSwedishEntries = exactSwedishEntry === undefined
       ? exactIndexedEntries
       : [exactSwedishEntry, ...exactIndexedEntries];
-    const russianHeadwords = Object.hasOwn(dictionary.russianIndex, normalizedQuery)
-      ? dictionary.russianIndex[normalizedQuery]
-      : [];
+    const russianHeadwords = russianHeadwordsByForm.get(normalizedQuery) ?? [];
     const exactRussianEntries = russianHeadwords.flatMap((headword) => {
       const entry = entriesByHeadword.get(headword);
       return entry === undefined ? [] : [entry];
@@ -113,9 +127,9 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
 
     const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
-    for (const [displayWord, indexedRussianHeadwords] of russianIndexEntries) {
-      const rank = russianMatchRank({ text: displayWord, query: normalizedQuery });
-      const headwords = indexedRussianHeadwords.filter((headword) => entriesByHeadword.has(headword));
+    for (const { displayWord, normalizedDisplayWord, headwords: indexedHeadwords } of russianIndexEntries) {
+      const rank = russianMatchRank({ text: normalizedDisplayWord, query: normalizedQuery });
+      const headwords = indexedHeadwords.filter((headword) => entriesByHeadword.has(headword));
       if (rank !== null && headwords.length > 0) {
         rankedChoices.push({ choice: { displayWord, headwords, language: "ru" }, rank });
       }
@@ -134,14 +148,15 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
           ? 1
           : 2;
-      const headword = headwords.find(
-        (candidate) => normalizeSwedishLookupText(candidate) === normalizedDisplayWord,
-      ) ?? headwords[0];
-      if (headword === undefined || !entriesByHeadword.has(headword)) {
+      const indexedSwedishHeadwords = headwords.filter((headword) => entriesByHeadword.has(headword));
+      if (indexedSwedishHeadwords.length === 0) {
         continue;
       }
 
-      rankedChoices.push({ choice: { displayWord, headwords: [headword], language: "sv" }, rank });
+      rankedChoices.push({
+        choice: { displayWord, headwords: indexedSwedishHeadwords, language: "sv" },
+        rank,
+      });
     }
 
     rankedChoices.sort((left, right) => {

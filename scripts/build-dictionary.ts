@@ -283,13 +283,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       addToIndex({ index: swedishIndex, form, headword });
     }
 
-    const normalizedTranslation = normalizeLookupText(translation);
-    if (normalizedTranslation.length > 0) {
-      const matchingHeadwords = russianIndex[normalizedTranslation] ?? [];
+    const displayTranslation = translation.trim();
+    if (displayTranslation.length > 0) {
+      const matchingHeadwords = russianIndex[displayTranslation] ?? [];
       if (!matchingHeadwords.includes(headword)) {
         matchingHeadwords.push(headword);
       }
-      russianIndex[normalizedTranslation] = matchingHeadwords;
+      russianIndex[displayTranslation] = matchingHeadwords;
     }
   }
 

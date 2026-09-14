@@ -104,6 +104,6 @@
   </Word>
   <Word ID="13" MatchingID="113" Type="subst." Value="AB">
     <BaseLang><Meaning>aktiebolag</Meaning></BaseLang>
-    <TargetLang><Translation>акционерное общество</Translation></TargetLang>
+    <TargetLang><Translation>АО</Translation></TargetLang>
   </Word>
 </Dictionary>

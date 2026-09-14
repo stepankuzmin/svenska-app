@@ -90,7 +90,7 @@ describe("dictionary lookup", () => {
       suggestions: [
         { displayWord: "ange", headwords: ["anger"], language: "sv" },
         { displayWord: "anger", headwords: ["anger"], language: "sv" },
-        { displayWord: "angett", headwords: ["angett"], language: "sv" },
+        { displayWord: "angett", headwords: ["anger", "angett"], language: "sv" },
         { displayWord: "angelägen", headwords: ["angelägen"], language: "sv" },
         { displayWord: "arrangemang", headwords: ["arrangemang"], language: "sv" },
       ],
