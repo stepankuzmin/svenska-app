@@ -12,7 +12,9 @@ import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dicti
 import { LookupExperience } from "./lookup-experience";
 import "./lookup-experience.css";
 
-if ("serviceWorker" in navigator) {
+const isPullRequestPreview = import.meta.env.BASE_URL.includes("/pr-preview/");
+
+if ("serviceWorker" in navigator && !isPullRequestPreview) {
   void navigator.serviceWorker
     .register(`${import.meta.env.BASE_URL}sw.js`, { scope: import.meta.env.BASE_URL })
     .catch(() => {});

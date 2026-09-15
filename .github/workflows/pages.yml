@@ -2,19 +2,25 @@ name: GitHub Pages
 
 on:
   pull_request:
+    types: [opened, reopened, synchronize, closed]
   push:
     branches: [main]
   workflow_dispatch:
 
 concurrency:
-  group: pages
-  cancel-in-progress: false
+  group: pages-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
+env:
+  SITE_BASE_PATH: /${{ github.event.repository.name }}/
+  PREVIEW_DIR: pr-preview/pr-${{ github.event.pull_request.number }}
+
 jobs:
   build:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     env:
       VITE_BASE_PATH: /${{ github.event.repository.name }}/
@@ -40,23 +46,91 @@ jobs:
         run: npm run release:check
       - name: Run built PWA journey
         run: npm run test:browser:release
-      - name: Upload validated Pages artifact
-        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-        uses: actions/upload-pages-artifact@v5
+      - name: Rebuild for the pull request preview path
+        if: github.event_name == 'pull_request'
+        run: npm run build
+        env:
+          VITE_BASE_PATH: ${{ env.SITE_BASE_PATH }}${{ env.PREVIEW_DIR }}/
+      - name: Upload validated site
+        uses: actions/upload-artifact@v7
         with:
+          name: site
           path: dist
+          retention-days: 1
 
-  deploy:
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+  publish:
     needs: build
+    if: >-
+      github.event.action != 'closed' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-latest
     permissions:
-      pages: write
-      id-token: write
+      contents: write
+      deployments: write
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
     environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      name: ${{ github.event_name == 'pull_request' && format('pr-preview-{0}', github.event.pull_request.number) || 'production' }}
+      url: ${{ steps.publish.outputs.url }}
     steps:
-      - name: Deploy validated artifact
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/publish-pages.sh
+          sparse-checkout-cone-mode: false
+      - name: Download validated site
+        uses: actions/download-artifact@v8
+        with:
+          name: site
+          path: dist
+      - name: Publish to the gh-pages branch
+        id: publish
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DESTINATION: ${{ github.event_name == 'pull_request' && env.PREVIEW_DIR || '.' }}
+        run: |
+          scripts/publish-pages.sh "$DESTINATION" dist
+          url="https://${GITHUB_REPOSITORY_OWNER}.github.io${SITE_BASE_PATH}"
+          if [ "$DESTINATION" != "." ]; then
+            url="${url}${DESTINATION}/"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "[$url]($url)" >> "$GITHUB_STEP_SUMMARY"
+
+  remove-preview:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: write
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts/publish-pages.sh
+          sparse-checkout-cone-mode: false
+      - name: Delete the preview directory
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: scripts/publish-pages.sh "$PREVIEW_DIR"
+      - name: Deactivate the preview deployments
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const environment = `pr-preview-${context.payload.pull_request.number}`;
+            const deployments = await github.paginate(github.rest.repos.listDeployments, {
+              ...context.repo,
+              environment,
+            });
+            for (const deployment of deployments) {
+              await github.rest.repos.createDeploymentStatus({
+                ...context.repo,
+                deployment_id: deployment.id,
+                state: "inactive",
+              });
+            }
