@@ -7,7 +7,7 @@
     "build": "npm run dictionary:build && tsc -b && vite build",
     "dev": "npm run dictionary:build && vite",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
-    "test:browser": "npm run build && playwright test",
+    "test:browser": "node scripts/run-browser-tests.mjs",
     "test:browser:release": "playwright test",
     "release:check": "tsx scripts/validate-dictionary-release.ts",
     "test": "vitest run",

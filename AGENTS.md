@@ -24,3 +24,7 @@ Scope approval to the exact requested action. A request to create a PR authorize
 ## Git commits
 
 Create Codex-authored commits with `git commit --author="Codex <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>"`; leave the user's Git configuration unchanged.
+
+## Browser verification
+
+For UI, mobile, or PWA changes, run `npm run test:browser` before reporting completion. It builds the shipped app, runs production Playwright in Chromium and WebKit, and fails if a new macOS Chrome or Playwright crash report appears. `npm run test:vitest:browser` only checks the touch component scenario and does not replace that gate. If local socket permissions block the command, rerun it with the required sandbox escalation; an `EPERM` startup error is not a test result.
