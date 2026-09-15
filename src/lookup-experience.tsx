@@ -270,8 +270,18 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }
 
+  function closeAutocompleteOutsideForm(target: EventTarget) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete") === null) {
+      setAutocompleteOpen(false);
+    }
+  }
+
   return (
-    <main className="minimal-lookup">
+    <main
+      className="minimal-lookup"
+      onPointerDownCapture={(event) => closeAutocompleteOutsideForm(event.target)}
+      onFocusCapture={(event) => closeAutocompleteOutsideForm(event.target)}
+    >
       <form className="lookup-autocomplete" action="/" method="get" onSubmit={submitLookup}>
         <label className="visually-hidden" htmlFor={inputId}>Swedish or Russian word</label>
         <input
@@ -287,7 +297,6 @@ export function LookupExperience(props: LookupExperienceProps) {
             setExpandedHeadword(null);
           }}
           onFocus={() => setAutocompleteOpen(props.query.trim().length > 0)}
-          onBlur={() => setAutocompleteOpen(false)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -340,7 +349,6 @@ export function LookupExperience(props: LookupExperienceProps) {
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
                 aria-setsize={suggestions.length}
-                onPointerDown={(event) => event.preventDefault()}
                 onClick={() => selectSuggestion(item)}
               >
                 <strong lang={item.language}>

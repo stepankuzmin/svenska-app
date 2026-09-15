@@ -32,6 +32,8 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Run unit tests
         run: npm test
+      - name: Run mobile touch test in Vitest browsers
+        run: npm run test:vitest:browser
       - name: Generate dictionary and build application
         run: npm run build
       - name: Validate dictionary release
