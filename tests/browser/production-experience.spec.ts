@@ -220,9 +220,7 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
 test("a library row shows no press highlight while the page is scrolling", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Forcing :active needs the Chrome DevTools Protocol.");
 
-  await page.addInitScript(() => {
-    localStorage.setItem("svenska.lookup-library", JSON.stringify(["fika"]));
-  });
+  await page.addInitScript(`localStorage.setItem("svenska.lookup-library", '["fika"]')`);
   await openReadyApp(page);
   const summary = page.locator(".word-card summary");
   await expect(summary).toHaveCount(1);
@@ -235,11 +233,11 @@ test("a library row shows no press highlight while the page is scrolling", async
   await session.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
 
   const background = () =>
-    page.evaluate(() => getComputedStyle(document.querySelector(".word-card summary")!).backgroundColor);
+    page.evaluate("getComputedStyle(document.querySelector('.word-card summary')).backgroundColor");
   const pressed = await background();
   expect(pressed).not.toBe("rgba(0, 0, 0, 0)");
 
-  await page.evaluate(() => window.dispatchEvent(new Event("scroll")));
+  await page.evaluate("window.dispatchEvent(new Event('scroll'))");
   expect(await background()).toBe("rgba(0, 0, 0, 0)");
 });
 
