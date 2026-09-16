@@ -66,8 +66,49 @@ body {
   font-size: 1rem;
   inline-size: 100%;
   min-block-size: 3rem;
-  padding-inline: .8rem;
+  padding-inline: .8rem 3rem;
 }
+
+.lookup-clear {
+  align-items: center;
+  appearance: none;
+  background: none;
+  border: 0;
+  color: var(--lookup-muted);
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: .95rem;
+  inline-size: 3rem;
+  inset-block: 0;
+  inset-inline-end: 0;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  touch-action: manipulation;
+  z-index: 1;
+}
+
+.lookup-clear:focus-visible {
+  border-radius: .65rem;
+  outline: 3px solid var(--lookup-blue);
+  outline-offset: -3px;
+}
+
+.lookup-clear span {
+  align-items: center;
+  background: #d4d4d8;
+  block-size: 1.3rem;
+  border-radius: 50%;
+  color: var(--lookup-card);
+  display: flex;
+  font-size: .75rem;
+  inline-size: 1.3rem;
+  justify-content: center;
+  line-height: 1;
+}
+
+.lookup-clear:active span { background: #a9a9b0; }
 
 .minimal-lookup input[aria-expanded="true"] {
   border-end-end-radius: 0;
@@ -141,14 +182,23 @@ body {
 
 .word-card-list > li + li { border-block-start: 1px solid var(--lookup-soft-line); }
 
-.word-card summary {
-  cursor: pointer;
+.word-card summary,
+.word-card-plain {
   display: grid;
   gap: .45rem;
   grid-template-columns: .6rem minmax(0, 1fr);
-  list-style: none;
   min-block-size: 3rem;
   padding: .65rem .8rem .7rem;
+}
+
+.word-card-plain {
+  grid-template-columns: minmax(0, 1fr);
+  padding-inline-start: 1.85rem;
+}
+
+.word-card summary {
+  cursor: pointer;
+  list-style: none;
   touch-action: manipulation;
 }
 
@@ -272,6 +322,8 @@ body {
   }
 
   .minimal-lookup input { border-color: #68686d; box-shadow: inset 0 1px 2px rgb(0 0 0 / 45%); }
+  .lookup-clear span { background: #636367; color: var(--lookup-ink); }
+  .lookup-clear:active span { background: #7c7c82; }
   .minimal-lookup input::placeholder { color: #aeaeb2; }
   .suggestion-menu { border-color: #68686d; box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 45%); }
   .suggestion-menu li[aria-selected="true"],
