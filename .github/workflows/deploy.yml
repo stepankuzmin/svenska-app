@@ -1,0 +1,87 @@
+name: Deploy
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Install browser engines
+        run: npx playwright install --with-deps chromium webkit
+      - name: Run unit tests
+        run: npm test
+      - name: Generate dictionary and build application
+        run: npm run build
+      - name: Run mobile touch test in Vitest browsers
+        run: npm run test:vitest:browser
+      - name: Validate dictionary release
+        run: npm run release:check
+      - name: Run built PWA journey
+        run: npm run test:browser:release
+      - name: Upload validated site
+        uses: actions/upload-artifact@v7
+        with:
+          name: site
+          path: dist
+          retention-days: 1
+
+  deploy:
+    needs: build
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ github.event_name == 'pull_request' && format('pr-preview-{0}', github.event.pull_request.number) || 'production' }}
+      url: ${{ steps.preview.outputs.deployment-url || steps.production.outputs.deployment-url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: wrangler.jsonc
+          sparse-checkout-cone-mode: false
+      - name: Download validated site
+        uses: actions/download-artifact@v8
+        with:
+          name: site
+          path: dist
+      - name: Upload a preview version
+        if: github.event_name == 'pull_request'
+        id: preview
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: versions upload
+      - name: Deploy to production
+        if: github.event_name != 'pull_request'
+        id: production
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+      - name: Link the deployment
+        env:
+          URL: ${{ steps.preview.outputs.deployment-url || steps.production.outputs.deployment-url }}
+        run: echo "[$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"

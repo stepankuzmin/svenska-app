@@ -6,3 +6,4 @@ src/generated/dictionary-asset.ts
 *.tsbuildinfo
 playwright-report/
 test-results/
+.wrangler/
