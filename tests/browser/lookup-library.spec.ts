@@ -100,6 +100,23 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await expect(query).toBeFocused();
 });
 
+test("a q link opens its exact match rather than previewing it", async ({ page }) => {
+  await page.goto("./?q=fika");
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByText("[\u00b2fi:ka]", { exact: true })).toBeVisible();
+  await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("fika");
+});
+
+test("a q link with no exact match still previews suggestions", async ({ page }) => {
+  await page.goto("./?q=fik");
+
+  await expect(page.getByRole("option", { name: "fika", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Library" })).toHaveCount(0);
+});
+
 test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
   await page.goto(".");
 

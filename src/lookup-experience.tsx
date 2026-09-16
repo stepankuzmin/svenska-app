@@ -29,6 +29,7 @@ type LookupExperienceProps = {
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
   libraryHeadwords: readonly string[];
+  deepLinkHeadword: string | null;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
@@ -275,6 +276,19 @@ export function LookupExperience(props: LookupExperienceProps) {
     : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
   const queryInput = useRef<HTMLInputElement>(null);
+  // A touch device focuses the field on the first tap instead, so the caret
+  // never sits in a field that cannot raise a keyboard yet.
+  const [autoFocusField] = useState(() => !window.matchMedia("(pointer: coarse)").matches);
+
+  useEffect(() => {
+    if (props.deepLinkHeadword === null) {
+      return;
+    }
+
+    setAutocompleteOpen(false);
+    setActiveSuggestionIndex(-1);
+    setExpandedHeadword(props.deepLinkHeadword);
+  }, [props.deepLinkHeadword]);
 
   useEffect(() => {
     if (activeSuggestionIndex >= 0) {
@@ -329,6 +343,14 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }
 
+  // Focusing from a tap on the page keeps the keyboard a gesture away without
+  // making the user land on the field itself.
+  function focusFieldFromBackground(target: EventTarget) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, a") === null) {
+      queryInput.current?.focus();
+    }
+  }
+
   function closeAutocompleteOutsideForm(target: EventTarget) {
     if (target instanceof Element && target.closest(".lookup-autocomplete") === null) {
       setAutocompleteOpen(false);
@@ -340,6 +362,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       className="minimal-lookup"
       onPointerDownCapture={(event) => closeAutocompleteOutsideForm(event.target)}
       onFocusCapture={(event) => closeAutocompleteOutsideForm(event.target)}
+      onClick={(event) => focusFieldFromBackground(event.target)}
     >
       <form className="lookup-autocomplete" action="/" method="get" onSubmit={submitLookup}>
         <label className="visually-hidden" htmlFor={inputId}>Swedish or Russian word</label>
@@ -388,7 +411,7 @@ export function LookupExperience(props: LookupExperienceProps) {
           aria-expanded={visibleSuggestions.length > 0}
           aria-activedescendant={activeSuggestion === undefined ? undefined : `${listId}-${activeSuggestionIndex}`}
           placeholder={placeholder}
-          autoFocus
+          autoFocus={autoFocusField}
           enterKeyHint="search"
           autoComplete="off"
           spellCheck="false"

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { z } from "zod";
@@ -11,6 +11,7 @@ import {
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
+import { normalizeLookupText } from "./normalize-lookup-text";
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -27,6 +28,10 @@ type LookupState =
       entries: DictionaryAsset["entries"];
     }
   | { kind: "unavailable-offline" };
+
+function readDeepLinkQuery(): string {
+  return new URLSearchParams(window.location.search).get("q") ?? "";
+}
 
 function prefersMotion(): boolean {
   return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -53,7 +58,9 @@ function writeLookupLibrary(headwords: readonly string[]) {
 }
 
 function LookupApp() {
-  const [query, setQuery] = useState(() => new URLSearchParams(window.location.search).get("q") ?? "");
+  const [query, setQuery] = useState(readDeepLinkQuery);
+  const [deepLinkHeadword, setDeepLinkHeadword] = useState<string | null>(null);
+  const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
   const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
@@ -103,6 +110,36 @@ function LookupApp() {
         }
       });
   }, []);
+
+  // A ?q= link opens its exact match the way submitting the field does, so an
+  // iOS Shortcut can hand the app a word and land on the card.
+  useEffect(() => {
+    if (lookupState.kind !== "ready" || pendingDeepLinkQuery.current.length === 0) {
+      return;
+    }
+
+    const lookupQuery = pendingDeepLinkQuery.current;
+    pendingDeepLinkQuery.current = "";
+    const deepLinkOutcome = lookupState.search(lookupQuery);
+    if (deepLinkOutcome.kind === "result") {
+      setDeepLinkHeadword(deepLinkOutcome.headword);
+      addToLibrary([deepLinkOutcome.headword]);
+      return;
+    }
+
+    // A word like "fika" indexes several headwords, so an exact link opens all
+    // of them the way choosing that suggestion does.
+    const [closestChoice] = deepLinkOutcome.kind === "choices" ? deepLinkOutcome.choices : [];
+    if (
+      closestChoice === undefined ||
+      normalizeLookupText(closestChoice.displayWord) !== normalizeLookupText(lookupQuery)
+    ) {
+      return;
+    }
+
+    setDeepLinkHeadword(closestChoice.headwords[0] ?? null);
+    addToLibrary(closestChoice.headwords);
+  }, [lookupState]);
 
   function openLookup(lookupQuery: string) {
     if (lookupState.kind !== "ready") {
@@ -159,6 +196,7 @@ function LookupApp() {
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}
       libraryHeadwords={libraryHeadwords}
+      deepLinkHeadword={deepLinkHeadword}
       onQueryChange={setQuery}
       onSubmit={submit}
       onSelectSuggestion={selectChoice}

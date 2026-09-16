@@ -206,6 +206,28 @@ test("the minimal layout fits a narrow zoomed viewport and keeps visible focus",
   await expect(page.locator("header, footer, main button")).toHaveCount(0);
 });
 
+test("a q link opens every headword an exact word indexes", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto("./?q=angett");
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByRole("listitem")).toHaveText([/anger/, /angett/]);
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
+test("a tap on the page background focuses the search field", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.blur();
+  await expect(query).not.toBeFocused();
+
+  await page.getByText("Lexin, ISOF", { exact: true }).click();
+  await expect(query).toBeFocused();
+});
+
 test("the shipped interface credits the dictionary source and license", async ({ page }) => {
   await openReadyApp(page);
 
