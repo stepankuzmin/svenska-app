@@ -1,6 +1,7 @@
 import {
   dictionaryAssetSchema,
   dictionaryDetailsAssetSchema,
+  dictionaryMetadataSchema,
   type DictionaryAsset,
   type DictionaryDetailsAsset,
 } from "./dictionary-contract";
@@ -201,6 +202,44 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
 
 export function isDictionaryAsset(value: unknown): value is DictionaryAsset {
   return dictionaryAssetSchema.safeParse(value).success;
+}
+
+function looksLikeRecordOfArrays(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  // Samples the first key rather than listing 64k of them on the startup path.
+  for (const key in value) {
+    return Array.isArray((value as Record<string, unknown>)[key]);
+  }
+
+  return true;
+}
+
+// The release script deep-parses these exact bytes and the asset filename is
+// their content digest, so startup only confirms the file is the right shape.
+export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsset {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const asset = value as Partial<DictionaryAsset>;
+  return (
+    dictionaryMetadataSchema.safeParse(asset.metadata).success &&
+    looksLikeRecordOfArrays(asset.entries) &&
+    looksLikeRecordOfArrays(asset.swedishIndex) &&
+    looksLikeRecordOfArrays(asset.russianIndex)
+  );
+}
+
+export function hasDictionaryDetailsShape(value: unknown): value is DictionaryDetailsAsset {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const asset = value as Partial<DictionaryDetailsAsset>;
+  return typeof asset.sourceEditionDate === "string" && looksLikeRecordOfArrays(asset.entries);
 }
 
 export function isDictionaryDetailsAsset(value: unknown): value is DictionaryDetailsAsset {

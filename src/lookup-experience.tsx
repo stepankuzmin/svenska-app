@@ -5,6 +5,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type FormEvent,
   type UIEvent,
 } from "react";
@@ -54,6 +55,10 @@ type RelatedWord = {
 };
 
 const suggestionBatchSize = 100;
+
+// Every named card costs a snapshot pair, so only the cards a phone can show
+// take part in the move to the top.
+const animatedCardLimit = 12;
 
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
@@ -151,10 +156,12 @@ function getRelatedWords(
 const WordCard = memo(function WordCard({
   item,
   expanded,
+  transitionName,
   onToggle,
 }: {
   item: WordItem;
   expanded: boolean;
+  transitionName: string;
   onToggle: (headword: string) => void;
 }) {
   const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
@@ -186,16 +193,20 @@ const WordCard = memo(function WordCard({
     </span>
   );
 
+  const style = (transitionName.length > 0
+    ? { "--word-card-name": transitionName }
+    : undefined) as CSSProperties | undefined;
+
   if (examples.length === 0 && item.relatedWords.length === 0) {
     return (
-      <li>
+      <li style={style}>
         <div className="word-card-plain">{copy}</div>
       </li>
     );
   }
 
   return (
-    <li>
+    <li style={style}>
       <details className="word-card" open={expanded}>
         <summary
           onClick={(event) => {
@@ -258,6 +269,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
   const [expandedHeadword, setExpandedHeadword] = useState<string | null>(null);
+  const transitionNames = useRef(new Map<string, string>());
   const visibleSuggestions = autocompleteOpen
     ? suggestions.slice(0, renderedSuggestionCount)
     : [];
@@ -289,6 +301,19 @@ export function LookupExperience(props: LookupExperienceProps) {
     setRenderedSuggestionCount((current) =>
       Math.min(suggestions.length, current + suggestionBatchSize),
     );
+  }
+
+  // A headword can hold any character, so cards are named by order of first
+  // sight rather than by a sanitised headword that could collide.
+  function transitionNameFor(headword: string): string {
+    const existing = transitionNames.current.get(headword);
+    if (existing !== undefined) {
+      return existing;
+    }
+
+    const name = `word-card-${transitionNames.current.size}`;
+    transitionNames.current.set(headword, name);
+    return name;
   }
 
   const toggleExpanded = useCallback((headword: string) => {
@@ -396,7 +421,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.displayWord}-${index}`}
+                key={`${item.language}:${item.displayWord}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
@@ -412,7 +437,11 @@ export function LookupExperience(props: LookupExperienceProps) {
         ) : null}
       </form>
 
-      <div className="visually-hidden" role="status" aria-live="polite">
+      <div
+        className={props.lookupState.kind === "unavailable-offline" ? "lookup-status" : "visually-hidden"}
+        role="status"
+        aria-live="polite"
+      >
         {props.lookupState.kind === "loading" ? "Loading dictionary…" : null}
         {props.lookupState.kind === "unavailable-offline"
           ? "Connect once while online. After that, you can look up words offline."
@@ -423,11 +452,12 @@ export function LookupExperience(props: LookupExperienceProps) {
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 id="lookup-library-heading">Library</h2>
           <ul className="word-card-list" role="list">
-            {library.map((item) => (
+            {library.map((item, index) => (
               <WordCard
                 key={item.headword}
                 item={item}
                 expanded={expandedHeadword === item.headword}
+                transitionName={index < animatedCardLimit ? transitionNameFor(item.headword) : ""}
                 onToggle={toggleExpanded}
               />
             ))}

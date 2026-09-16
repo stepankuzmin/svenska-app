@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import {
   createSearch,
-  isDictionaryAsset,
-  isDictionaryDetailsAsset,
+  hasDictionaryAssetShape,
+  hasDictionaryDetailsShape,
   type LookupOutcome,
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
@@ -26,6 +27,10 @@ type LookupState =
       entries: DictionaryAsset["entries"];
     }
   | { kind: "unavailable-offline" };
+
+function prefersMotion(): boolean {
+  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
 const lookupLibrarySchema = z.array(z.string());
@@ -52,8 +57,10 @@ function LookupApp() {
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
   const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
-  const outcome: LookupOutcome | null =
-    lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null;
+  const outcome = useMemo<LookupOutcome | null>(
+    () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
+    [lookupState, query],
+  );
 
   useEffect(() => {
     fetch(dictionaryAssetUrl)
@@ -64,7 +71,7 @@ function LookupApp() {
         return response.json();
       })
       .then((asset) => {
-        if (!isDictionaryAsset(asset)) {
+        if (!hasDictionaryAssetShape(asset)) {
           throw new Error("Dictionary asset has an invalid format.");
         }
         setLookupState({
@@ -82,7 +89,7 @@ function LookupApp() {
           })
           .then((details) => {
             if (
-              isDictionaryDetailsAsset(details) &&
+              hasDictionaryDetailsShape(details) &&
               details.sourceEditionDate === asset.metadata.sourceEditionDate
             ) {
               setDictionaryDetails(details.entries);
@@ -109,14 +116,23 @@ function LookupApp() {
   }
 
   function addToLibrary(headwords: readonly string[]) {
-    setLibraryHeadwords((currentHeadwords) => {
-      const nextHeadwords = [
-        ...headwords,
-        ...currentHeadwords.filter((item) => !headwords.includes(item)),
-      ];
-      writeLookupLibrary(nextHeadwords);
-      return nextHeadwords;
-    });
+    const apply = () => {
+      setLibraryHeadwords((currentHeadwords) => {
+        const nextHeadwords = [
+          ...headwords,
+          ...currentHeadwords.filter((item) => !headwords.includes(item)),
+        ];
+        writeLookupLibrary(nextHeadwords);
+        return nextHeadwords;
+      });
+    };
+
+    if (!prefersMotion() || typeof document.startViewTransition !== "function") {
+      apply();
+      return;
+    }
+
+    document.startViewTransition(() => flushSync(apply));
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
