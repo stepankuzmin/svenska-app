@@ -281,6 +281,24 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [autoFocusField] = useState(() => !window.matchMedia("(pointer: coarse)").matches);
 
   useEffect(() => {
+    let clearScrolling = 0;
+    function markScrolling() {
+      document.body.dataset.scrolling = "true";
+      clearTimeout(clearScrolling);
+      clearScrolling = window.setTimeout(() => {
+        delete document.body.dataset.scrolling;
+      }, 120);
+    }
+
+    window.addEventListener("scroll", markScrolling, { passive: true, capture: true });
+    return () => {
+      window.removeEventListener("scroll", markScrolling, { capture: true });
+      clearTimeout(clearScrolling);
+      delete document.body.dataset.scrolling;
+    };
+  }, []);
+
+  useEffect(() => {
     if (props.deepLinkHeadword === null) {
       return;
     }

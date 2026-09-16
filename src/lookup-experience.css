@@ -215,11 +215,18 @@ body {
   cursor: pointer;
   list-style: none;
   touch-action: manipulation;
+  transition: background-color 250ms ease;
 }
 
 .word-card summary::-webkit-details-marker { display: none; }
 .word-card summary::marker { content: ""; }
-.word-card summary:active { background: #e9f2fc; }
+.word-card summary:active { background: #e9f2fc; transition-duration: 0ms; }
+
+/* A finger landing to stop a moving page is not a press. */
+body[data-scrolling] .word-card summary:active,
+body[data-scrolling] .suggestion-menu li:active {
+  background: transparent;
+}
 
 .word-card-disclosure {
   block-size: .38rem;

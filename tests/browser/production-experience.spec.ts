@@ -217,6 +217,32 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
+test("a library row shows no press highlight while the page is scrolling", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Forcing :active needs the Chrome DevTools Protocol.");
+
+  await page.addInitScript(() => {
+    localStorage.setItem("svenska.lookup-library", JSON.stringify(["fika"]));
+  });
+  await openReadyApp(page);
+  const summary = page.locator(".word-card summary");
+  await expect(summary).toHaveCount(1);
+
+  const session = await page.context().newCDPSession(page);
+  await session.send("DOM.enable");
+  await session.send("CSS.enable");
+  const { root } = await session.send("DOM.getDocument");
+  const { nodeId } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: ".word-card summary" });
+  await session.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
+
+  const background = () =>
+    page.evaluate(() => getComputedStyle(document.querySelector(".word-card summary")!).backgroundColor);
+  const pressed = await background();
+  expect(pressed).not.toBe("rgba(0, 0, 0, 0)");
+
+  await page.evaluate(() => window.dispatchEvent(new Event("scroll")));
+  expect(await background()).toBe("rgba(0, 0, 0, 0)");
+});
+
 test("a tap on the page background focuses the search field", async ({ page }) => {
   await openReadyApp(page);
 
