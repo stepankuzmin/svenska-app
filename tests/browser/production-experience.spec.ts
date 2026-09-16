@@ -217,7 +217,7 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
-test("a held library row highlights once and never flickers back", async ({ page, browserName }) => {
+test("a pressed library row never changes background", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Forcing :active needs the Chrome DevTools Protocol.");
 
   await page.addInitScript(`localStorage.setItem("svenska.lookup-library", '["fika"]')`);
@@ -231,7 +231,7 @@ test("a held library row highlights once and never flickers back", async ({ page
   const { nodeId } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: ".word-card summary" });
   await session.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
 
-  // Scrolls spaced further apart than any idle timer would tolerate.
+  // The card expanding is the feedback, so a press of any length stays transparent.
   const backgrounds = (await page.evaluate(`new Promise((resolve) => {
     const row = document.querySelector(".word-card summary");
     const seen = [];
@@ -247,9 +247,7 @@ test("a held library row highlights once and never flickers back", async ({ page
     })();
   })`)) as string[];
 
-  expect(backgrounds).toHaveLength(2);
-  expect(backgrounds[0]).toBe("rgba(0, 0, 0, 0)");
-  expect(backgrounds[1]).not.toBe("rgba(0, 0, 0, 0)");
+  expect(backgrounds).toEqual(["rgba(0, 0, 0, 0)"]);
 });
 
 test("a tap on the page background focuses the search field", async ({ page }) => {

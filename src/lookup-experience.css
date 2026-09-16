@@ -161,10 +161,6 @@ body {
 
 .suggestion-menu li + li { border-block-start: 1px solid var(--lookup-soft-line); }
 .suggestion-menu li[aria-selected="true"] { background: #e9f2fc; }
-.suggestion-menu li:active {
-  background: #dbeaf9;
-  transition: background-color 0ms 140ms;
-}
 
 .suggestion-menu strong { letter-spacing: -.01em; }
 
@@ -218,18 +214,10 @@ body {
   cursor: pointer;
   list-style: none;
   touch-action: manipulation;
-  transition: background-color 250ms ease;
 }
 
 .word-card summary::-webkit-details-marker { display: none; }
 .word-card summary::marker { content: ""; }
-/* The press waits out a scroll before it paints, the way a native row does. */
-.word-card summary:active {
-  background: #e9f2fc;
-  transition-delay: 140ms;
-  transition-duration: 0ms;
-}
-
 .word-card-disclosure {
   block-size: .38rem;
   border-block-start: 1.5px solid var(--lookup-muted);
@@ -364,20 +352,18 @@ body {
   .lookup-clear:active span { background: #7c7c82; }
   .minimal-lookup input::placeholder { color: #aeaeb2; }
   .suggestion-menu { border-color: #68686d; box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 45%); }
-  .suggestion-menu li[aria-selected="true"],
-  .word-card summary:active { background: #19395a; }
-  .suggestion-menu li:active { background: #21476d; }
+  .suggestion-menu li[aria-selected="true"] { background: #19395a; }
   .word-card-heading span { color: #d1d1d6; }
 }
 
+/* A list row has no press state: the card expands and the menu closes on its own. */
 @media (hover: hover) and (pointer: fine) {
   .suggestion-menu li:hover { background: #e9f2fc; }
-  .suggestion-menu li:hover:active { background: #dbeaf9; }
+  .word-card summary { transition: background-color 150ms ease; }
   .word-card summary:hover { background: #f3f8fd; }
 
   @media (prefers-color-scheme: dark) {
     .suggestion-menu li:hover { background: #19395a; }
-    .suggestion-menu li:hover:active { background: #21476d; }
     .word-card summary:hover { background: #15293d; }
   }
 }
