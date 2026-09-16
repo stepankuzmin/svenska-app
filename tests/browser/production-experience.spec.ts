@@ -217,13 +217,12 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 
-test("a library row shows no press highlight while the page is scrolling", async ({ page, browserName }) => {
+test("a held library row highlights once and never flickers back", async ({ page, browserName }) => {
   test.skip(browserName !== "chromium", "Forcing :active needs the Chrome DevTools Protocol.");
 
   await page.addInitScript(`localStorage.setItem("svenska.lookup-library", '["fika"]')`);
   await openReadyApp(page);
-  const summary = page.locator(".word-card summary");
-  await expect(summary).toHaveCount(1);
+  await expect(page.locator(".word-card summary")).toHaveCount(1);
 
   const session = await page.context().newCDPSession(page);
   await session.send("DOM.enable");
@@ -232,13 +231,25 @@ test("a library row shows no press highlight while the page is scrolling", async
   const { nodeId } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: ".word-card summary" });
   await session.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
 
-  const background = () =>
-    page.evaluate("getComputedStyle(document.querySelector('.word-card summary')).backgroundColor");
-  const pressed = await background();
-  expect(pressed).not.toBe("rgba(0, 0, 0, 0)");
+  // Scrolls spaced further apart than any idle timer would tolerate.
+  const backgrounds = (await page.evaluate(`new Promise((resolve) => {
+    const row = document.querySelector(".word-card summary");
+    const seen = [];
+    const started = performance.now();
+    for (const at of [0, 150, 400, 700]) {
+      setTimeout(() => window.dispatchEvent(new Event("scroll")), at);
+    }
+    (function sample() {
+      const background = getComputedStyle(row).backgroundColor;
+      if (seen[seen.length - 1] !== background) seen.push(background);
+      if (performance.now() - started < 900) requestAnimationFrame(sample);
+      else resolve(seen);
+    })();
+  })`)) as string[];
 
-  await page.evaluate("window.dispatchEvent(new Event('scroll'))");
-  expect(await background()).toBe("rgba(0, 0, 0, 0)");
+  expect(backgrounds).toHaveLength(2);
+  expect(backgrounds[0]).toBe("rgba(0, 0, 0, 0)");
+  expect(backgrounds[1]).not.toBe("rgba(0, 0, 0, 0)");
 });
 
 test("a tap on the page background focuses the search field", async ({ page }) => {

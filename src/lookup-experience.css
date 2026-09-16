@@ -161,7 +161,10 @@ body {
 
 .suggestion-menu li + li { border-block-start: 1px solid var(--lookup-soft-line); }
 .suggestion-menu li[aria-selected="true"] { background: #e9f2fc; }
-.suggestion-menu li:active { background: #dbeaf9; }
+.suggestion-menu li:active {
+  background: #dbeaf9;
+  transition: background-color 0ms 140ms;
+}
 
 .suggestion-menu strong { letter-spacing: -.01em; }
 
@@ -220,12 +223,11 @@ body {
 
 .word-card summary::-webkit-details-marker { display: none; }
 .word-card summary::marker { content: ""; }
-.word-card summary:active { background: #e9f2fc; transition-duration: 0ms; }
-
-/* A finger landing to stop a moving page is not a press. */
-body[data-scrolling] .word-card summary:active,
-body[data-scrolling] .suggestion-menu li:active {
-  background: transparent;
+/* The press waits out a scroll before it paints, the way a native row does. */
+.word-card summary:active {
+  background: #e9f2fc;
+  transition-delay: 140ms;
+  transition-duration: 0ms;
 }
 
 .word-card-disclosure {
