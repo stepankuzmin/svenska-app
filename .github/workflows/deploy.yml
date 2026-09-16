@@ -51,9 +51,13 @@ jobs:
       github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_OUTPUT_FILE_PATH: wrangler-output.ndjson
     environment:
       name: ${{ github.event_name == 'pull_request' && format('pr-preview-{0}', github.event.pull_request.number) || 'production' }}
-      url: ${{ steps.preview.outputs.deployment-url || steps.production.outputs.deployment-url }}
+      url: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -68,20 +72,18 @@ jobs:
       - name: Upload a preview version
         if: github.event_name == 'pull_request'
         id: preview
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: versions upload
+        run: |
+          npx --yes wrangler@4 versions upload --preview-alias "pr-${{ github.event.pull_request.number }}"
+          jq -r 'select(.type == "version-upload") | "url=" + .preview_alias_url' \
+            "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Deploy to production
         if: github.event_name != 'pull_request'
         id: production
-        uses: cloudflare/wrangler-action@v4
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+        run: |
+          npx --yes wrangler@4 deploy
+          jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
+            "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Link the deployment
         env:
-          URL: ${{ steps.preview.outputs.deployment-url || steps.production.outputs.deployment-url }}
+          URL: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
         run: echo "[$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
