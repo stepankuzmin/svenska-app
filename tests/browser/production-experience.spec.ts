@@ -178,6 +178,21 @@ test("a broad Russian lookup renders its suggestions incrementally", async ({ pa
   await expect(options).toHaveCount(120);
 });
 
+test("the clear button empties the search field", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fik");
+  await expect(page.getByRole("option")).toHaveCount(2);
+
+  await page.getByRole("button", { name: "Clear search" }).click();
+
+  await expect(query).toHaveValue("");
+  await expect(query).toBeFocused();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Clear search" })).toHaveCount(0);
+});
+
 test("the minimal layout fits a narrow zoomed viewport and keeps visible focus", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 720 });
   await openReadyApp(page);

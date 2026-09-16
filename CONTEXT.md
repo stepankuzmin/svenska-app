@@ -27,11 +27,15 @@ All matching senses for one Swedish headword, shown together whether the search 
 _Avoid_: Russian-Swedish entry, individual sense result
 
 **Word card**:
-The compact, left-aligned presentation of one lookup-library entry. Its closed state shows the headword, transcription, word type, inflections, meanings, and Russian translations.
+The compact, left-aligned presentation of one lookup-library entry. Its closed state shows the headword, transcription, word type, Swedish forms, meanings, and Russian translations.
 _Avoid_: Suggestion card, library row
 
+**Swedish forms**:
+The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. Every other word type keeps the Lexin order, headword first.
+_Avoid_: Inflection list, paradigm
+
 **Extended word card**:
-The open state of a word card, adding Lexin examples and related words that contain the headword. At most one word card is extended in the lookup library.
+The open state of a word card, adding Lexin examples and related words that contain the headword. At most one word card is extended in the lookup library. A word with neither examples nor related words has no extended state, and its card carries no disclosure.
 _Avoid_: Expanded result, accordion item
 
 **Lookup autocomplete**:
@@ -46,4 +50,4 @@ A Russian query shows every Russian index entry containing the entered text. Exa
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.
 
-The production interface contains only the lookup autocomplete and the lookup library. The search field receives focus when the app starts. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.
+The production interface contains only the lookup autocomplete and the lookup library. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.

@@ -6,6 +6,7 @@ const dictionary = {
     abborre: [{ partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    framgår: [{ partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
   },
   swedishIndex: {
     abborre: ["abborre"],
@@ -17,8 +18,12 @@ const dictionary = {
     fikor: ["fika"],
     fikorna: ["fika"],
     tack: ["tack"],
+    framgår: ["framgår"],
+    framgick: ["framgår"],
+    framgått: ["framgår"],
+    framgå: ["framgår"],
   },
-  russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"] },
+  russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"], "вытекать": ["framgår"] },
 };
 
 const details = {
@@ -40,6 +45,12 @@ const details = {
       ],
     }],
     tack: [{ phonetic: "tak", inflections: [], examples: [], compounds: [] }],
+    framgår: [{
+      phonetic: "²frAm:gå:r",
+      inflections: ["framgick", "framgått", "framgå"],
+      examples: [{ swedish: "hans åsikter framgick av intervjun", russian: "его взгляды стали ясны" }],
+      compounds: [],
+    }],
   },
 };
 
@@ -87,4 +98,33 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await page.reload();
   await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText([/tack/, /fika/]);
   await expect(query).toBeFocused();
+});
+
+test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("framgår");
+  await query.press("Enter");
+
+  await expect(
+    page.getByRole("region", { name: "Library" })
+      .getByText("att framgå, framgår, framgick, har framgått", { exact: true }),
+  ).toBeVisible();
+});
+
+test("a word without examples or related words cannot be extended", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("tack");
+  await query.press("Enter");
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByText("спасибо", { exact: true })).toBeVisible();
+  await expect(library.getByRole("group")).toHaveCount(0);
+
+  await query.fill("fika");
+  await query.press("Enter");
+  await expect(library.getByRole("group")).toHaveCount(1);
 });

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type UIEvent,
@@ -10,6 +11,7 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
+import { wordForms } from "./word-forms";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
@@ -35,6 +37,13 @@ type WordItem = {
   headword: string;
   senses: readonly DictionarySense[];
   details: readonly WordDetails[];
+  relatedWords: readonly RelatedWord[];
+};
+
+type IndexedHeadword = {
+  headword: string;
+  normalized: string;
+  senses: readonly DictionarySense[];
 };
 
 type SuggestionItem = LookupChoice;
@@ -70,10 +79,22 @@ function getSuggestionItems({
   return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
 }
 
+function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly IndexedHeadword[] {
+  if (entries === null) {
+    return [];
+  }
+
+  return Object.entries(entries).map(([headword, senses]) => {
+    const cleanHeadword = cleanLexinText(headword);
+    return { headword: cleanHeadword, normalized: normalizeLookupText(cleanHeadword), senses };
+  });
+}
+
 function getLibraryItems(
   headwords: readonly string[],
   entries: DictionaryAsset["entries"] | null,
   details: DictionaryDetailsAsset["entries"] | null,
+  headwordIndex: readonly IndexedHeadword[],
 ): readonly WordItem[] {
   if (entries === null) {
     return [];
@@ -81,15 +102,18 @@ function getLibraryItems(
 
   return headwords.flatMap((headword) => {
     const senses = entries[headword];
-    return senses === undefined
-      ? []
-      : [{ headword, senses, details: details?.[headword] ?? [] }];
+    if (senses === undefined) {
+      return [];
+    }
+
+    const item = { headword, senses, details: details?.[headword] ?? [] };
+    return [{ ...item, relatedWords: getRelatedWords(item, headwordIndex) }];
   });
 }
 
 function getRelatedWords(
-  item: WordItem,
-  entries: DictionaryAsset["entries"],
+  item: Omit<WordItem, "relatedWords">,
+  headwordIndex: readonly IndexedHeadword[],
 ): readonly RelatedWord[] {
   const related = new Map<string, RelatedWord>();
   const normalizedHeadword = normalizeLookupText(cleanLexinText(item.headword));
@@ -103,17 +127,15 @@ function getRelatedWords(
   }
 
   if (normalizedHeadword.length > 0) {
-    for (const [headword, senses] of Object.entries(entries)) {
-      const cleanHeadword = cleanLexinText(headword);
-      const normalizedCandidate = normalizeLookupText(cleanHeadword);
+    for (const candidate of headwordIndex) {
       if (
-        normalizedCandidate !== normalizedHeadword &&
-        normalizedCandidate.includes(normalizedHeadword) &&
-        !related.has(normalizedCandidate)
+        candidate.normalized !== normalizedHeadword &&
+        candidate.normalized.includes(normalizedHeadword) &&
+        !related.has(candidate.normalized)
       ) {
-        related.set(normalizedCandidate, {
-          headword: cleanHeadword,
-          translation: translationFor(senses),
+        related.set(candidate.normalized, {
+          headword: candidate.headword,
+          translation: translationFor(candidate.senses),
         });
       }
 
@@ -128,23 +150,49 @@ function getRelatedWords(
 
 const WordCard = memo(function WordCard({
   item,
-  entries,
   expanded,
   onToggle,
 }: {
   item: WordItem;
-  entries: DictionaryAsset["entries"];
   expanded: boolean;
   onToggle: (headword: string) => void;
 }) {
   const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
   const phonetics = uniqueNonEmpty(item.details.map((details) => details.phonetic));
-  const forms = uniqueNonEmpty([
-    cleanLexinText(item.headword),
-    ...item.details.flatMap((details) => details.inflections.map(cleanLexinText)),
-  ]);
+  const forms = uniqueNonEmpty(item.details.flatMap((details, index) =>
+    wordForms({
+      headword: cleanLexinText(item.headword),
+      partOfSpeech: item.senses[index]?.partOfSpeech ?? "",
+      inflections: details.inflections.map(cleanLexinText),
+    }),
+  ));
   const examples = item.details.flatMap((details) => details.examples);
-  const relatedWords = expanded ? getRelatedWords(item, entries) : [];
+  const copy = (
+    <span className="word-card-copy">
+      <span className="word-card-heading">
+        <strong lang="sv">{cleanLexinText(item.headword)}</strong>
+        {phonetics.length > 0 ? <span lang="sv">[{phonetics.join(", ")}]</span> : null}
+        {partsOfSpeech.length > 0 ? <span>{partsOfSpeech.join(" · ")}</span> : null}
+      </span>
+      {forms.length > 1 ? <span className="word-card-forms" lang="sv">{forms.join(", ")}</span> : null}
+      <span className="word-card-senses">
+        {item.senses.map((sense, index) => (
+          <span className="word-card-sense" key={`${sense.meaning}-${sense.translation}-${index}`}>
+            {sense.meaning.length > 0 ? <span lang="sv">{sense.meaning}</span> : null}
+            {sense.translation.length > 0 ? <span lang="ru">{sense.translation}</span> : null}
+          </span>
+        ))}
+      </span>
+    </span>
+  );
+
+  if (examples.length === 0 && item.relatedWords.length === 0) {
+    return (
+      <li>
+        <div className="word-card-plain">{copy}</div>
+      </li>
+    );
+  }
 
   return (
     <li>
@@ -156,22 +204,7 @@ const WordCard = memo(function WordCard({
           }}
         >
           <span className="word-card-disclosure" aria-hidden="true" />
-          <span className="word-card-copy">
-            <span className="word-card-heading">
-              <strong lang="sv">{cleanLexinText(item.headword)}</strong>
-              {phonetics.length > 0 ? <span lang="sv">[{phonetics.join(", ")}]</span> : null}
-              {partsOfSpeech.length > 0 ? <span>{partsOfSpeech.join(" · ")}</span> : null}
-            </span>
-            {forms.length > 1 ? <span className="word-card-forms" lang="sv">{forms.join(", ")}</span> : null}
-            <span className="word-card-senses">
-              {item.senses.map((sense, index) => (
-                <span className="word-card-sense" key={`${sense.meaning}-${sense.translation}-${index}`}>
-                  {sense.meaning.length > 0 ? <span lang="sv">{sense.meaning}</span> : null}
-                  {sense.translation.length > 0 ? <span lang="ru">{sense.translation}</span> : null}
-                </span>
-              ))}
-            </span>
-          </span>
+          {copy}
         </summary>
 
         <div className="word-card-details">
@@ -188,11 +221,11 @@ const WordCard = memo(function WordCard({
               </ul>
             </section>
           ) : null}
-          {relatedWords.length > 0 ? (
+          {item.relatedWords.length > 0 ? (
             <section aria-label={`Words containing ${cleanLexinText(item.headword)}`}>
               <h3>More with <span lang="sv">{cleanLexinText(item.headword)}</span></h3>
               <ul role="list">
-                {relatedWords.map((relatedWord) => (
+                {item.relatedWords.map((relatedWord) => (
                   <li key={relatedWord.headword}>
                     <span lang="sv">{relatedWord.headword}</span>
                     {relatedWord.translation.length > 0 ? <span lang="ru">{relatedWord.translation}</span> : null}
@@ -211,9 +244,10 @@ export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems({
     outcome: props.outcome,
   });
+  const headwordIndex = useMemo(() => getHeadwordIndex(props.entries), [props.entries]);
   const library = useMemo(
-    () => getLibraryItems(props.libraryHeadwords, props.entries, props.details),
-    [props.libraryHeadwords, props.entries, props.details],
+    () => getLibraryItems(props.libraryHeadwords, props.entries, props.details, headwordIndex),
+    [props.libraryHeadwords, props.entries, props.details, headwordIndex],
   );
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
@@ -228,7 +262,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     ? suggestions.slice(0, renderedSuggestionCount)
     : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
-  const dictionaryEntries = props.entries;
+  const queryInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (activeSuggestionIndex >= 0) {
@@ -285,6 +319,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       <form className="lookup-autocomplete" action="/" method="get" onSubmit={submitLookup}>
         <label className="visually-hidden" htmlFor={inputId}>Swedish or Russian word</label>
         <input
+          ref={queryInput}
           id={inputId}
           name="q"
           role="combobox"
@@ -333,6 +368,23 @@ export function LookupExperience(props: LookupExperienceProps) {
           autoComplete="off"
           spellCheck="false"
         />
+        {props.query.length > 0 ? (
+          <button
+            type="button"
+            className="lookup-clear"
+            aria-label="Clear search"
+            onPointerDown={(event) => event.preventDefault()}
+            onClick={() => {
+              props.onQueryChange("");
+              setAutocompleteOpen(false);
+              setActiveSuggestionIndex(-1);
+              setExpandedHeadword(null);
+              queryInput.current?.focus();
+            }}
+          >
+            <span aria-hidden="true">✕</span>
+          </button>
+        ) : null}
         {visibleSuggestions.length > 0 ? (
           <ul
             id={listId}
@@ -367,7 +419,7 @@ export function LookupExperience(props: LookupExperienceProps) {
           : null}
       </div>
 
-      {library.length > 0 && dictionaryEntries !== null ? (
+      {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 id="lookup-library-heading">Library</h2>
           <ul className="word-card-list" role="list">
@@ -375,7 +427,6 @@ export function LookupExperience(props: LookupExperienceProps) {
               <WordCard
                 key={item.headword}
                 item={item}
-                entries={dictionaryEntries}
                 expanded={expandedHeadword === item.headword}
                 onToggle={toggleExpanded}
               />
