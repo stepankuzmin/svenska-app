@@ -31,12 +31,14 @@ const details = {
   entries: {
     abborre: [{
       phonetic: "²ab:ɔr:e",
+      article: "en",
       inflections: ["abborren", "abborrar", "abborrarna"],
       examples: [],
       compounds: [{ swedish: "abborrpinne", russian: "окунёк" }],
     }],
     fika: [{
       phonetic: "²fi:ka",
+      article: "en",
       inflections: ["fikan", "fikor", "fikorna"],
       examples: [{ swedish: "ska vi fika?", russian: "пойдём выпьем кофе?" }],
       compounds: [
@@ -44,9 +46,10 @@ const details = {
         { swedish: "kaffepaus", russian: "перерыв на кофе" },
       ],
     }],
-    tack: [{ phonetic: "tak", inflections: [], examples: [], compounds: [] }],
+    tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
     framgår: [{
       phonetic: "²frAm:gå:r",
+      article: "",
       inflections: ["framgick", "framgått", "framgå"],
       examples: [{ swedish: "hans åsikter framgick av intervjun", russian: "его взгляды стали ясны" }],
       compounds: [],
@@ -83,7 +86,7 @@ test("chosen words persist in most-recent order and only one card is extended", 
 
   const library = page.getByRole("region", { name: "Library" });
   await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
-  await expect(library.getByText("fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
+  await expect(library.getByText("en fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
   await expect(library.getByText("fikapaus", { exact: true })).toBeVisible();
   await expect(library.getByText("kaffepaus", { exact: true })).toBeVisible();
@@ -127,6 +130,19 @@ test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
   await expect(
     page.getByRole("region", { name: "Library" })
       .getByText("att framgå, framgår, framgick, har framgått", { exact: true }),
+  ).toBeVisible();
+});
+
+test("a noun lists its Swedish forms behind its article", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abborre");
+  await query.press("Enter");
+
+  await expect(
+    page.getByRole("region", { name: "Library" })
+      .getByText("en abborre, abborren, abborrar, abborrarna", { exact: true }),
   ).toBeVisible();
 });
 

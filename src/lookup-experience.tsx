@@ -162,6 +162,7 @@ const WordCard = memo(function WordCard({
     wordForms({
       headword: cleanLexinText(item.headword),
       partOfSpeech: item.senses[index]?.partOfSpeech ?? "",
+      article: details.article,
       inflections: details.inflections.map(cleanLexinText),
     }),
   ));

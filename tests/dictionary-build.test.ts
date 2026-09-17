@@ -37,12 +37,22 @@ describe("Lexin source edition import", () => {
     expect(assets.details.entries.bok).toEqual([
       {
         phonetic: "bu:k",
+        article: "en",
         inflections: ["boken", "böcker"],
         examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
         compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
       },
-      { phonetic: "", inflections: [], examples: [], compounds: [] },
+      { phonetic: "", article: "", inflections: [], examples: [], compounds: [] },
     ]);
+  });
+
+  it("reads a noun's article from the definite singular Lexin spells out", () => {
+    expect(assets.details.entries.bok[0].article).toBe("en");
+    expect(assets.details.entries.arsle[0].article).toBe("ett");
+    // A word Lexin marks as plural lists a definite plural, not a definite
+    // singular, so it carries no article.
+    expect(assets.details.entries.jeans[0].article).toBe("");
+    expect(assets.details.entries.hus[0].article).toBe("");
   });
 
   it("indexes every translation against the headwords that carry it", () => {
@@ -53,6 +63,7 @@ describe("Lexin source edition import", () => {
       "книга": ["bok"],
       "младенец": ["baby"],
       "правдивый": ["sann"],
+      "джинсы": ["jeans"],
       "сентиментальная ценность": ["affektions|värde"],
       "совместимый": ["förenlig"],
       "сообщать": ["anger"],

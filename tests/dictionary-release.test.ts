@@ -24,8 +24,8 @@ describe("dictionary release contract", () => {
       '{"metadata":{"sourceEditionDate":"2010-07-07","attribution":"Lexin","license":"CC BY 4.0"},"entries":{"bok":[{"partOfSpeech":"subst.","meaning":"","translation":"книга"}]},"swedishIndex":{"bok":["bok"],"boken":["bok"]},"russianIndex":{"книга":["bok"]}}\n',
     );
     await writeFile(
-      join(directory, "lexin-details.8b49adde90b45818.json"),
-      '{"sourceEditionDate":"2010-07-07","entries":{"bok":[{"phonetic":"bu:k","inflections":["boken"],"examples":[],"compounds":[]}]}}\n',
+      join(directory, "lexin-details.48da16fce86698db.json"),
+      '{"sourceEditionDate":"2010-07-07","entries":{"bok":[{"phonetic":"bu:k","article":"en","inflections":["boken"],"examples":[],"compounds":[]}]}}\n',
     );
     await writeFile(
       join(directory, "index.html"),
@@ -33,7 +33,7 @@ describe("dictionary release contract", () => {
     );
     await writeFile(
       join(directory, "sw.js"),
-      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.a05dae6a54854ab3.json"},{url:"lexin-details.8b49adde90b45818.json"}]);',
+      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.a05dae6a54854ab3.json"},{url:"lexin-details.48da16fce86698db.json"}]);',
     );
 
     await expect(

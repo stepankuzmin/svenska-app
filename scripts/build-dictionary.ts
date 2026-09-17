@@ -162,6 +162,34 @@ function generatedInflectionTexts({
   return [];
 }
 
+// Lexin spells out a noun's gender only through its definite singular: an
+// en-word ends it with -n, an ett-word with -t. A word Lexin marks as plural
+// lists a definite plural instead, so it opens without an article.
+function nounArticle({
+  partOfSpeech,
+  inflections,
+  usage,
+}: {
+  partOfSpeech: string;
+  inflections: readonly string[][];
+  usage: string;
+}): string {
+  if (partOfSpeech !== "subst." || inflections.length === 0) {
+    return "";
+  }
+
+  if (inflections.length === 1 && /^plur(al|\.)/i.test(usage.trim())) {
+    return "";
+  }
+
+  const definiteSingular = (inflections[0][0] ?? "").replaceAll("|", "");
+  if (definiteSingular.endsWith("t")) {
+    return "ett";
+  }
+
+  return definiteSingular.endsWith("n") ? "en" : "";
+}
+
 function addToIndex({
   index,
   form,
@@ -253,6 +281,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
     const partOfSpeech = word["@_Type"]?.trim() ?? "";
     const inflections = inflectionGroups(word.BaseLang);
+    const usage = childText(word.BaseLang, "Usage");
     const senses = entries[headword] ?? [];
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
@@ -263,6 +292,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     });
     wordDetails.push({
       phonetic: childText(word.BaseLang, "Phonetic"),
+      article: nounArticle({ partOfSpeech, inflections, usage }),
       inflections: inflections.flat(),
       examples: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Example" }),
       compounds: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Compound" }),
@@ -277,7 +307,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
         headword,
         partOfSpeech,
         inflections,
-        usage: childText(word.BaseLang, "Usage"),
+        usage,
       }),
     ]) {
       addToIndex({ index: swedishIndex, form, headword });

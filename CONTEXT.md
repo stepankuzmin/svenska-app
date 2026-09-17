@@ -31,7 +31,7 @@ The compact, left-aligned presentation of one lookup-library entry. Its closed s
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
-The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. Every other word type keeps the Lexin order, headword first.
+The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. Every other word type keeps the Lexin order, headword first.
 _Avoid_: Inflection list, paradigm
 
 **Extended word card**:

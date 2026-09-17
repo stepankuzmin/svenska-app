@@ -102,7 +102,15 @@
     </BaseLang>
     <TargetLang><Translation>хуже</Translation></TargetLang>
   </Word>
-  <Word ID="13" MatchingID="113" Type="subst." Value="AB">
+  <Word ID="13" MatchingID="113" Type="subst." Value="jeans">
+    <BaseLang>
+      <Meaning>byxor av denim</Meaning>
+      <Usage>plural</Usage>
+      <Inflection>jeansen</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>джинсы</Translation></TargetLang>
+  </Word>
+  <Word ID="14" MatchingID="114" Type="subst." Value="AB">
     <BaseLang><Meaning>aktiebolag</Meaning></BaseLang>
     <TargetLang><Translation>АО</Translation></TargetLang>
   </Word>

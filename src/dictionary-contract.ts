@@ -13,6 +13,7 @@ const bilingualTextSchema = z.object({
 
 const wordDetailsSchema = z.object({
   phonetic: z.string(),
+  article: z.string(),
   inflections: z.array(z.string()),
   examples: z.array(bilingualTextSchema),
   compounds: z.array(bilingualTextSchema),
