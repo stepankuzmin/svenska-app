@@ -38,12 +38,20 @@ describe("Lexin source edition import", () => {
       {
         phonetic: "bu:k",
         article: "en",
-        inflections: ["boken", "böcker"],
+        inflections: ["boken", "böcker", "böckerna"],
         examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
         compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
       },
       { phonetic: "", article: "", inflections: [], examples: [], compounds: [] },
     ]);
+  });
+
+  it("completes a noun's paradigm with the definite plural Lexin leaves implicit", () => {
+    expect(assets.details.entries.bok[0].inflections).toEqual(["boken", "böcker", "böckerna"]);
+    expect(assets.details.entries.taxi[0].inflections).toEqual(["taxin", "taxi", "taxina"]);
+    // An adjective's comparative and superlative belong to a paradigm the word
+    // card does not show, so they stay out of its forms.
+    expect(assets.details.entries.sann[0].inflections).toEqual(["sant", "sanna"]);
   });
 
   it("reads a noun's article from the definite singular Lexin spells out", () => {

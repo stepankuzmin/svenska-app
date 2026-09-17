@@ -83,16 +83,17 @@ function inflectionGroups(value: string | Record<string, unknown> | undefined): 
   });
 }
 
-function generatedInflectionTexts({
+// Lexin lists a noun as definite singular and plural, leaving the definite
+// plural to the pattern. A word card reads as a full paradigm only once that
+// form is spelled out, so it joins the inflections rather than the index alone.
+function definitePluralTexts({
   headword,
   partOfSpeech,
   inflections,
-  usage,
 }: {
   headword: string;
   partOfSpeech: string;
   inflections: readonly string[][];
-  usage: string;
 }): string[] {
   if (partOfSpeech === "subst." && inflections.length === 2) {
     const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
@@ -142,24 +143,39 @@ function generatedInflectionTexts({
     });
   }
 
+  return [];
+}
+
+// An adjective Lexin lists in the positive implies a comparative and a
+// superlative. They belong to a paradigm the card does not show, so only the
+// index carries them.
+function comparativeTexts({
+  partOfSpeech,
+  inflections,
+  usage,
+}: {
+  partOfSpeech: string;
+  inflections: readonly string[][];
+  usage: string;
+}): string[] {
   const normalizedUsage = normalizeLookupText(usage);
   if (
-    partOfSpeech === "adj." &&
-    inflections.length === 2 &&
-    !normalizedUsage.includes("kompar") &&
-    !normalizedUsage.includes("superlativ")
+    partOfSpeech !== "adj." ||
+    inflections.length !== 2 ||
+    normalizedUsage.includes("kompar") ||
+    normalizedUsage.includes("superlativ")
   ) {
-    return inflections[1].flatMap((plural) => {
-      if (!plural.endsWith("a")) {
-        return [];
-      }
-
-      const stem = plural.slice(0, -1);
-      return [`${stem}are`, `${stem}ast`];
-    });
+    return [];
   }
 
-  return [];
+  return inflections[1].flatMap((plural) => {
+    if (!plural.endsWith("a")) {
+      return [];
+    }
+
+    const stem = plural.slice(0, -1);
+    return [`${stem}are`, `${stem}ast`];
+  });
 }
 
 // Lexin spells out a noun's gender only through its definite singular: an
@@ -282,6 +298,10 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     const partOfSpeech = word["@_Type"]?.trim() ?? "";
     const inflections = inflectionGroups(word.BaseLang);
     const usage = childText(word.BaseLang, "Usage");
+    const inflectionTexts = [
+      ...inflections.flat(),
+      ...definitePluralTexts({ headword, partOfSpeech, inflections }),
+    ];
     const senses = entries[headword] ?? [];
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
@@ -293,7 +313,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     wordDetails.push({
       phonetic: childText(word.BaseLang, "Phonetic"),
       article: nounArticle({ partOfSpeech, inflections, usage }),
-      inflections: inflections.flat(),
+      inflections: inflectionTexts,
       examples: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Example" }),
       compounds: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Compound" }),
     });
@@ -302,13 +322,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
     for (const form of [
       headword,
-      ...inflections.flat(),
-      ...generatedInflectionTexts({
-        headword,
-        partOfSpeech,
-        inflections,
-        usage,
-      }),
+      ...inflectionTexts,
+      ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
       addToIndex({ index: swedishIndex, form, headword });
     }
