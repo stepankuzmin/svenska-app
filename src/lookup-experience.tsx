@@ -417,7 +417,11 @@ export function LookupExperience(props: LookupExperienceProps) {
               queryInput.current?.focus();
             }}
           >
-            <span aria-hidden="true">✕</span>
+            <span aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="M5 5L11 11M11 5L5 11" />
+              </svg>
+            </span>
           </button>
         ) : null}
         {visibleSuggestions.length > 0 ? (
