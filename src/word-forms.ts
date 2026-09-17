@@ -32,29 +32,42 @@ function wordForms({
   return [`att ${infinitive}`, headword, preterite, `har ${supine}`];
 }
 
-function covers({ line, other }: { line: readonly string[]; other: readonly string[] }): boolean {
-  return line.every((form) => other.includes(form));
+function covers({ forms, other }: { forms: readonly string[]; other: readonly string[] }): boolean {
+  return forms.every((form) => other.includes(form));
 }
 
-// One spelling can carry paradigms that do not belong on the same line: an
-// en-word and an ett-word, or a noun and a verb. Each keeps its own line, and
-// a paradigm another line already spells out in full keeps none.
-export function wordFormLines({
+export type WordParadigm = {
+  forms: string[];
+  senseIndexes: number[];
+};
+
+// One spelling can carry several words: an en-word and an ett-word, or a noun
+// and a verb. Each paradigm makes a word of its own, and every sense Lexin
+// inflects the same way belongs to it.
+export function wordParadigms({
   headword,
   senses,
 }: {
   headword: string;
   senses: readonly WordSense[];
-}): string[][] {
-  const lines = senses.map((sense) => [...new Set(wordForms({ headword, ...sense }))]
-    .filter((form) => form.length > 0));
+}): WordParadigm[] {
+  const paradigms: WordParadigm[] = [];
 
-  return lines.filter((line, index) =>
-    line.length > 1 &&
-    !lines.some((other, otherIndex) =>
-      otherIndex !== index &&
-      other.length > 1 &&
-      covers({ line, other }) &&
-      (other.length > line.length || (other.length === line.length && otherIndex < index)),
-    ));
+  senses.forEach((sense, index) => {
+    const forms = [...new Set(wordForms({ headword, ...sense }))]
+      .filter((form) => form.length > 0);
+    const shared = paradigms.find((paradigm) =>
+      covers({ forms, other: paradigm.forms }) || covers({ forms: paradigm.forms, other: forms }));
+    if (shared === undefined) {
+      paradigms.push({ forms, senseIndexes: [index] });
+      return;
+    }
+
+    if (forms.length > shared.forms.length) {
+      shared.forms = forms;
+    }
+    shared.senseIndexes.push(index);
+  });
+
+  return paradigms;
 }

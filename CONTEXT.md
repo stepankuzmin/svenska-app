@@ -23,24 +23,24 @@ The device-local collection of dictionary entries opened by the user. Opening an
 _Avoid_: Saved words, favourites
 
 **Lookup result**:
-All matching senses for one Swedish headword, shown together whether the search began in Swedish or Russian.
+All matching senses for one Swedish headword, shown whether the search began in Swedish or Russian. The senses Lexin inflects alike make one word, and the lookup opens the first of them.
 _Avoid_: Russian-Swedish entry, individual sense result
 
 **Word card**:
-The compact, left-aligned presentation of one lookup-library entry. Its closed state shows the headword, transcription, word type, Swedish forms, meanings, and Russian translations.
+The compact, left-aligned presentation of one word. Its closed state shows the headword, transcription, word type, Swedish forms, meanings, and Russian translations.
+
+One spelling can hold more than one word, and each fills a card of its own, carrying the meanings, examples and related words that belong to it:
+
+```
+val   en val, valen, valar, valarna    stort fiskliknande däggdjur i havet   кит
+val   ett val, valet, val, valen       offentlig röstning                    выборы
+```
+
+Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card.
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
-The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first.
-
-One spelling can carry several paradigms, and each reads on its own line rather than running together with the rest:
-
-```
-en val, valen, valar, valarna
-ett val, valet, val, valen
-```
-
-A paradigm another line already spells out in full keeps no line of its own.
+The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first. A card carries the one paradigm its word inflects by.
 _Avoid_: Inflection list, paradigm
 
 **Extended word card**:

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { wordFormLines } from "../src/word-forms.ts";
+import { wordParadigms } from "../src/word-forms.ts";
 
 function formsFor(headword: string, sense: { partOfSpeech: string; article?: string; inflections: string[] }) {
-  return wordFormLines({ headword, senses: [{ article: "", ...sense }] });
+  return wordParadigms({ headword, senses: [{ article: "", ...sense }] }).map((paradigm) => paradigm.forms);
 }
 
 describe("Swedish word forms", () => {
@@ -55,27 +55,42 @@ describe("Swedish word forms", () => {
     expect(formsFor("må", { partOfSpeech: "verb", inflections: ["måtte"] })).toEqual([["må", "måtte"]]);
   });
 
-  it("reads an en-word and an ett-word of the same spelling on their own lines", () => {
-    expect(wordFormLines({
+  it("makes an en-word and an ett-word of the same spelling two words", () => {
+    expect(wordParadigms({
       headword: "val",
       senses: [
         { partOfSpeech: "subst.", article: "en", inflections: ["valen", "valar", "valarna"] },
         { partOfSpeech: "subst.", article: "ett", inflections: ["valet", "val", "valen"] },
+        { partOfSpeech: "subst.", article: "ett", inflections: ["valet", "val", "valen"] },
       ],
     })).toEqual([
-      ["en val", "valen", "valar", "valarna"],
-      ["ett val", "valet", "val", "valen"],
+      { forms: ["en val", "valen", "valar", "valarna"], senseIndexes: [0] },
+      { forms: ["ett val", "valet", "val", "valen"], senseIndexes: [1, 2] },
     ]);
   });
 
-  it("leaves out a paradigm another line already spells out", () => {
-    expect(wordFormLines({
+  it("keeps a sense whose forms another paradigm spells out as the same word", () => {
+    expect(wordParadigms({
+      headword: "hus",
+      senses: [
+        { partOfSpeech: "subst.", article: "", inflections: [] },
+        { partOfSpeech: "subst.", article: "ett", inflections: ["huset", "hus", "husen"] },
+      ],
+    })).toEqual([
+      { forms: ["ett hus", "huset", "hus", "husen"], senseIndexes: [0, 1] },
+    ]);
+  });
+
+  it("makes a noun and a verb of the same spelling two words", () => {
+    expect(wordParadigms({
       headword: "bok",
       senses: [
         { partOfSpeech: "subst.", article: "en", inflections: ["boken", "böcker"] },
         { partOfSpeech: "verb", article: "", inflections: [] },
-        { partOfSpeech: "subst.", article: "en", inflections: ["boken", "böcker"] },
       ],
-    })).toEqual([["en bok", "boken", "böcker"]]);
+    })).toEqual([
+      { forms: ["en bok", "boken", "böcker"], senseIndexes: [0] },
+      { forms: ["bok"], senseIndexes: [1] },
+    ]);
   });
 });

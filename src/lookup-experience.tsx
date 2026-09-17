@@ -12,7 +12,7 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
-import { wordFormLines } from "./word-forms";
+import { wordParadigms } from "./word-forms";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
@@ -32,8 +32,13 @@ type LookupExperienceProps = {
   onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
 };
 
+// One card holds one word: the senses Lexin inflects the same way. A spelling
+// that carries an en-word and an ett-word carries two words, so it fills a card
+// each, and `card` tells them apart wherever a headword alone cannot.
 type WordItem = {
+  card: string;
   headword: string;
+  forms: readonly string[];
   senses: readonly DictionarySense[];
   details: readonly WordDetails[];
   relatedWords: readonly RelatedWord[];
@@ -55,6 +60,10 @@ const suggestionBatchSize = 100;
 // Every named card costs a snapshot pair, so only the cards a phone can show
 // take part in the move to the top.
 const animatedCardLimit = 12;
+
+function cardName({ headword, paradigm }: { headword: string; paradigm: number }): string {
+  return `${headword}#${paradigm}`;
+}
 
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
@@ -103,8 +112,26 @@ function getLibraryItems(
       return [];
     }
 
-    const item = { headword, senses, details: details?.[headword] ?? [] };
-    return [{ ...item, relatedWords: getRelatedWords(item, headwordIndex) }];
+    const wordDetails = details?.[headword] ?? [];
+    const paradigms = wordParadigms({
+      headword: cleanLexinText(headword),
+      senses: senses.map((sense, index) => ({
+        partOfSpeech: sense.partOfSpeech,
+        article: wordDetails[index]?.article ?? "",
+        inflections: (wordDetails[index]?.inflections ?? []).map(cleanLexinText),
+      })),
+    });
+
+    return paradigms.map((paradigm, index) => {
+      const item = {
+        card: cardName({ headword, paradigm: index }),
+        headword,
+        forms: paradigm.forms,
+        senses: paradigm.senseIndexes.map((senseIndex) => senses[senseIndex]),
+        details: paradigm.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
+      };
+      return { ...item, relatedWords: getRelatedWords(item, headwordIndex) };
+    });
   });
 }
 
@@ -154,18 +181,10 @@ const WordCard = memo(function WordCard({
   item: WordItem;
   expanded: boolean;
   transitionName: string;
-  onToggle: (headword: string) => void;
+  onToggle: (card: string) => void;
 }) {
   const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
   const phonetics = uniqueNonEmpty(item.details.map((details) => details.phonetic));
-  const formLines = wordFormLines({
-    headword: cleanLexinText(item.headword),
-    senses: item.details.map((details, index) => ({
-      partOfSpeech: item.senses[index]?.partOfSpeech ?? "",
-      article: details.article,
-      inflections: details.inflections.map(cleanLexinText),
-    })),
-  });
   const examples = item.details.flatMap((details) => details.examples);
   const copy = (
     <span className="word-card-copy">
@@ -174,9 +193,9 @@ const WordCard = memo(function WordCard({
         {phonetics.length > 0 ? <span lang="sv">[{phonetics.join(", ")}]</span> : null}
         {partsOfSpeech.length > 0 ? <span>{partsOfSpeech.join(" · ")}</span> : null}
       </span>
-      {formLines.map((forms) => (
-        <span className="word-card-forms" lang="sv" key={forms.join(", ")}>{forms.join(", ")}</span>
-      ))}
+      {item.forms.length > 1
+        ? <span className="word-card-forms" lang="sv">{item.forms.join(", ")}</span>
+        : null}
       <span className="word-card-senses">
         {item.senses.map((sense, index) => (
           <span className="word-card-sense" key={`${sense.meaning}-${sense.translation}-${index}`}>
@@ -206,7 +225,7 @@ const WordCard = memo(function WordCard({
         <summary
           onClick={(event) => {
             event.preventDefault();
-            onToggle(item.headword);
+            onToggle(item.card);
           }}
         >
           <span className="word-card-disclosure" aria-hidden="true" />
@@ -259,7 +278,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
-  const [expandedHeadword, setExpandedHeadword] = useState<string | null>(null);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const transitionNames = useRef(new Map<string, string>());
   const visibleSuggestions = autocompleteOpen
     ? suggestions.slice(0, renderedSuggestionCount)
@@ -277,7 +296,7 @@ export function LookupExperience(props: LookupExperienceProps) {
 
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedHeadword(props.deepLinkHeadword);
+    setExpandedCard(cardName({ headword: props.deepLinkHeadword, paradigm: 0 }));
   }, [props.deepLinkHeadword]);
 
   useEffect(() => {
@@ -287,9 +306,10 @@ export function LookupExperience(props: LookupExperienceProps) {
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
   function selectSuggestion(item: LookupChoice) {
+    const [headword] = item.headwords;
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedHeadword(item.headwords[0] ?? null);
+    setExpandedCard(headword === undefined ? null : cardName({ headword, paradigm: 0 }));
     props.onSelectSuggestion({
       headwords: item.headwords,
       displayQuery: item.displayWord,
@@ -307,21 +327,21 @@ export function LookupExperience(props: LookupExperienceProps) {
     );
   }
 
-  // A headword can hold any character, so cards are named by order of first
-  // sight rather than by a sanitised headword that could collide.
-  function transitionNameFor(headword: string): string {
-    const existing = transitionNames.current.get(headword);
+  // A card name can hold any character, so cards are named by order of first
+  // sight rather than by a sanitised name that could collide.
+  function transitionNameFor(card: string): string {
+    const existing = transitionNames.current.get(card);
     if (existing !== undefined) {
       return existing;
     }
 
     const name = `word-card-${transitionNames.current.size}`;
-    transitionNames.current.set(headword, name);
+    transitionNames.current.set(card, name);
     return name;
   }
 
-  const toggleExpanded = useCallback((headword: string) => {
-    setExpandedHeadword((currentHeadword) => currentHeadword === headword ? null : headword);
+  const toggleExpanded = useCallback((card: string) => {
+    setExpandedCard((currentCard) => currentCard === card ? null : card);
   }, []);
 
   function submitLookup(event: FormEvent<HTMLFormElement>) {
@@ -329,7 +349,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     if (props.outcome?.kind === "result") {
       setAutocompleteOpen(false);
       setActiveSuggestionIndex(-1);
-      setExpandedHeadword(props.outcome.headword);
+      setExpandedCard(cardName({ headword: props.outcome.headword, paradigm: 0 }));
     }
   }
 
@@ -367,7 +387,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             setAutocompleteOpen(event.target.value.trim().length > 0);
             setActiveSuggestionIndex(-1);
             setRenderedSuggestionCount(suggestionBatchSize);
-            setExpandedHeadword(null);
+            setExpandedCard(null);
           }}
           onFocus={() => setAutocompleteOpen(props.query.trim().length > 0)}
           onKeyDown={(event) => {
@@ -416,7 +436,7 @@ export function LookupExperience(props: LookupExperienceProps) {
               props.onQueryChange("");
               setAutocompleteOpen(false);
               setActiveSuggestionIndex(-1);
-              setExpandedHeadword(null);
+              setExpandedCard(null);
               queryInput.current?.focus();
             }}
           >
@@ -471,10 +491,10 @@ export function LookupExperience(props: LookupExperienceProps) {
           <ul className="word-card-list" role="list">
             {library.map((item, index) => (
               <WordCard
-                key={item.headword}
+                key={item.card}
                 item={item}
-                expanded={expandedHeadword === item.headword}
-                transitionName={index < animatedCardLimit ? transitionNameFor(item.headword) : ""}
+                expanded={expandedCard === item.card}
+                transitionName={index < animatedCardLimit ? transitionNameFor(item.card) : ""}
                 onToggle={toggleExpanded}
               />
             ))}

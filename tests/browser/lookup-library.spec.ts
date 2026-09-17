@@ -177,16 +177,21 @@ test("a noun lists its Swedish forms behind its article", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("an en-word and an ett-word of one spelling read on their own lines", async ({ page }) => {
+test("an en-word and an ett-word of one spelling fill a card each", async ({ page }) => {
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
   await query.press("Enter");
 
-  const library = page.getByRole("region", { name: "Library" });
-  await expect(library.getByText("en val, valen, valar, valarna", { exact: true })).toBeVisible();
-  await expect(library.getByText("ett val, valet, val, valen", { exact: true })).toBeVisible();
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("en val, valen, valar, valarna");
+  await expect(cards.nth(0)).toContainText("кит");
+  await expect(cards.nth(0)).not.toContainText("выбор");
+  await expect(cards.nth(1)).toContainText("ett val, valet, val, valen");
+  await expect(cards.nth(1)).toContainText("выбор");
+  await expect(cards.nth(1)).not.toContainText("кит");
 });
 
 test("a word without examples or related words cannot be extended", async ({ page }) => {
