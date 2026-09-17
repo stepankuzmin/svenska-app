@@ -29,6 +29,15 @@ describe("Swedish word forms", () => {
     })).toEqual(["ett intryck", "intrycket", "intryck", "intrycken"]);
   });
 
+  it("drops a definite singular Lexin writes as the bare article", () => {
+    expect(wordForms({
+      headword: "action",
+      partOfSpeech: "subst.",
+      article: "en",
+      inflections: ["en", "action"],
+    })).toEqual(["en action", "action"]);
+  });
+
   it("keeps the source order for other word types", () => {
     expect(wordForms({
       headword: "städning",

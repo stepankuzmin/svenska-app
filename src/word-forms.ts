@@ -13,7 +13,12 @@ export function wordForms({
   inflections: readonly string[];
 }): string[] {
   if (partOfSpeech !== "verb" || inflections.length < 3) {
-    return [article.length > 0 ? `${article} ${headword}` : headword, ...inflections];
+    // Lexin writes the odd definite singular as the bare ending, which repeats
+    // the article the headword already opens with.
+    return [
+      article.length > 0 ? `${article} ${headword}` : headword,
+      ...inflections.filter((form) => form !== article),
+    ];
   }
 
   const [preterite, supine] = inflections;
