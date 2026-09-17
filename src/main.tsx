@@ -70,45 +70,40 @@ function LookupApp() {
   );
 
   useEffect(() => {
-    fetch(dictionaryAssetUrl)
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Dictionary asset could not be loaded.");
-        }
-        return response.json();
-      })
-      .then((asset) => {
-        if (!hasDictionaryAssetShape(asset)) {
-          throw new Error("Dictionary asset has an invalid format.");
-        }
-        setLookupState({
-          kind: "ready",
-          search: createSearch({ dictionary: asset }),
-          entries: asset.entries,
-        });
+    async function loadAsset(url: string): Promise<unknown> {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`${url} responded ${response.status}.`);
+      }
+      return response.json();
+    }
 
-        void fetch(dictionaryDetailsAssetUrl)
-          .then(async (response) => {
-            if (!response.ok) {
-              throw new Error("Dictionary details could not be loaded.");
-            }
-            return response.json();
-          })
-          .then((details) => {
-            if (
-              hasDictionaryDetailsShape(details) &&
-              details.sourceEditionDate === asset.metadata.sourceEditionDate
-            ) {
-              setDictionaryDetails(details.entries);
-            }
-          })
-          .catch(() => {});
-      })
-      .catch(() => {
-        if (!navigator.onLine) {
-          setLookupState({ kind: "unavailable-offline" });
-        }
+    async function load() {
+      const asset = await loadAsset(dictionaryAssetUrl);
+      if (!hasDictionaryAssetShape(asset)) {
+        throw new Error("Dictionary asset has an invalid format.");
+      }
+      setLookupState({
+        kind: "ready",
+        search: createSearch({ dictionary: asset }),
+        entries: asset.entries,
       });
+
+      // Details carry examples and inflections; lookup works without them.
+      const details = await loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
+      if (
+        hasDictionaryDetailsShape(details) &&
+        details.sourceEditionDate === asset.metadata.sourceEditionDate
+      ) {
+        setDictionaryDetails(details.entries);
+      }
+    }
+
+    load().catch(() => {
+      if (!navigator.onLine) {
+        setLookupState({ kind: "unavailable-offline" });
+      }
+    });
   }, []);
 
   // A ?q= link opens its exact match the way submitting the field does, so an
@@ -141,17 +136,6 @@ function LookupApp() {
     addToLibrary(closestChoice.headwords);
   }, [lookupState]);
 
-  function openLookup(lookupQuery: string) {
-    if (lookupState.kind !== "ready") {
-      return;
-    }
-
-    const nextOutcome = lookupState.search(lookupQuery);
-    if (nextOutcome.kind === "result") {
-      addToLibrary([nextOutcome.headword]);
-    }
-  }
-
   function addToLibrary(headwords: readonly string[]) {
     const apply = () => {
       setLibraryHeadwords((currentHeadwords) => {
@@ -174,7 +158,9 @@ function LookupApp() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    openLookup(query);
+    if (outcome?.kind === "result") {
+      addToLibrary([outcome.headword]);
+    }
   }
 
   function selectChoice({
@@ -191,7 +177,7 @@ function LookupApp() {
   return (
     <LookupExperience
       query={query}
-      lookupState={lookupState}
+      status={lookupState.kind}
       outcome={outcome}
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}

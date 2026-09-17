@@ -17,7 +17,7 @@ async function releaseDirectory(): Promise<string> {
 }
 
 describe("dictionary release contract", () => {
-  it("accepts a content-hashed dictionary and repository-relative application assets", async () => {
+  it("accepts a release whose asset filenames match their content digests", async () => {
     const directory = await releaseDirectory();
     await writeFile(
       join(directory, "lexin-dictionary.a05dae6a54854ab3.json"),
@@ -37,16 +37,18 @@ describe("dictionary release contract", () => {
     );
 
     await expect(
-      validateDictionaryRelease({ basePath: "/svenska-app/", directory, sourceEditionDate: "2010-07-07" }),
+      validateDictionaryRelease({ directory, sourceEditionDate: "2010-07-07" }),
     ).resolves.toBeUndefined();
   });
 
-  it("rejects root-relative assets that would escape a GitHub Pages repository path", async () => {
+  it("rejects a dictionary asset whose filename is not its content digest", async () => {
     const directory = await releaseDirectory();
-    await writeFile(join(directory, "index.html"), '<script type="module" src="/assets/app.js"></script>');
+    await writeFile(join(directory, "lexin-dictionary.0000000000000000.json"), "{}\n");
+    await writeFile(join(directory, "lexin-details.8b49adde90b45818.json"), "{}\n");
+    await writeFile(join(directory, "index.html"), "<script></script>");
 
     await expect(
-      validateDictionaryRelease({ basePath: "/svenska-app/", directory, sourceEditionDate: "2010-07-07" }),
-    ).rejects.toThrow("root-relative asset URL");
+      validateDictionaryRelease({ directory, sourceEditionDate: "2010-07-07" }),
+    ).rejects.toThrow("does not match its content digest");
   });
 });

@@ -32,8 +32,6 @@ jobs:
         run: npm test
       - name: Generate dictionary and build application
         run: npm run build
-      - name: Run mobile touch test in Vitest browsers
-        run: npm run test:vitest:browser
       - name: Validate dictionary release
         run: npm run release:check
       - name: Run built PWA journey

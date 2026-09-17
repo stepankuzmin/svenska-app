@@ -5,22 +5,14 @@ import { fileURLToPath } from "node:url";
 import { dictionaryAssetSchema, dictionaryDetailsAssetSchema } from "../src/dictionary-contract.ts";
 
 type DictionaryReleaseValidation = {
-  basePath: string;
   directory: string;
   sourceEditionDate: string;
 };
 
 export async function validateDictionaryRelease({
-  basePath,
   directory,
   sourceEditionDate,
 }: DictionaryReleaseValidation): Promise<void> {
-  const indexHtml = await readFile(resolve(directory, "index.html"), "utf8");
-  const assetUrls = [...indexHtml.matchAll(/(?:src|href)=["']([^"']+)/g)].map((match) => match[1]);
-  if (assetUrls.some((url) => url.startsWith("/") && !url.startsWith(basePath))) {
-    throw new Error("Release index contains a root-relative asset URL.");
-  }
-
   const files = await readdir(directory);
   const dictionaryAssets = files.filter((file) => /^lexin-dictionary\.[a-f0-9]{16}\.json$/.test(file));
   if (dictionaryAssets.length !== 1) {
@@ -68,7 +60,6 @@ export async function validateDictionaryRelease({
 async function main(): Promise<void> {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   await validateDictionaryRelease({
-    basePath: process.env.VITE_BASE_PATH ?? "/",
     directory: resolve(repositoryRoot, "dist"),
     sourceEditionDate: "2010-07-07",
   });

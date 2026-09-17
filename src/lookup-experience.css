@@ -239,7 +239,6 @@ body {
 .word-card[open]::details-content { block-size: auto; }
 
 .word-card-copy,
-.word-card-heading,
 .word-card-senses,
 .word-card-sense {
   display: block;
@@ -301,8 +300,6 @@ body {
   padding-block-start: .7rem;
 }
 
-.word-card-details h3 [lang="sv"] { text-transform: none; }
-
 .word-card-details h3 {
   color: var(--lookup-muted);
   font-size: .75rem;
@@ -311,6 +308,8 @@ body {
   margin: 0 0 .4rem;
   text-transform: uppercase;
 }
+
+.word-card-details h3 [lang="sv"] { text-transform: none; }
 
 .word-card-details li {
   font-size: .9rem;

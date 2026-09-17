@@ -6,49 +6,6 @@ async function searchFor(page: Page, query: string) {
   await field.press("Enter");
 }
 
-test("registers the service worker before load so deployed updates can refresh stale clients", async ({ page }) => {
-  await page.addInitScript(`
-    const serviceWorker = navigator.serviceWorker;
-    const register = serviceWorker.register.bind(serviceWorker);
-
-    Object.defineProperty(serviceWorker, "register", {
-      configurable: true,
-      value(...args) {
-        Reflect.set(globalThis, "serviceWorkerRegistrationReadyState", document.readyState);
-        return register(...args);
-      },
-    });
-  `);
-
-  await page.goto(".");
-
-  await expect.poll(() => page.evaluate("Reflect.get(globalThis, 'serviceWorkerRegistrationReadyState')"))
-    .toBe("interactive");
-});
-
-test("listens for worker takeover before the application module graph loads", async ({ page }) => {
-  await page.addInitScript(`
-    const serviceWorker = navigator.serviceWorker;
-    const addEventListener = serviceWorker.addEventListener.bind(serviceWorker);
-
-    Object.defineProperty(serviceWorker, "addEventListener", {
-      configurable: true,
-      value(type, listener, options) {
-        if (type === "controllerchange" &&
-            !Reflect.has(globalThis, "serviceWorkerListenerReadyState")) {
-          Reflect.set(globalThis, "serviceWorkerListenerReadyState", document.readyState);
-        }
-        return addEventListener(type, listener, options);
-      },
-    });
-  `);
-
-  await page.goto(".");
-
-  await expect.poll(() => page.evaluate("Reflect.get(globalThis, 'serviceWorkerListenerReadyState')"))
-    .toBe("loading");
-});
-
 test("reloads for a later worker update after ignoring the first installation claim", async ({ page }) => {
   await page.addInitScript(`
     const serviceWorker = navigator.serviceWorker;

@@ -1,6 +1,4 @@
 import {
-  dictionaryAssetSchema,
-  dictionaryDetailsAssetSchema,
   dictionaryMetadataSchema,
   type DictionaryAsset,
   type DictionaryDetailsAsset,
@@ -59,6 +57,39 @@ function russianMatchRank({ text, query }: { text: string; query: string }): num
   return text.includes(query) ? 3 : null;
 }
 
+type IndexEntry = {
+  displayWord: string;
+  normalizedDisplayWord: string;
+  headwords: readonly string[];
+};
+
+function indexEntries(
+  index: Record<string, string[]>,
+  normalize: (value: string) => string,
+): IndexEntry[] {
+  return Object.entries(index).map(([displayWord, headwords]) => ({
+    displayWord,
+    normalizedDisplayWord: normalize(displayWord),
+    headwords,
+  }));
+}
+
+// Two display words can normalise to the same form, so their headwords merge
+// into one bucket rather than the later one replacing the earlier.
+function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
+  const byForm = new Map<string, string[]>();
+  for (const { normalizedDisplayWord, headwords } of entries) {
+    const bucket = byForm.get(normalizedDisplayWord) ?? [];
+    for (const headword of headwords) {
+      if (!bucket.includes(headword)) {
+        bucket.push(headword);
+      }
+    }
+    byForm.set(normalizedDisplayWord, bucket);
+  }
+  return byForm;
+}
+
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
     headword,
@@ -66,43 +97,17 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
-  const swedishIndexEntries = Object.entries(dictionary.swedishIndex).map(
-    ([displayWord, headwords]) => ({
-      displayWord,
-      normalizedDisplayWord: normalizeSwedishLookupText(displayWord),
-      headwords,
-    }),
-  );
-  const swedishHeadwordsByForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, headwords } of swedishIndexEntries) {
-    const indexedHeadwords = swedishHeadwordsByForm.get(normalizedDisplayWord) ?? [];
-    for (const headword of headwords) {
-      if (!indexedHeadwords.includes(headword)) {
-        indexedHeadwords.push(headword);
-      }
-    }
-    swedishHeadwordsByForm.set(normalizedDisplayWord, indexedHeadwords);
-  }
-  const russianIndexEntries = Object.entries(dictionary.russianIndex).map(
-    ([displayWord, headwords]) => ({
-      displayWord,
-      normalizedDisplayWord: normalizeLookupText(displayWord),
-      headwords,
-    }),
-  );
-  const russianHeadwordsByForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, headwords } of russianIndexEntries) {
-    const indexedHeadwords = russianHeadwordsByForm.get(normalizedDisplayWord) ?? [];
-    for (const headword of headwords) {
-      if (!indexedHeadwords.includes(headword)) {
-        indexedHeadwords.push(headword);
-      }
-    }
-    russianHeadwordsByForm.set(normalizedDisplayWord, indexedHeadwords);
-  }
+  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, normalizeSwedishLookupText);
+  const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
+  const russianIndexEntries = indexEntries(dictionary.russianIndex, normalizeLookupText);
+  const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
+    if (normalizedQuery.length === 0) {
+      return { kind: "no-match" };
+    }
+
     const normalizedSwedishQuery = normalizeSwedishLookupText(query);
     const exactSwedishEntry = entries.find(
       ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
@@ -122,10 +127,6 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       const entry = entriesByHeadword.get(headword);
       return entry === undefined ? [] : [entry];
     });
-
-    if (normalizedQuery.length === 0) {
-      return { kind: "no-match" };
-    }
 
     const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
     for (const { displayWord, normalizedDisplayWord, headwords: indexedHeadwords } of russianIndexEntries) {
@@ -200,10 +201,6 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
   };
 }
 
-export function isDictionaryAsset(value: unknown): value is DictionaryAsset {
-  return dictionaryAssetSchema.safeParse(value).success;
-}
-
 function looksLikeRecordOfArrays(value: unknown): boolean {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -240,8 +237,4 @@ export function hasDictionaryDetailsShape(value: unknown): value is DictionaryDe
 
   const asset = value as Partial<DictionaryDetailsAsset>;
   return typeof asset.sourceEditionDate === "string" && looksLikeRecordOfArrays(asset.entries);
-}
-
-export function isDictionaryDetailsAsset(value: unknown): value is DictionaryDetailsAsset {
-  return dictionaryDetailsAssetSchema.safeParse(value).success;
 }
