@@ -24,6 +24,8 @@ test("a mobile tap opens a suggested word", async () => {
   await import("../src/main");
 
   const query = page.getByLabelText("Swedish or Russian word");
+  await expect.element(query).toBeVisible();
+  expect(document.activeElement).not.toBe(root.querySelector("input"));
   await query.fill("fik");
   await expect.element(page.getByRole("option", { name: "fika", exact: true })).toBeVisible();
   await commands.tapSuggestion("fika");

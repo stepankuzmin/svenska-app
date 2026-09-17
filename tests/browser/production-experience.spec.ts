@@ -206,6 +206,61 @@ test("the minimal layout fits a narrow zoomed viewport and keeps visible focus",
   await expect(page.locator("header, footer, main button")).toHaveCount(0);
 });
 
+test("a q link opens every headword an exact word indexes", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto("./?q=angett");
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByRole("listitem")).toHaveText([/anger/, /angett/]);
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
+test("a pressed library row never changes background", async ({ page, browserName }) => {
+  test.skip(browserName !== "chromium", "Forcing :active needs the Chrome DevTools Protocol.");
+
+  await page.addInitScript(`localStorage.setItem("svenska.lookup-library", '["fika"]')`);
+  await openReadyApp(page);
+  await expect(page.locator(".word-card summary")).toHaveCount(1);
+
+  const session = await page.context().newCDPSession(page);
+  await session.send("DOM.enable");
+  await session.send("CSS.enable");
+  const { root } = await session.send("DOM.getDocument");
+  const { nodeId } = await session.send("DOM.querySelector", { nodeId: root.nodeId, selector: ".word-card summary" });
+  await session.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
+
+  // The card expanding is the feedback, so a press of any length stays transparent.
+  const backgrounds = (await page.evaluate(`new Promise((resolve) => {
+    const row = document.querySelector(".word-card summary");
+    const seen = [];
+    const started = performance.now();
+    for (const at of [0, 150, 400, 700]) {
+      setTimeout(() => window.dispatchEvent(new Event("scroll")), at);
+    }
+    (function sample() {
+      const background = getComputedStyle(row).backgroundColor;
+      if (seen[seen.length - 1] !== background) seen.push(background);
+      if (performance.now() - started < 900) requestAnimationFrame(sample);
+      else resolve(seen);
+    })();
+  })`)) as string[];
+
+  expect(backgrounds).toEqual(["rgba(0, 0, 0, 0)"]);
+});
+
+test("a tap on the page background focuses the search field", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.blur();
+  await expect(query).not.toBeFocused();
+
+  await page.getByText("Lexin, ISOF", { exact: true }).click();
+  await expect(query).toBeFocused();
+});
+
 test("the shipped interface credits the dictionary source and license", async ({ page }) => {
   await openReadyApp(page);
 

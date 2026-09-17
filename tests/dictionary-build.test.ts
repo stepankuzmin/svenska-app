@@ -1,7 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { describe, expect, it } from "vitest";
 import { buildDictionaryAssets } from "../scripts/build-dictionary.ts";
-import { createSearch, isDictionaryAsset } from "../src/dictionary.ts";
+import {
+  createSearch,
+  hasDictionaryAssetShape,
+  hasDictionaryDetailsShape,
+  isDictionaryAsset,
+} from "../src/dictionary.ts";
 
 describe("Lexin source edition import", () => {
   it("preserves source metadata and groups every exact Swedish headword sense", async () => {
@@ -134,5 +139,34 @@ describe("Lexin source edition import", () => {
 
   it("rejects a dictionary asset with malformed senses", () => {
     expect(isDictionaryAsset({ metadata: {}, entries: { bok: [{}] } })).toBe(false);
+  });
+
+  it("accepts a shaped dictionary asset at startup without inspecting every sense", () => {
+    const metadata = { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" };
+
+    expect(hasDictionaryAssetShape({
+      metadata,
+      entries: { bok: [{}] },
+      swedishIndex: { bok: ["bok"] },
+      russianIndex: { "книга": ["bok"] },
+    })).toBe(true);
+    expect(hasDictionaryAssetShape({
+      metadata,
+      entries: { bok: {} },
+      swedishIndex: {},
+      russianIndex: {},
+    })).toBe(false);
+    expect(hasDictionaryAssetShape({
+      metadata: {},
+      entries: {},
+      swedishIndex: {},
+      russianIndex: {},
+    })).toBe(false);
+  });
+
+  it("requires a details asset to carry a source edition and array entries", () => {
+    expect(hasDictionaryDetailsShape({ sourceEditionDate: "2010-07-07", entries: { bok: [] } })).toBe(true);
+    expect(hasDictionaryDetailsShape({ entries: { bok: [] } })).toBe(false);
+    expect(hasDictionaryDetailsShape({ sourceEditionDate: "2010-07-07", entries: { bok: {} } })).toBe(false);
   });
 });

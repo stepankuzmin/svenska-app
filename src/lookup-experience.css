@@ -1,6 +1,8 @@
 :root {
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
   color-scheme: light dark;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  interpolate-size: allow-keywords;
 }
 
 * { box-sizing: border-box; }
@@ -44,7 +46,7 @@ body {
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 }
 
-.minimal-lookup > :where(form, section, .lookup-attribution) {
+.minimal-lookup > :where(form, section, .lookup-status, .lookup-attribution) {
   margin-inline: auto;
   max-inline-size: 38rem;
 }
@@ -106,9 +108,10 @@ body {
   inline-size: 1.3rem;
   justify-content: center;
   line-height: 1;
+  transition: background-color 140ms ease, scale 140ms var(--ease-out);
 }
 
-.lookup-clear:active span { background: #a9a9b0; }
+.lookup-clear:active span { background: #a9a9b0; scale: .92; }
 
 .minimal-lookup input[aria-expanded="true"] {
   border-end-end-radius: 0;
@@ -117,12 +120,18 @@ body {
 
 .minimal-lookup input::placeholder { color: #6e6e73; }
 
-.minimal-lookup :where(input, summary):focus-visible {
+.minimal-lookup summary:focus-visible {
   outline: 3px solid var(--lookup-blue);
   outline-offset: 2px;
 }
 
+.minimal-lookup input:focus-visible {
+  outline: 2px solid var(--lookup-blue);
+  outline-offset: 0;
+}
+
 .suggestion-menu {
+  --suggestion-row: 3rem;
   background: var(--lookup-card);
   border: 1px solid #8e8e93;
   border-block-start: 0;
@@ -132,7 +141,7 @@ body {
   inset: calc(100% - 1px) 0 auto;
   list-style: none;
   margin: 0;
-  max-block-size: min(20rem, 50dvb);
+  max-block-size: min(calc(7 * var(--suggestion-row)), round(down, 50dvb, var(--suggestion-row)));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0;
@@ -152,7 +161,6 @@ body {
 
 .suggestion-menu li + li { border-block-start: 1px solid var(--lookup-soft-line); }
 .suggestion-menu li[aria-selected="true"] { background: #e9f2fc; }
-.suggestion-menu li:active { background: #dbeaf9; }
 
 .suggestion-menu strong { letter-spacing: -.01em; }
 
@@ -181,6 +189,12 @@ body {
 }
 
 .word-card-list > li + li { border-block-start: 1px solid var(--lookup-soft-line); }
+.word-card-list > li { view-transition-name: var(--word-card-name); }
+
+::view-transition-group(*) {
+  animation-duration: 220ms;
+  animation-timing-function: var(--ease-out);
+}
 
 .word-card summary,
 .word-card-plain {
@@ -204,8 +218,6 @@ body {
 
 .word-card summary::-webkit-details-marker { display: none; }
 .word-card summary::marker { content: ""; }
-.word-card summary:active { background: #e9f2fc; }
-
 .word-card-disclosure {
   block-size: .38rem;
   border-block-start: 1.5px solid var(--lookup-muted);
@@ -213,9 +225,18 @@ body {
   inline-size: .38rem;
   margin-block-start: .42rem;
   rotate: 45deg;
+  transition: rotate 200ms var(--ease-out);
 }
 
 .word-card[open] .word-card-disclosure { rotate: 135deg; }
+
+.word-card::details-content {
+  block-size: 0;
+  overflow-y: clip;
+  transition: block-size 220ms var(--ease-out), content-visibility 220ms var(--ease-out) allow-discrete;
+}
+
+.word-card[open]::details-content { block-size: auto; }
 
 .word-card-copy,
 .word-card-heading,
@@ -262,8 +283,9 @@ body {
 
 .word-card-sense > span { display: block; }
 
-.word-card-sense > [lang="ru"] {
-  font-weight: 520;
+.word-card-sense > [lang="ru"],
+.word-card-details li > [lang="ru"] {
+  font-weight: 500;
   margin-inline-start: .8rem;
 }
 
@@ -278,6 +300,8 @@ body {
   margin-block-start: .8rem;
   padding-block-start: .7rem;
 }
+
+.word-card-details h3 [lang="sv"] { text-transform: none; }
 
 .word-card-details h3 {
   color: var(--lookup-muted);
@@ -296,9 +320,11 @@ body {
 .word-card-details li + li { margin-block-start: .52rem; }
 .word-card-details li > span { display: block; }
 
-.word-card-details li > [lang="ru"] {
+.lookup-status {
   color: var(--lookup-muted);
-  margin-inline-start: .8rem;
+  font-size: .9rem;
+  line-height: 1.4;
+  padding-inline: .65rem;
 }
 
 .lookup-attribution {
@@ -326,24 +352,28 @@ body {
   .lookup-clear:active span { background: #7c7c82; }
   .minimal-lookup input::placeholder { color: #aeaeb2; }
   .suggestion-menu { border-color: #68686d; box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 45%); }
-  .suggestion-menu li[aria-selected="true"],
-  .word-card summary:active { background: #19395a; }
-  .suggestion-menu li:active { background: #21476d; }
+  .suggestion-menu li[aria-selected="true"] { background: #19395a; }
   .word-card-heading span { color: #d1d1d6; }
 }
 
+/* A list row has no press state: the card expands and the menu closes on its own. */
 @media (hover: hover) and (pointer: fine) {
   .suggestion-menu li:hover { background: #e9f2fc; }
-  .suggestion-menu li:hover:active { background: #dbeaf9; }
+  .word-card summary { transition: background-color 150ms ease; }
+  .word-card summary:hover { background: #f3f8fd; }
 
   @media (prefers-color-scheme: dark) {
     .suggestion-menu li:hover { background: #19395a; }
-    .suggestion-menu li:hover:active { background: #21476d; }
+    .word-card summary:hover { background: #15293d; }
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .word-card summary:active { background: transparent; }
+  .word-card-disclosure,
+  .word-card::details-content,
+  .lookup-clear span { transition-duration: 0ms; }
+
+  .word-card-list > li { view-transition-name: none; }
 }
 
 @media (prefers-contrast: more) {

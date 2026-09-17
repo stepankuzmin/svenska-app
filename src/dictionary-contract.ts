@@ -18,12 +18,14 @@ const wordDetailsSchema = z.object({
   compounds: z.array(bilingualTextSchema),
 });
 
+export const dictionaryMetadataSchema = z.object({
+  sourceEditionDate: z.string(),
+  attribution: z.string(),
+  license: z.literal("CC BY 4.0"),
+});
+
 export const dictionaryAssetSchema = z.object({
-  metadata: z.object({
-    sourceEditionDate: z.string(),
-    attribution: z.string(),
-    license: z.literal("CC BY 4.0"),
-  }),
+  metadata: dictionaryMetadataSchema,
   entries: z.record(z.string(), z.array(senseSchema)),
   swedishIndex: z.record(z.string(), z.array(z.string()).min(1)),
   russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
