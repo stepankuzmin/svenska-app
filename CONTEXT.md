@@ -51,6 +51,10 @@ _Avoid_: Inflection list, paradigm
 The open state of a word card, adding Lexin examples and related words that contain the headword. At most one word card is extended in the lookup library. A word with neither examples nor related words has no extended state, and its card carries no disclosure.
 _Avoid_: Expanded result, accordion item
 
+**Removing a word**:
+A word leaves the lookup library by a swipe to the left across its card, which uncovers the control that removes it. The card follows the finger, comes back when it is let go short of the threshold, and leaves to the left when the swipe passes the threshold or flicks past it; the library closes the gap behind it. Keyboard focus uncovers the same control, so the gesture is not the only way out. A removed word returns by looking it up again.
+_Avoid_: Delete, swipe action, undo
+
 **Lookup autocomplete**:
 The transient listbox of matching indexed words attached directly to the search field while the user types. Selecting a suggestion closes the listbox, opens the word card for its canonical headword, and adds that entry to the lookup library.
 _Avoid_: Suggestions section, suggestion cards
@@ -62,5 +66,7 @@ The lookup area responds to every non-blank change in the search field. It shows
 A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens all corresponding Swedish headwords.
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds every word it holds to the library.
+
+A swipe to the left across a word card removes that word from the lookup library, and nothing else does.
 
 The production interface contains only the lookup autocomplete and the lookup library. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.

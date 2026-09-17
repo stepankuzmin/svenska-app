@@ -160,6 +160,27 @@ function LookupApp() {
     });
   }
 
+  // The library moves as one: a word joining it or leaving it carries the cards
+  // around it to their new places.
+  function withLibraryMotion(apply: () => void) {
+    if (!prefersMotion() || typeof document.startViewTransition !== "function") {
+      apply();
+      return;
+    }
+
+    document.startViewTransition(() => flushSync(apply));
+  }
+
+  function removeFromLibrary(card: string) {
+    withLibraryMotion(() => {
+      setLibraryWords((currentWords) => {
+        const nextWords = currentWords.filter((libraryWord) => wordKey(libraryWord) !== card);
+        writeLookupLibrary(nextWords);
+        return nextWords;
+      });
+    });
+  }
+
   function addToLibrary(headwords: readonly string[]) {
     const openedWords = wordsOfHeadwords(headwords);
     const openedKeys = openedWords.map(wordKey);
@@ -174,12 +195,7 @@ function LookupApp() {
       });
     };
 
-    if (!prefersMotion() || typeof document.startViewTransition !== "function") {
-      apply();
-      return;
-    }
-
-    document.startViewTransition(() => flushSync(apply));
+    withLibraryMotion(apply);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -212,6 +228,7 @@ function LookupApp() {
       onQueryChange={setQuery}
       onSubmit={submit}
       onSelectSuggestion={selectChoice}
+      onRemoveWord={removeFromLibrary}
     />
   );
 }

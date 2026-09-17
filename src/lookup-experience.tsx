@@ -7,12 +7,14 @@ import {
   useState,
   type CSSProperties,
   type FormEvent,
+  type ReactElement,
   type UIEvent,
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 import { wordForms } from "./word-forms";
+import { useSwipeToRemove } from "./swipe-to-remove";
 import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
@@ -31,6 +33,7 @@ type LookupExperienceProps = {
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
+  onRemoveWord: (card: string) => void;
 };
 
 // One card holds one word: the senses Lexin inflects the same way. A spelling
@@ -176,12 +179,15 @@ const WordCard = memo(function WordCard({
   expanded,
   transitionName,
   onToggle,
+  onRemove,
 }: {
   item: WordItem;
   expanded: boolean;
   transitionName: string;
   onToggle: (card: string) => void;
+  onRemove: (card: string) => void;
 }) {
+  const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
   const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
   const phonetics = uniqueNonEmpty(item.details.map((details) => details.phonetic));
   const examples = item.details.flatMap((details) => details.examples);
@@ -210,16 +216,32 @@ const WordCard = memo(function WordCard({
     ? { "--word-card-name": transitionName }
     : undefined) as CSSProperties | undefined;
 
-  if (examples.length === 0 && item.relatedWords.length === 0) {
+  // Swiping the card aside is the way out, and the same affordance the swipe
+  // reveals is a control the keyboard can reach.
+  function asRow(card: ReactElement) {
     return (
       <li style={style}>
-        <div className="word-card-plain">{copy}</div>
+        <div className="word-card-row">
+          <div className="word-card-swipe" {...swipe.surfaceProps}>{card}</div>
+          <button
+            type="button"
+            className="word-card-remove"
+            aria-label={`Remove ${item.forms[0] ?? cleanLexinText(item.headword)} from the library`}
+            onClick={swipe.remove}
+          >
+            Remove
+          </button>
+        </div>
       </li>
     );
   }
 
-  return (
-    <li style={style}>
+  if (examples.length === 0 && item.relatedWords.length === 0) {
+    return asRow(<div className="word-card-plain">{copy}</div>);
+  }
+
+  return asRow(
+    (
       <details className="word-card" open={expanded}>
         <summary
           onClick={(event) => {
@@ -260,7 +282,7 @@ const WordCard = memo(function WordCard({
           ) : null}
         </div>
       </details>
-    </li>
+    ),
   );
 });
 
@@ -503,6 +525,7 @@ export function LookupExperience(props: LookupExperienceProps) {
                 expanded={expandedCard === item.card}
                 transitionName={index < animatedCardLimit ? transitionNameFor(item.card) : ""}
                 onToggle={toggleExpanded}
+                onRemove={props.onRemoveWord}
               />
             ))}
           </ul>

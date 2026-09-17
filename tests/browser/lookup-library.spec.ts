@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
@@ -227,6 +227,89 @@ test("a library stored as spellings opens every word those spellings hold", asyn
     { headword: "val", word: "18440" },
     { headword: "tack", word: "" },
   ]);
+});
+
+async function swipe(page: Page, card: Locator, distance: number) {
+  const surface = card.locator(".word-card-swipe");
+  // A view transition hands hit testing to its own snapshot while it runs, so
+  // the gesture waits for the card itself to take pointer events again.
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const start = box.x + box.width - 24;
+  await page.mouse.move(start, y);
+  await page.mouse.down();
+  await page.mouse.move(start + distance, y, { steps: 8 });
+  await page.mouse.up();
+}
+
+test("a swipe to the left removes a word from the library", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+
+  await swipe(page, cards.nth(0), -160);
+
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18440" },
+  ]);
+});
+
+test("a card let go short of the threshold keeps its place", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await swipe(page, cards.nth(0), -40);
+
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveAttribute("data-swiping");
+});
+
+test("the card a swipe uncovers can be removed from the keyboard", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  const remove = cards.nth(0).getByRole("button", { name: "Remove en val from the library" });
+  await query.focus();
+  await expect.poll(async () => {
+    await page.keyboard.press("Tab");
+    return remove.evaluate((button) => button.matches(":focus-visible"));
+  }, { timeout: 5000 }).toBe(true);
+
+  await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveCSS("transform", "none");
+  await page.keyboard.press("Enter");
+
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("выбор");
+});
+
+test("a word removed without motion leaves just the same", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await swipe(page, cards.nth(0), -160);
+
+  await expect(cards).toHaveCount(1);
 });
 
 test("a word without examples or related words cannot be extended", async ({ page }) => {
