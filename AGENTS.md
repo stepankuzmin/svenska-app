@@ -1,17 +1,6 @@
-## Agent skills
+## Domain vocabulary
 
-### Issue tracker
-
-Issues are tracked in the Linear project "svenskaapp"; agents may create and update issues. See `docs/agents/issue-tracker.md`.
-Agents may also post Linear comments on the user's behalf when recording work in this repository.
-
-### Triage labels
-
-Use the default canonical triage labels. See `docs/agents/triage-labels.md`.
-
-### Domain docs
-
-Use the single-context domain-doc layout. See `docs/agents/domain.md`.
+Read `CONTEXT.md` before exploring the codebase, and name domain concepts the way its glossary does.
 
 ## Public GitHub actions
 
@@ -27,4 +16,4 @@ Create Codex-authored commits with `git commit --author="Codex <199175422+chatgp
 
 ## Browser verification
 
-For UI, mobile, or PWA changes, run `npm run test:browser` before reporting completion. It builds the shipped app, runs production Playwright in Chromium and WebKit, and fails if a new macOS Chrome or Playwright crash report appears. `npm run test:vitest:browser` only checks the touch component scenario and does not replace that gate. If local socket permissions block the command, rerun it with the required sandbox escalation; an `EPERM` startup error is not a test result.
+For UI, mobile, or PWA changes, run `npm run test:browser` before reporting completion. It builds the shipped app, runs the production journey in Chromium and WebKit, and runs the touch test on the Pixel and iPhone profiles. The production journey stays on the desktop profiles because three of its tests assert the search field is focused on load, which the app suppresses on a coarse pointer. If local socket permissions block the command, rerun it with the required sandbox escalation; an `EPERM` startup error is not a test result.

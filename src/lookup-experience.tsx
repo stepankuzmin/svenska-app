@@ -17,14 +17,11 @@ import { wordForms } from "./word-forms";
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
 
-type LookupAvailability =
-  | { kind: "loading" }
-  | { kind: "ready" }
-  | { kind: "unavailable-offline" };
+export type LookupStatus = "loading" | "ready" | "unavailable-offline";
 
 type LookupExperienceProps = {
   query: string;
-  lookupState: LookupAvailability;
+  status: LookupStatus;
   outcome: LookupOutcome | null;
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
@@ -47,8 +44,6 @@ type IndexedHeadword = {
   normalized: string;
   senses: readonly DictionarySense[];
 };
-
-type SuggestionItem = LookupChoice;
 
 type RelatedWord = {
   headword: string;
@@ -73,11 +68,7 @@ function translationFor(senses: readonly DictionarySense[]): string {
   return uniqueNonEmpty(senses.map((sense) => sense.translation)).join(" · ");
 }
 
-function getSuggestionItems({
-  outcome,
-}: {
-  outcome: LookupOutcome | null;
-}): readonly SuggestionItem[] {
+function getSuggestionItems(outcome: LookupOutcome | null): readonly LookupChoice[] {
   if (outcome === null || outcome.kind === "no-match") {
     return [];
   }
@@ -253,9 +244,7 @@ const WordCard = memo(function WordCard({
 });
 
 export function LookupExperience(props: LookupExperienceProps) {
-  const suggestions = getSuggestionItems({
-    outcome: props.outcome,
-  });
+  const suggestions = getSuggestionItems(props.outcome);
   const headwordIndex = useMemo(() => getHeadwordIndex(props.entries), [props.entries]);
   const library = useMemo(
     () => getLibraryItems(props.libraryHeadwords, props.entries, props.details, headwordIndex),
@@ -263,9 +252,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   );
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
-  const placeholder = props.lookupState.kind === "loading"
-    ? "Loading dictionary…"
-    : "Swedish or Russian";
+  const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
   const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
@@ -296,7 +283,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
-  function selectSuggestion(item: SuggestionItem) {
+  function selectSuggestion(item: LookupChoice) {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
     setExpandedHeadword(item.headwords[0] ?? null);
@@ -430,7 +417,11 @@ export function LookupExperience(props: LookupExperienceProps) {
               queryInput.current?.focus();
             }}
           >
-            <span aria-hidden="true">✕</span>
+            <span aria-hidden="true">
+              <svg viewBox="0 0 16 16" focusable="false">
+                <path d="M5 5L11 11M11 5L5 11" />
+              </svg>
+            </span>
           </button>
         ) : null}
         {visibleSuggestions.length > 0 ? (
@@ -461,12 +452,12 @@ export function LookupExperience(props: LookupExperienceProps) {
       </form>
 
       <div
-        className={props.lookupState.kind === "unavailable-offline" ? "lookup-status" : "visually-hidden"}
+        className={props.status === "unavailable-offline" ? "lookup-status" : "visually-hidden"}
         role="status"
         aria-live="polite"
       >
-        {props.lookupState.kind === "loading" ? "Loading dictionary…" : null}
-        {props.lookupState.kind === "unavailable-offline"
+        {props.status === "loading" ? "Loading dictionary…" : null}
+        {props.status === "unavailable-offline"
           ? "Connect once while online. After that, you can look up words offline."
           : null}
       </div>

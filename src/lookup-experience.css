@@ -104,11 +104,20 @@ body {
   border-radius: 50%;
   color: var(--lookup-card);
   display: flex;
-  font-size: .75rem;
   inline-size: 1.3rem;
   justify-content: center;
-  line-height: 1;
   transition: background-color 140ms ease, scale 140ms var(--ease-out);
+}
+
+/* Drawn rather than typed: a glyph centres by its advance width, which leaves
+   the ink off-centre by whatever the font and its per-glyph fallback decide. */
+.lookup-clear svg {
+  block-size: 100%;
+  fill: none;
+  inline-size: 100%;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.5;
 }
 
 .lookup-clear:active span { background: #a9a9b0; scale: .92; }
@@ -239,7 +248,6 @@ body {
 .word-card[open]::details-content { block-size: auto; }
 
 .word-card-copy,
-.word-card-heading,
 .word-card-senses,
 .word-card-sense {
   display: block;
@@ -301,8 +309,6 @@ body {
   padding-block-start: .7rem;
 }
 
-.word-card-details h3 [lang="sv"] { text-transform: none; }
-
 .word-card-details h3 {
   color: var(--lookup-muted);
   font-size: .75rem;
@@ -311,6 +317,8 @@ body {
   margin: 0 0 .4rem;
   text-transform: uppercase;
 }
+
+.word-card-details h3 [lang="sv"] { text-transform: none; }
 
 .word-card-details li {
   font-size: .9rem;
