@@ -3,8 +3,8 @@ import { expect, test } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    fikapaus: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fikapaus: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
   },
   swedishIndex: { fika: ["fika"], fikapaus: ["fikapaus"] },
   russianIndex: { "перерыв на кофе": ["fika", "fikapaus"] },

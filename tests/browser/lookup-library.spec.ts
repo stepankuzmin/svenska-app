@@ -3,13 +3,13 @@ import { expect, test } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    abborre: [{ partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
-    framgår: [{ partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    abborre: [{ word: "", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
+    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    tack: [{ word: "", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    framgår: [{ word: "", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
     val: [
-      { partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
-      { partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
+      { word: "18439", partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
+      { word: "18440", partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
     ],
   },
   swedishIndex: {
@@ -192,6 +192,41 @@ test("an en-word and an ett-word of one spelling fill a card each", async ({ pag
   await expect(cards.nth(1)).toContainText("ett val, valet, val, valen");
   await expect(cards.nth(1)).toContainText("выбор");
   await expect(cards.nth(1)).not.toContainText("кит");
+});
+
+test("the library keeps a word of its own rather than the spelling", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18439" },
+    { headword: "val", word: "18440" },
+  ]);
+
+  await page.reload();
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("кит");
+});
+
+test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
+  await page.goto(".");
+  await page.evaluate(
+    () => localStorage.setItem("svenska.lookup-library", JSON.stringify(["val", "tack"])),
+  );
+  await page.reload();
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(3);
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18439" },
+    { headword: "val", word: "18440" },
+    { headword: "tack", word: "" },
+  ]);
 });
 
 test("a word without examples or related words cannot be extended", async ({ page }) => {

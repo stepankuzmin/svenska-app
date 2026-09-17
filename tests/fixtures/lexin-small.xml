@@ -15,7 +15,7 @@
       <Compound ID="20">книжная полка</Compound>
     </TargetLang>
   </Word>
-  <Word ID="1" MatchingID="101" Type="verb" Value="bok">
+  <Word ID="14" MatchingID="101" Type="verb" Value="bok">
     <BaseLang><Meaning>reservera</Meaning></BaseLang>
     <TargetLang><Translation>бронировать</Translation></TargetLang>
   </Word>

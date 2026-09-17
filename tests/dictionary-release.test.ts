@@ -20,8 +20,8 @@ describe("dictionary release contract", () => {
   it("accepts a release whose asset filenames match their content digests", async () => {
     const directory = await releaseDirectory();
     await writeFile(
-      join(directory, "lexin-dictionary.a05dae6a54854ab3.json"),
-      '{"metadata":{"sourceEditionDate":"2010-07-07","attribution":"Lexin","license":"CC BY 4.0"},"entries":{"bok":[{"partOfSpeech":"subst.","meaning":"","translation":"книга"}]},"swedishIndex":{"bok":["bok"],"boken":["bok"]},"russianIndex":{"книга":["bok"]}}\n',
+      join(directory, "lexin-dictionary.496ae024230100ed.json"),
+      '{"metadata":{"sourceEditionDate":"2010-07-07","attribution":"Lexin","license":"CC BY 4.0"},"entries":{"bok":[{"word":"","partOfSpeech":"subst.","meaning":"","translation":"книга"}]},"swedishIndex":{"bok":["bok"],"boken":["bok"]},"russianIndex":{"книга":["bok"]}}\n',
     );
     await writeFile(
       join(directory, "lexin-details.48da16fce86698db.json"),
@@ -33,7 +33,7 @@ describe("dictionary release contract", () => {
     );
     await writeFile(
       join(directory, "sw.js"),
-      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.a05dae6a54854ab3.json"},{url:"lexin-details.48da16fce86698db.json"}]);',
+      'precacheAndRoute([{url:"index.html"},{url:"lexin-dictionary.496ae024230100ed.json"},{url:"lexin-details.48da16fce86698db.json"}]);',
     );
 
     await expect(

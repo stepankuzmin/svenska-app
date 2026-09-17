@@ -30,9 +30,13 @@ describe("Lexin source edition import", () => {
       attribution: "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)",
       license: "CC BY 4.0",
     });
+    // Lexin numbers the book and the verb apart, so the spelling holds two words.
     expect(assets.dictionary.entries.bok).toEqual([
-      { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
-      { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+      { word: "1", partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
+      { word: "14", partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+    ]);
+    expect(assets.dictionary.entries.hus).toEqual([
+      { word: "", partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" },
     ]);
     expect(assets.details.entries.bok).toEqual([
       {

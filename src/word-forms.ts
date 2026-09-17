@@ -7,7 +7,7 @@ type WordSense = {
 // Lexin lists a verb as present tense with inflections ordered
 // preteritum, supinum, (imperativ,) infinitiv. A noun opens with the article
 // its gender calls for, so the forms read the way Swedish teaches them.
-function wordForms({
+function senseForms({
   headword,
   partOfSpeech,
   article,
@@ -32,42 +32,15 @@ function wordForms({
   return [`att ${infinitive}`, headword, preterite, `har ${supine}`];
 }
 
-function covers({ forms, other }: { forms: readonly string[]; other: readonly string[] }): boolean {
-  return forms.every((form) => other.includes(form));
-}
-
-export type WordParadigm = {
-  forms: string[];
-  senseIndexes: number[];
-};
-
-// One spelling can carry several words: an en-word and an ett-word, or a noun
-// and a verb. Each paradigm makes a word of its own, and every sense Lexin
-// inflects the same way belongs to it.
-export function wordParadigms({
+// Every sense of one word inflects the same way, give or take the forms Lexin
+// spells out for one sense and leaves to another.
+export function wordForms({
   headword,
   senses,
 }: {
   headword: string;
   senses: readonly WordSense[];
-}): WordParadigm[] {
-  const paradigms: WordParadigm[] = [];
-
-  senses.forEach((sense, index) => {
-    const forms = [...new Set(wordForms({ headword, ...sense }))]
-      .filter((form) => form.length > 0);
-    const shared = paradigms.find((paradigm) =>
-      covers({ forms, other: paradigm.forms }) || covers({ forms: paradigm.forms, other: forms }));
-    if (shared === undefined) {
-      paradigms.push({ forms, senseIndexes: [index] });
-      return;
-    }
-
-    if (forms.length > shared.forms.length) {
-      shared.forms = forms;
-    }
-    shared.senseIndexes.push(index);
-  });
-
-  return paradigms;
+}): string[] {
+  const forms = senses.flatMap((sense) => senseForms({ headword, ...sense }));
+  return [...new Set(forms)].filter((form) => form.length > 0);
 }

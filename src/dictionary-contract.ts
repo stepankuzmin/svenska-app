@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const senseSchema = z.object({
+  word: z.string(),
   partOfSpeech: z.string(),
   meaning: z.string(),
   translation: z.string(),

@@ -12,7 +12,8 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
-import { wordParadigms } from "./word-forms";
+import { wordForms } from "./word-forms";
+import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
@@ -25,7 +26,7 @@ type LookupExperienceProps = {
   outcome: LookupOutcome | null;
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
-  libraryHeadwords: readonly string[];
+  libraryWords: readonly LibraryWord[];
   deepLinkHeadword: string | null;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -61,10 +62,6 @@ const suggestionBatchSize = 100;
 // take part in the move to the top.
 const animatedCardLimit = 12;
 
-function cardName({ headword, paradigm }: { headword: string; paradigm: number }): string {
-  return `${headword}#${paradigm}`;
-}
-
 function cleanLexinText(value: string): string {
   return value.replaceAll("|", "");
 }
@@ -97,7 +94,7 @@ function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly 
 }
 
 function getLibraryItems(
-  headwords: readonly string[],
+  libraryWords: readonly LibraryWord[],
   entries: DictionaryAsset["entries"] | null,
   details: DictionaryDetailsAsset["entries"] | null,
   headwordIndex: readonly IndexedHeadword[],
@@ -106,32 +103,34 @@ function getLibraryItems(
     return [];
   }
 
-  return headwords.flatMap((headword) => {
+  return libraryWords.flatMap((libraryWord) => {
+    const { headword } = libraryWord;
     const senses = entries[headword];
     if (senses === undefined) {
       return [];
     }
 
-    const wordDetails = details?.[headword] ?? [];
-    const paradigms = wordParadigms({
-      headword: cleanLexinText(headword),
-      senses: senses.map((sense, index) => ({
-        partOfSpeech: sense.partOfSpeech,
-        article: wordDetails[index]?.article ?? "",
-        inflections: (wordDetails[index]?.inflections ?? []).map(cleanLexinText),
-      })),
-    });
+    const word = wordsOf({ headword, senses }).find((item) => item.word === libraryWord.word);
+    if (word === undefined) {
+      return [];
+    }
 
-    return paradigms.map((paradigm, index) => {
-      const item = {
-        card: cardName({ headword, paradigm: index }),
-        headword,
-        forms: paradigm.forms,
-        senses: paradigm.senseIndexes.map((senseIndex) => senses[senseIndex]),
-        details: paradigm.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
-      };
-      return { ...item, relatedWords: getRelatedWords(item, headwordIndex) };
-    });
+    const wordDetails = details?.[headword] ?? [];
+    const item = {
+      card: wordKey(libraryWord),
+      headword,
+      forms: wordForms({
+        headword: cleanLexinText(headword),
+        senses: word.senseIndexes.map((senseIndex) => ({
+          partOfSpeech: senses[senseIndex].partOfSpeech,
+          article: wordDetails[senseIndex]?.article ?? "",
+          inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
+        })),
+      }),
+      senses: word.senseIndexes.map((senseIndex) => senses[senseIndex]),
+      details: word.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
+    };
+    return [{ ...item, relatedWords: getRelatedWords(item, headwordIndex) }];
   });
 }
 
@@ -269,8 +268,8 @@ export function LookupExperience(props: LookupExperienceProps) {
   const suggestions = getSuggestionItems(props.outcome);
   const headwordIndex = useMemo(() => getHeadwordIndex(props.entries), [props.entries]);
   const library = useMemo(
-    () => getLibraryItems(props.libraryHeadwords, props.entries, props.details, headwordIndex),
-    [props.libraryHeadwords, props.entries, props.details, headwordIndex],
+    () => getLibraryItems(props.libraryWords, props.entries, props.details, headwordIndex),
+    [props.libraryWords, props.entries, props.details, headwordIndex],
   );
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
@@ -296,7 +295,7 @@ export function LookupExperience(props: LookupExperienceProps) {
 
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(cardName({ headword: props.deepLinkHeadword, paradigm: 0 }));
+    setExpandedCard(firstCardOf(props.deepLinkHeadword));
   }, [props.deepLinkHeadword]);
 
   useEffect(() => {
@@ -309,7 +308,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     const [headword] = item.headwords;
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(headword === undefined ? null : cardName({ headword, paradigm: 0 }));
+    setExpandedCard(headword === undefined ? null : firstCardOf(headword));
     props.onSelectSuggestion({
       headwords: item.headwords,
       displayQuery: item.displayWord,
@@ -325,6 +324,14 @@ export function LookupExperience(props: LookupExperienceProps) {
     setRenderedSuggestionCount((current) =>
       Math.min(suggestions.length, current + suggestionBatchSize),
     );
+  }
+
+  // A spelling that holds more than one word opens a card each, and the lookup
+  // extends the first of them.
+  function firstCardOf(headword: string): string | null {
+    const senses = props.entries?.[headword];
+    const [firstWord] = senses === undefined ? [] : wordsOf({ headword, senses });
+    return firstWord === undefined ? null : wordKey(firstWord);
   }
 
   // A card name can hold any character, so cards are named by order of first
@@ -349,7 +356,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     if (props.outcome?.kind === "result") {
       setAutocompleteOpen(false);
       setActiveSuggestionIndex(-1);
-      setExpandedCard(cardName({ headword: props.outcome.headword, paradigm: 0 }));
+      setExpandedCard(firstCardOf(props.outcome.headword));
     }
   }
 

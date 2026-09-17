@@ -12,6 +12,7 @@ const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språ
 const languageSchema = z.record(z.string(), z.unknown());
 
 const xmlWordSchema = z.object({
+  "@_ID": z.union([z.string(), z.number()]).optional(),
   "@_Type": z.string().optional(),
   "@_Value": z.string().optional(),
   BaseLang: z.union([z.string(), languageSchema]).optional(),
@@ -206,6 +207,32 @@ function nounArticle({
   return definiteSingular.endsWith("n") ? "en" : "";
 }
 
+// Lexin numbers the words a spelling holds and repeats that number on every
+// sense of a word, which is the identity a lookup library can keep. A spelling
+// that holds one word needs none, and a cross reference carries no meaning,
+// translation or forms of its own, so it joins the first word of its spelling
+// rather than standing as a word nobody can read.
+function wordsOfEntry({
+  senses,
+  details,
+}: {
+  senses: readonly { word: string; meaning: string; translation: string }[];
+  details: readonly { inflections: readonly string[] }[];
+}): string[] {
+  const words = [...new Set(senses.map((sense) => sense.word))].filter((word) =>
+    senses.some((sense, index) =>
+      sense.word === word &&
+      (sense.meaning.length > 0 ||
+        sense.translation.length > 0 ||
+        (details[index]?.inflections.length ?? 0) > 0)));
+
+  if (words.length < 2) {
+    return senses.map(() => "");
+  }
+
+  return senses.map((sense) => words.includes(sense.word) ? sense.word : words[0]);
+}
+
 function addToIndex({
   index,
   form,
@@ -306,6 +333,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
     senses.push({
+      word: text(word["@_ID"]),
       partOfSpeech,
       meaning: childText(word.BaseLang, "Meaning"),
       translation,
@@ -336,6 +364,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       }
       russianIndex[displayTranslation] = matchingHeadwords;
     }
+  }
+
+  for (const [headword, senses] of Object.entries(entries)) {
+    const words = wordsOfEntry({ senses, details: detailEntries[headword] ?? [] });
+    senses.forEach((sense, index) => {
+      sense.word = words[index];
+    });
   }
 
   return {

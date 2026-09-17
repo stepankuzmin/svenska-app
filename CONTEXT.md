@@ -19,8 +19,12 @@ _Avoid_: Installed dictionary, downloaded dictionary, permanent dictionary
 The application registers that service worker during startup. A first installation claims the page without interrupting it; when a later dictionary release takes control of an existing page, the page reloads once so it cannot remain on the previous application shell.
 
 **Lookup library**:
-The device-local collection of dictionary entries opened by the user. Opening an entry adds it automatically.
+The device-local collection of words opened by the user. Opening a word adds it automatically, and a lookup opens every word its spelling holds.
 _Avoid_: Saved words, favourites
+
+**Word**:
+One of the words a spelling holds, and what the lookup library keeps. Lexin numbers them — `val 1` the whale, `val 2` the election — and repeats that number on every sense of a word, so a library entry survives a dictionary release that rearranges the senses. A spelling holding a single word needs no number, and a cross reference, carrying no meaning, translation or forms of its own, joins the first word of its spelling rather than standing as a word nobody can read. A library entry the dictionary no longer knows as a word opens every word its spelling holds.
+_Avoid_: Sense, entry, paradigm
 
 **Lookup result**:
 All matching senses for one Swedish headword, shown whether the search began in Swedish or Russian. The senses Lexin inflects alike make one word, and the lookup opens the first of them.
@@ -57,6 +61,6 @@ The lookup area responds to every non-blank change in the search field. It shows
 
 A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens all corresponding Swedish headwords.
 
-Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds it to the library.
+Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds every word it holds to the library.
 
 The production interface contains only the lookup autocomplete and the lookup library. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.
