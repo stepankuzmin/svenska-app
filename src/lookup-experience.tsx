@@ -12,7 +12,7 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
-import { wordForms } from "./word-forms";
+import { wordFormLines } from "./word-forms";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
@@ -158,14 +158,14 @@ const WordCard = memo(function WordCard({
 }) {
   const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
   const phonetics = uniqueNonEmpty(item.details.map((details) => details.phonetic));
-  const forms = uniqueNonEmpty(item.details.flatMap((details, index) =>
-    wordForms({
-      headword: cleanLexinText(item.headword),
+  const formLines = wordFormLines({
+    headword: cleanLexinText(item.headword),
+    senses: item.details.map((details, index) => ({
       partOfSpeech: item.senses[index]?.partOfSpeech ?? "",
       article: details.article,
       inflections: details.inflections.map(cleanLexinText),
-    }),
-  ));
+    })),
+  });
   const examples = item.details.flatMap((details) => details.examples);
   const copy = (
     <span className="word-card-copy">
@@ -174,7 +174,9 @@ const WordCard = memo(function WordCard({
         {phonetics.length > 0 ? <span lang="sv">[{phonetics.join(", ")}]</span> : null}
         {partsOfSpeech.length > 0 ? <span>{partsOfSpeech.join(" · ")}</span> : null}
       </span>
-      {forms.length > 1 ? <span className="word-card-forms" lang="sv">{forms.join(", ")}</span> : null}
+      {formLines.map((forms) => (
+        <span className="word-card-forms" lang="sv" key={forms.join(", ")}>{forms.join(", ")}</span>
+      ))}
       <span className="word-card-senses">
         {item.senses.map((sense, index) => (
           <span className="word-card-sense" key={`${sense.meaning}-${sense.translation}-${index}`}>

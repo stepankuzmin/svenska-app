@@ -7,6 +7,10 @@ const dictionary = {
     fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
     framgår: [{ partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    val: [
+      { partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
+      { partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
+    ],
   },
   swedishIndex: {
     abborre: ["abborre"],
@@ -22,8 +26,19 @@ const dictionary = {
     framgick: ["framgår"],
     framgått: ["framgår"],
     framgå: ["framgår"],
+    val: ["val"],
+    valen: ["val"],
+    valar: ["val"],
+    valarna: ["val"],
+    valet: ["val"],
   },
-  russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"], "вытекать": ["framgår"] },
+  russianIndex: {
+    "перерыв на кофе": ["fika"],
+    "спасибо": ["tack"],
+    "вытекать": ["framgår"],
+    "кит": ["val"],
+    "выбор": ["val"],
+  },
 };
 
 const details = {
@@ -47,6 +62,22 @@ const details = {
       ],
     }],
     tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
+    val: [
+      {
+        phonetic: "vA:l",
+        article: "en",
+        inflections: ["valen", "valar", "valarna"],
+        examples: [],
+        compounds: [],
+      },
+      {
+        phonetic: "vA:l",
+        article: "ett",
+        inflections: ["valet", "val", "valen"],
+        examples: [],
+        compounds: [],
+      },
+    ],
     framgår: [{
       phonetic: "²frAm:gå:r",
       article: "",
@@ -144,6 +175,18 @@ test("a noun lists its Swedish forms behind its article", async ({ page }) => {
     page.getByRole("region", { name: "Library" })
       .getByText("en abborre, abborren, abborrar, abborrarna", { exact: true }),
   ).toBeVisible();
+});
+
+test("an en-word and an ett-word of one spelling read on their own lines", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const library = page.getByRole("region", { name: "Library" });
+  await expect(library.getByText("en val, valen, valar, valarna", { exact: true })).toBeVisible();
+  await expect(library.getByText("ett val, valet, val, valen", { exact: true })).toBeVisible();
 });
 
 test("a word without examples or related words cannot be extended", async ({ page }) => {

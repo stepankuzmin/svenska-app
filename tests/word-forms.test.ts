@@ -1,67 +1,81 @@
 import { describe, expect, it } from "vitest";
-import { wordForms } from "../src/word-forms.ts";
+import { wordFormLines } from "../src/word-forms.ts";
+
+function formsFor(headword: string, sense: { partOfSpeech: string; article?: string; inflections: string[] }) {
+  return wordFormLines({ headword, senses: [{ article: "", ...sense }] });
+}
 
 describe("Swedish word forms", () => {
   it("opens a verb with its infinitive and marks the supine with har", () => {
-    expect(wordForms({
-      headword: "framgår",
+    expect(formsFor("framgår", {
       partOfSpeech: "verb",
-      article: "",
       inflections: ["framgick", "framgått", "framgå"],
-    })).toEqual(["att framgå", "framgår", "framgick", "har framgått"]);
+    })).toEqual([["att framgå", "framgår", "framgick", "har framgått"]]);
   });
 
   it("leaves the imperative out of a verb with four forms", () => {
-    expect(wordForms({
-      headword: "angriper",
+    expect(formsFor("angriper", {
       partOfSpeech: "verb",
-      article: "",
       inflections: ["angrep", "angripit", "angrip", "angripa"],
-    })).toEqual(["att angripa", "angriper", "angrep", "har angripit"]);
+    })).toEqual([["att angripa", "angriper", "angrep", "har angripit"]]);
   });
 
   it("opens a noun with its article", () => {
-    expect(wordForms({
-      headword: "intryck",
+    expect(formsFor("intryck", {
       partOfSpeech: "subst.",
       article: "ett",
       inflections: ["intrycket", "intryck", "intrycken"],
-    })).toEqual(["ett intryck", "intrycket", "intryck", "intrycken"]);
+    })).toEqual([["ett intryck", "intrycket", "intryck", "intrycken"]]);
   });
 
   it("drops a definite singular Lexin writes as the bare article", () => {
-    expect(wordForms({
-      headword: "action",
+    expect(formsFor("action", {
       partOfSpeech: "subst.",
       article: "en",
       inflections: ["en", "action"],
-    })).toEqual(["en action", "action"]);
+    })).toEqual([["en action", "action"]]);
   });
 
   it("keeps the source order for other word types", () => {
-    expect(wordForms({
-      headword: "städning",
+    expect(formsFor("städning", {
       partOfSpeech: "subst.",
       article: "en",
       inflections: ["städningen"],
-    })).toEqual(["en städning", "städningen"]);
+    })).toEqual([["en städning", "städningen"]]);
   });
 
   it("leaves a noun without an article when Lexin spells out no definite singular", () => {
-    expect(wordForms({
-      headword: "jeans",
+    expect(formsFor("jeans", {
       partOfSpeech: "subst.",
-      article: "",
       inflections: ["jeansen"],
-    })).toEqual(["jeans", "jeansen"]);
+    })).toEqual([["jeans", "jeansen"]]);
   });
 
   it("keeps the source order for a verb Lexin lists without a full paradigm", () => {
-    expect(wordForms({
-      headword: "må",
-      partOfSpeech: "verb",
-      article: "",
-      inflections: ["måtte"],
-    })).toEqual(["må", "måtte"]);
+    expect(formsFor("må", { partOfSpeech: "verb", inflections: ["måtte"] })).toEqual([["må", "måtte"]]);
+  });
+
+  it("reads an en-word and an ett-word of the same spelling on their own lines", () => {
+    expect(wordFormLines({
+      headword: "val",
+      senses: [
+        { partOfSpeech: "subst.", article: "en", inflections: ["valen", "valar", "valarna"] },
+        { partOfSpeech: "subst.", article: "ett", inflections: ["valet", "val", "valen"] },
+      ],
+    })).toEqual([
+      ["en val", "valen", "valar", "valarna"],
+      ["ett val", "valet", "val", "valen"],
+    ]);
+  });
+
+  it("leaves out a paradigm another line already spells out", () => {
+    expect(wordFormLines({
+      headword: "bok",
+      senses: [
+        { partOfSpeech: "subst.", article: "en", inflections: ["boken", "böcker"] },
+        { partOfSpeech: "verb", article: "", inflections: [] },
+        { partOfSpeech: "subst.", article: "en", inflections: ["boken", "böcker"] },
+      ],
+    })).toEqual([["en bok", "boken", "böcker"]]);
   });
 });

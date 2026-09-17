@@ -248,6 +248,7 @@ body {
 .word-card[open]::details-content { block-size: auto; }
 
 .word-card-copy,
+.word-card-forms,
 .word-card-senses,
 .word-card-sense {
   display: block;
