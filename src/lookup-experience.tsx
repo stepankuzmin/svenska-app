@@ -14,7 +14,7 @@ import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contr
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import { normalizeLookupText } from "./normalize-lookup-text";
 import { wordForms } from "./word-forms";
-import { useSwipeToRemove } from "./swipe-to-remove";
+import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type DictionarySense = DictionaryAsset["entries"][string][number];

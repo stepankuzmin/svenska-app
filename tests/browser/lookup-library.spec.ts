@@ -229,7 +229,10 @@ test("a library stored as spellings opens every word those spellings hold", asyn
   ]);
 });
 
-// A swipe is a distance covered over a time: both decide whether the word goes.
+// A swipe is a distance covered over a time, and both decide whether the word
+// goes. A browser test cannot hold the pace — the harness stretches every move,
+// and a loaded runner stretches it further — so these swipes stay well clear of
+// the flick, and `carriesWordOff` covers the pace itself where time is an input.
 async function swipe(page: Page, card: Locator, { distance, over }: { distance: number; over: number }) {
   const surface = card.locator(".word-card-swipe");
   // A view transition hands hit testing to its own snapshot while it runs, so
@@ -283,19 +286,6 @@ test("a word a swipe pulls at without carrying off keeps its place", async ({ pa
 
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveAttribute("data-swiping");
-});
-
-test("a short flick carries a word off where a slow pull does not", async ({ page }) => {
-  await page.goto(".");
-
-  const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("val");
-  await query.press("Enter");
-
-  const cards = page.locator(".word-card-list > li");
-  await swipe(page, cards.nth(0), { distance: -60, over: 80 });
-
-  await expect(cards).toHaveCount(1);
 });
 
 test("a collapsed card leaves on a swipe without opening on the way", async ({ page }) => {
