@@ -5,8 +5,10 @@ import { useRef, type PointerEvent as ReactPointerEvent, type MouseEvent as Reac
 // release, so the gesture reads as direct.
 const lockDistance = 8;
 const removeDistance = 96;
-const flickDistance = 32;
-const flickVelocity = 0.11;
+// Removing a word cannot be undone, so a short swipe takes a flick to carry it
+// out rather than the gentle pull that dismisses something recoverable.
+const flickDistance = 48;
+const flickVelocity = 0.35;
 
 type Swipe = {
   pointerId: number;

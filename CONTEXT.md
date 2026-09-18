@@ -52,7 +52,7 @@ The open state of a word card, adding Lexin examples and related words that cont
 _Avoid_: Expanded result, accordion item
 
 **Removing a word**:
-A word leaves the lookup library by a swipe to the left across its card, which uncovers the control that removes it. The card follows the finger, comes back when it is let go short of the threshold, and leaves to the left when the swipe passes the threshold or flicks past it; the library closes the gap behind it. Keyboard focus uncovers the same control, so the gesture is not the only way out. A removed word returns by looking it up again.
+A word leaves the lookup library by a swipe to the left across its card, which uncovers the control that removes it. The card follows the finger, comes back when it is let go short of the threshold, and leaves to the left on a long pull or a flick; the library closes the gap behind it. A word cannot be brought back, so a short pull carries one off only when it is fast enough to read as a flick. A card removes the same way open or closed, and a swipe that comes back leaves a closed card closed. Keyboard focus uncovers the same control, so the gesture is not the only way out. A removed word returns by looking it up again.
 _Avoid_: Delete, swipe action, undo
 
 **Lookup autocomplete**:

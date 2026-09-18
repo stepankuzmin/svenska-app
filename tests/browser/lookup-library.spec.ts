@@ -229,7 +229,8 @@ test("a library stored as spellings opens every word those spellings hold", asyn
   ]);
 });
 
-async function swipe(page: Page, card: Locator, distance: number) {
+// A swipe is a distance covered over a time: both decide whether the word goes.
+async function swipe(page: Page, card: Locator, { distance, over }: { distance: number; over: number }) {
   const surface = card.locator(".word-card-swipe");
   // A view transition hands hit testing to its own snapshot while it runs, so
   // the gesture waits for the card itself to take pointer events again.
@@ -237,10 +238,16 @@ async function swipe(page: Page, card: Locator, distance: number) {
   const box = (await surface.boundingBox())!;
   const y = box.y + box.height / 2;
   const start = box.x + box.width - 24;
+  const steps = 8;
   await page.mouse.move(start, y);
   await page.mouse.down();
-  await page.mouse.move(start + distance, y, { steps: 8 });
+  for (let step = 1; step <= steps; step += 1) {
+    await page.mouse.move(start + (distance * step) / steps, y);
+    await page.waitForTimeout(over / steps);
+  }
   await page.mouse.up();
+  // The card leaves before the library closes the gap, so let both play out.
+  await page.waitForTimeout(600);
 }
 
 test("a swipe to the left removes a word from the library", async ({ page }) => {
@@ -253,7 +260,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(2);
 
-  await swipe(page, cards.nth(0), -160);
+  await swipe(page, cards.nth(0), { distance: -160, over: 240 });
 
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
@@ -262,7 +269,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
   ]);
 });
 
-test("a card let go short of the threshold keeps its place", async ({ page }) => {
+test("a word a swipe pulls at without carrying off keeps its place", async ({ page }) => {
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
@@ -270,10 +277,48 @@ test("a card let go short of the threshold keeps its place", async ({ page }) =>
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
-  await swipe(page, cards.nth(0), -40);
+  // Removing a word cannot be undone: a pull this short and this slow is
+  // neither the distance nor the flick that carries it off.
+  await swipe(page, cards.nth(0), { distance: -70, over: 500 });
 
   await expect(cards).toHaveCount(2);
   await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveAttribute("data-swiping");
+});
+
+test("a short flick carries a word off where a slow pull does not", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await swipe(page, cards.nth(0), { distance: -60, over: 80 });
+
+  await expect(cards).toHaveCount(1);
+});
+
+test("a collapsed card leaves on a swipe without opening on the way", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abborre");
+  await query.press("Enter");
+  await query.fill("fika");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  const collapsed = cards.nth(1);
+  await expect(collapsed.locator("details")).not.toHaveAttribute("open");
+
+  await swipe(page, collapsed, { distance: -70, over: 500 });
+  await expect(cards).toHaveCount(2);
+  await expect(collapsed.locator("details")).not.toHaveAttribute("open");
+
+  await swipe(page, collapsed, { distance: -160, over: 240 });
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("fika");
 });
 
 test("the card a swipe uncovers can be removed from the keyboard", async ({ page }) => {
@@ -307,7 +352,7 @@ test("a word removed without motion leaves just the same", async ({ page }) => {
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
-  await swipe(page, cards.nth(0), -160);
+  await swipe(page, cards.nth(0), { distance: -160, over: 240 });
 
   await expect(cards).toHaveCount(1);
 });
