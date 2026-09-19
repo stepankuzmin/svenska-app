@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 const senseSchema = z.object({
+  word: z.string(),
   partOfSpeech: z.string(),
   meaning: z.string(),
   translation: z.string(),
@@ -13,6 +14,7 @@ const bilingualTextSchema = z.object({
 
 const wordDetailsSchema = z.object({
   phonetic: z.string(),
+  article: z.string(),
   inflections: z.array(z.string()),
   examples: z.array(bilingualTextSchema),
   compounds: z.array(bilingualTextSchema),

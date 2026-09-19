@@ -1,12 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    abborre: [{ partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
-    framgår: [{ partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    abborre: [{ word: "", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
+    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    tack: [{ word: "", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    framgår: [{ word: "", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    val: [
+      { word: "18439", partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
+      { word: "18440", partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
+    ],
   },
   swedishIndex: {
     abborre: ["abborre"],
@@ -22,8 +26,19 @@ const dictionary = {
     framgick: ["framgår"],
     framgått: ["framgår"],
     framgå: ["framgår"],
+    val: ["val"],
+    valen: ["val"],
+    valar: ["val"],
+    valarna: ["val"],
+    valet: ["val"],
   },
-  russianIndex: { "перерыв на кофе": ["fika"], "спасибо": ["tack"], "вытекать": ["framgår"] },
+  russianIndex: {
+    "перерыв на кофе": ["fika"],
+    "спасибо": ["tack"],
+    "вытекать": ["framgår"],
+    "кит": ["val"],
+    "выбор": ["val"],
+  },
 };
 
 const details = {
@@ -31,12 +46,14 @@ const details = {
   entries: {
     abborre: [{
       phonetic: "²ab:ɔr:e",
+      article: "en",
       inflections: ["abborren", "abborrar", "abborrarna"],
       examples: [],
       compounds: [{ swedish: "abborrpinne", russian: "окунёк" }],
     }],
     fika: [{
       phonetic: "²fi:ka",
+      article: "en",
       inflections: ["fikan", "fikor", "fikorna"],
       examples: [{ swedish: "ska vi fika?", russian: "пойдём выпьем кофе?" }],
       compounds: [
@@ -44,9 +61,26 @@ const details = {
         { swedish: "kaffepaus", russian: "перерыв на кофе" },
       ],
     }],
-    tack: [{ phonetic: "tak", inflections: [], examples: [], compounds: [] }],
+    tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
+    val: [
+      {
+        phonetic: "vA:l",
+        article: "en",
+        inflections: ["valen", "valar", "valarna"],
+        examples: [],
+        compounds: [],
+      },
+      {
+        phonetic: "vA:l",
+        article: "ett",
+        inflections: ["valet", "val", "valen"],
+        examples: [],
+        compounds: [],
+      },
+    ],
     framgår: [{
       phonetic: "²frAm:gå:r",
+      article: "",
       inflections: ["framgick", "framgått", "framgå"],
       examples: [{ swedish: "hans åsikter framgick av intervjun", russian: "его взгляды стали ясны" }],
       compounds: [],
@@ -83,7 +117,7 @@ test("chosen words persist in most-recent order and only one card is extended", 
 
   const library = page.getByRole("region", { name: "Library" });
   await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
-  await expect(library.getByText("fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
+  await expect(library.getByText("en fika, fikan, fikor, fikorna", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
   await expect(library.getByText("fikapaus", { exact: true })).toBeVisible();
   await expect(library.getByText("kaffepaus", { exact: true })).toBeVisible();
@@ -128,6 +162,189 @@ test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
     page.getByRole("region", { name: "Library" })
       .getByText("att framgå, framgår, framgick, har framgått", { exact: true }),
   ).toBeVisible();
+});
+
+test("a noun lists its Swedish forms behind its article", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abborre");
+  await query.press("Enter");
+
+  await expect(
+    page.getByRole("region", { name: "Library" })
+      .getByText("en abborre, abborren, abborrar, abborrarna", { exact: true }),
+  ).toBeVisible();
+});
+
+test("an en-word and an ett-word of one spelling fill a card each", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("en val, valen, valar, valarna");
+  await expect(cards.nth(0)).toContainText("кит");
+  await expect(cards.nth(0)).not.toContainText("выбор");
+  await expect(cards.nth(1)).toContainText("ett val, valet, val, valen");
+  await expect(cards.nth(1)).toContainText("выбор");
+  await expect(cards.nth(1)).not.toContainText("кит");
+});
+
+test("the library keeps a word of its own rather than the spelling", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18439" },
+    { headword: "val", word: "18440" },
+  ]);
+
+  await page.reload();
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("кит");
+});
+
+test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
+  await page.goto(".");
+  await page.evaluate(
+    () => localStorage.setItem("svenska.lookup-library", JSON.stringify(["val", "tack"])),
+  );
+  await page.reload();
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(3);
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18439" },
+    { headword: "val", word: "18440" },
+    { headword: "tack", word: "" },
+  ]);
+});
+
+// A swipe is a distance covered over a time, and both decide whether the word
+// goes. A browser test cannot hold the pace — the harness stretches every move,
+// and a loaded runner stretches it further — so these swipes stay well clear of
+// the flick, and `carriesWordOff` covers the pace itself where time is an input.
+async function swipe(page: Page, card: Locator, { distance, over }: { distance: number; over: number }) {
+  const surface = card.locator(".word-card-swipe");
+  // A view transition hands hit testing to its own snapshot while it runs, so
+  // the gesture waits for the card itself to take pointer events again.
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const start = box.x + box.width - 24;
+  const steps = 8;
+  await page.mouse.move(start, y);
+  await page.mouse.down();
+  for (let step = 1; step <= steps; step += 1) {
+    await page.mouse.move(start + (distance * step) / steps, y);
+    await page.waitForTimeout(over / steps);
+  }
+  await page.mouse.up();
+  // The card leaves before the library closes the gap, so let both play out.
+  await page.waitForTimeout(600);
+}
+
+test("a swipe to the left removes a word from the library", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+
+  await swipe(page, cards.nth(0), { distance: -160, over: 240 });
+
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18440" },
+  ]);
+});
+
+test("a word a swipe pulls at without carrying off keeps its place", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  // Removing a word cannot be undone: a pull this short and this slow is
+  // neither the distance nor the flick that carries it off.
+  await swipe(page, cards.nth(0), { distance: -70, over: 500 });
+
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveAttribute("data-swiping");
+});
+
+test("a collapsed card leaves on a swipe without opening on the way", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("abborre");
+  await query.press("Enter");
+  await query.fill("fika");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  const collapsed = cards.nth(1);
+  await expect(collapsed.locator("details")).not.toHaveAttribute("open");
+
+  await swipe(page, collapsed, { distance: -70, over: 500 });
+  await expect(cards).toHaveCount(2);
+  await expect(collapsed.locator("details")).not.toHaveAttribute("open");
+
+  await swipe(page, collapsed, { distance: -160, over: 240 });
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("fika");
+});
+
+test("the card a swipe uncovers can be removed from the keyboard", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  const remove = cards.nth(0).getByRole("button", { name: "Remove en val from the library" });
+  await query.focus();
+  await expect.poll(async () => {
+    await page.keyboard.press("Tab");
+    return remove.evaluate((button) => button.matches(":focus-visible"));
+  }, { timeout: 5000 }).toBe(true);
+
+  await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveCSS("transform", "none");
+  await page.keyboard.press("Enter");
+
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("выбор");
+});
+
+test("a word removed without motion leaves just the same", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await swipe(page, cards.nth(0), { distance: -160, over: 240 });
+
+  await expect(cards).toHaveCount(1);
 });
 
 test("a word without examples or related words cannot be extended", async ({ page }) => {

@@ -48,7 +48,10 @@ test("lookup remains available after an online visit and offline reload", async 
   await expect(page.getByRole("status")).toBeEmpty();
 
   await searchFor(page, "bok");
-  await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^bok$/ })).toBeVisible();
+  // The tree and the volume are two words, so the lookup opens a card each.
+  await expect(
+    page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^bok$/ }),
+  ).toHaveCount(2);
 
   const field = page.getByLabel("Swedish or Russian word");
   await field.fill("bokst");

@@ -12,6 +12,7 @@ import {
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
 import { normalizeLookupText } from "./normalize-lookup-text";
+import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -38,9 +39,13 @@ function prefersMotion(): boolean {
 }
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
-const lookupLibrarySchema = z.array(z.string());
+// A library written before the app kept words holds bare headwords.
+const lookupLibrarySchema = z.array(z.union([
+  z.object({ headword: z.string(), word: z.string() }),
+  z.string().transform((headword) => ({ headword, word: "" })),
+]));
 
-function readLookupLibrary(): readonly string[] {
+function readLookupLibrary(): readonly LibraryWord[] {
   try {
     const storedLibrary: unknown = JSON.parse(localStorage.getItem(lookupLibraryStorageKey) ?? "[]");
     return lookupLibrarySchema.safeParse(storedLibrary).data ?? [];
@@ -49,9 +54,9 @@ function readLookupLibrary(): readonly string[] {
   }
 }
 
-function writeLookupLibrary(headwords: readonly string[]) {
+function writeLookupLibrary(libraryWords: readonly LibraryWord[]) {
   try {
-    localStorage.setItem(lookupLibraryStorageKey, JSON.stringify(headwords));
+    localStorage.setItem(lookupLibraryStorageKey, JSON.stringify(libraryWords));
   } catch {
     // Lookups still work when browser storage is unavailable.
   }
@@ -63,7 +68,7 @@ function LookupApp() {
   const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
-  const [libraryHeadwords, setLibraryHeadwords] = useState(readLookupLibrary);
+  const [libraryWords, setLibraryWords] = useState(readLookupLibrary);
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
     [lookupState, query],
@@ -87,6 +92,13 @@ function LookupApp() {
         kind: "ready",
         search: createSearch({ dictionary: asset }),
         entries: asset.entries,
+      });
+      setLibraryWords((currentWords) => {
+        const resolvedWords = resolveLibraryWords({ libraryWords: currentWords, entries: asset.entries });
+        if (resolvedWords !== currentWords) {
+          writeLookupLibrary(resolvedWords);
+        }
+        return resolvedWords;
       });
 
       // Details carry examples and inflections; lookup works without them.
@@ -136,24 +148,54 @@ function LookupApp() {
     addToLibrary(closestChoice.headwords);
   }, [lookupState]);
 
-  function addToLibrary(headwords: readonly string[]) {
-    const apply = () => {
-      setLibraryHeadwords((currentHeadwords) => {
-        const nextHeadwords = [
-          ...headwords,
-          ...currentHeadwords.filter((item) => !headwords.includes(item)),
-        ];
-        writeLookupLibrary(nextHeadwords);
-        return nextHeadwords;
-      });
-    };
+  // A lookup opens a spelling, which can hold more than one word, and every
+  // word it holds joins the library in its own right.
+  function wordsOfHeadwords(headwords: readonly string[]): LibraryWord[] {
+    const entries = lookupState.kind === "ready" ? lookupState.entries : {};
+    return headwords.flatMap((headword) => {
+      const senses = entries[headword];
+      return senses === undefined
+        ? [{ headword, word: "" }]
+        : wordsOf({ headword, senses }).map(({ word }) => ({ headword, word }));
+    });
+  }
 
+  // The library moves as one: a word joining it or leaving it carries the cards
+  // around it to their new places.
+  function withLibraryMotion(apply: () => void) {
     if (!prefersMotion() || typeof document.startViewTransition !== "function") {
       apply();
       return;
     }
 
     document.startViewTransition(() => flushSync(apply));
+  }
+
+  function removeFromLibrary(card: string) {
+    withLibraryMotion(() => {
+      setLibraryWords((currentWords) => {
+        const nextWords = currentWords.filter((libraryWord) => wordKey(libraryWord) !== card);
+        writeLookupLibrary(nextWords);
+        return nextWords;
+      });
+    });
+  }
+
+  function addToLibrary(headwords: readonly string[]) {
+    const openedWords = wordsOfHeadwords(headwords);
+    const openedKeys = openedWords.map(wordKey);
+    const apply = () => {
+      setLibraryWords((currentWords) => {
+        const nextWords = [
+          ...openedWords,
+          ...currentWords.filter((item) => !openedKeys.includes(wordKey(item))),
+        ];
+        writeLookupLibrary(nextWords);
+        return nextWords;
+      });
+    };
+
+    withLibraryMotion(apply);
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
@@ -181,11 +223,12 @@ function LookupApp() {
       outcome={outcome}
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}
-      libraryHeadwords={libraryHeadwords}
+      libraryWords={libraryWords}
       deepLinkHeadword={deepLinkHeadword}
       onQueryChange={setQuery}
       onSubmit={submit}
       onSelectSuggestion={selectChoice}
+      onRemoveWord={removeFromLibrary}
     />
   );
 }

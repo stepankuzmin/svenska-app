@@ -39,6 +39,7 @@ body {
   --lookup-line: #c7c7cc;
   --lookup-soft-line: #dedede;
   --lookup-blue: #075eb8;
+  --lookup-destructive: #b3261e;
   background: var(--lookup-background);
   color: var(--lookup-ink);
   font-optical-sizing: auto;
@@ -190,6 +191,7 @@ body {
 }
 
 .word-card-list {
+  --word-card-remove-size: 6rem;
   background: var(--lookup-card);
   border: 1px solid var(--lookup-line);
   border-radius: .65rem;
@@ -203,6 +205,69 @@ body {
 ::view-transition-group(*) {
   animation-duration: 220ms;
   animation-timing-function: var(--ease-out);
+}
+
+/* The card rides over the control that removes it, so a swipe to the left
+   uncovers the way out and puts the card back when it is let go. */
+.word-card-row { position: relative; }
+
+.word-card-remove {
+  align-items: center;
+  appearance: none;
+  background: var(--lookup-destructive);
+  border: 0;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 500;
+  inline-size: var(--word-card-remove-size);
+  inset-block: 0;
+  inset-inline-end: 0;
+  justify-content: center;
+  padding: 0;
+  position: absolute;
+  touch-action: manipulation;
+  transition: background-color 150ms ease;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  z-index: 0;
+}
+
+/* The tap highlight is off, so the control answers a press itself. */
+.word-card-remove:active { background: color-mix(in srgb, var(--lookup-destructive) 82%, #000); }
+
+.word-card-remove:focus-visible {
+  outline: 3px solid var(--lookup-blue);
+  outline-offset: -3px;
+}
+
+.word-card-swipe {
+  background: var(--lookup-card);
+  position: relative;
+  /* The library scrolls; the card owns the sideways gesture. */
+  touch-action: pan-y;
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
+  z-index: 1;
+}
+
+/* A held card follows the finger, so it carries no transition of its own. */
+.word-card-swipe[data-swiping] {
+  transition: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.word-card-swipe[data-leaving] {
+  opacity: 0;
+  transform: translateX(-100%);
+}
+
+/* Reaching the control by keyboard uncovers it the way the swipe does. */
+.word-card-row:has(.word-card-remove:focus-visible) .word-card-swipe {
+  transform: translateX(calc(var(--word-card-remove-size) * -1));
 }
 
 .word-card summary,
@@ -248,6 +313,7 @@ body {
 .word-card[open]::details-content { block-size: auto; }
 
 .word-card-copy,
+.word-card-forms,
 .word-card-senses,
 .word-card-sense {
   display: block;
@@ -353,6 +419,7 @@ body {
     --lookup-line: #646469;
     --lookup-soft-line: #48484c;
     --lookup-blue: #0a84ff;
+    --lookup-destructive: #c5372c;
   }
 
   .minimal-lookup input { border-color: #68686d; box-shadow: inset 0 1px 2px rgb(0 0 0 / 45%); }
@@ -369,6 +436,7 @@ body {
   .suggestion-menu li:hover { background: #e9f2fc; }
   .word-card summary { transition: background-color 150ms ease; }
   .word-card summary:hover { background: #f3f8fd; }
+  .word-card-remove:hover { background: color-mix(in srgb, var(--lookup-destructive) 88%, #000); }
 
   @media (prefers-color-scheme: dark) {
     .suggestion-menu li:hover { background: #19395a; }
@@ -378,6 +446,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .word-card-disclosure,
+  .word-card-remove,
+  .word-card-swipe,
   .word-card::details-content,
   .lookup-clear span { transition-duration: 0ms; }
 

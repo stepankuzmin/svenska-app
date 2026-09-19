@@ -12,6 +12,7 @@ const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språ
 const languageSchema = z.record(z.string(), z.unknown());
 
 const xmlWordSchema = z.object({
+  "@_ID": z.union([z.string(), z.number()]).optional(),
   "@_Type": z.string().optional(),
   "@_Value": z.string().optional(),
   BaseLang: z.union([z.string(), languageSchema]).optional(),
@@ -83,16 +84,17 @@ function inflectionGroups(value: string | Record<string, unknown> | undefined): 
   });
 }
 
-function generatedInflectionTexts({
+// Lexin lists a noun as definite singular and plural, leaving the definite
+// plural to the pattern. A word card reads as a full paradigm only once that
+// form is spelled out, so it joins the inflections rather than the index alone.
+function definitePluralTexts({
   headword,
   partOfSpeech,
   inflections,
-  usage,
 }: {
   headword: string;
   partOfSpeech: string;
   inflections: readonly string[][];
-  usage: string;
 }): string[] {
   if (partOfSpeech === "subst." && inflections.length === 2) {
     const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
@@ -142,24 +144,93 @@ function generatedInflectionTexts({
     });
   }
 
+  return [];
+}
+
+// An adjective Lexin lists in the positive implies a comparative and a
+// superlative. They belong to a paradigm the card does not show, so only the
+// index carries them.
+function comparativeTexts({
+  partOfSpeech,
+  inflections,
+  usage,
+}: {
+  partOfSpeech: string;
+  inflections: readonly string[][];
+  usage: string;
+}): string[] {
   const normalizedUsage = normalizeLookupText(usage);
   if (
-    partOfSpeech === "adj." &&
-    inflections.length === 2 &&
-    !normalizedUsage.includes("kompar") &&
-    !normalizedUsage.includes("superlativ")
+    partOfSpeech !== "adj." ||
+    inflections.length !== 2 ||
+    normalizedUsage.includes("kompar") ||
+    normalizedUsage.includes("superlativ")
   ) {
-    return inflections[1].flatMap((plural) => {
-      if (!plural.endsWith("a")) {
-        return [];
-      }
-
-      const stem = plural.slice(0, -1);
-      return [`${stem}are`, `${stem}ast`];
-    });
+    return [];
   }
 
-  return [];
+  return inflections[1].flatMap((plural) => {
+    if (!plural.endsWith("a")) {
+      return [];
+    }
+
+    const stem = plural.slice(0, -1);
+    return [`${stem}are`, `${stem}ast`];
+  });
+}
+
+// Lexin spells out a noun's gender only through its definite singular: an
+// en-word ends it with -n, an ett-word with -t. A word Lexin marks as plural
+// lists a definite plural instead, so it opens without an article.
+function nounArticle({
+  partOfSpeech,
+  inflections,
+  usage,
+}: {
+  partOfSpeech: string;
+  inflections: readonly string[][];
+  usage: string;
+}): string {
+  if (partOfSpeech !== "subst." || inflections.length === 0) {
+    return "";
+  }
+
+  if (inflections.length === 1 && /^plur(al|\.)/i.test(usage.trim())) {
+    return "";
+  }
+
+  const definiteSingular = (inflections[0][0] ?? "").replaceAll("|", "");
+  if (definiteSingular.endsWith("t")) {
+    return "ett";
+  }
+
+  return definiteSingular.endsWith("n") ? "en" : "";
+}
+
+// Lexin numbers the words a spelling holds and repeats that number on every
+// sense of a word, which is the identity a lookup library can keep. A spelling
+// that holds one word needs none, and a cross reference carries no meaning,
+// translation or forms of its own, so it joins the first word of its spelling
+// rather than standing as a word nobody can read.
+function wordsOfEntry({
+  senses,
+  details,
+}: {
+  senses: readonly { word: string; meaning: string; translation: string }[];
+  details: readonly { inflections: readonly string[] }[];
+}): string[] {
+  const words = [...new Set(senses.map((sense) => sense.word))].filter((word) =>
+    senses.some((sense, index) =>
+      sense.word === word &&
+      (sense.meaning.length > 0 ||
+        sense.translation.length > 0 ||
+        (details[index]?.inflections.length ?? 0) > 0)));
+
+  if (words.length < 2) {
+    return senses.map(() => "");
+  }
+
+  return senses.map((sense) => words.includes(sense.word) ? sense.word : words[0]);
 }
 
 function addToIndex({
@@ -253,17 +324,24 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
     const partOfSpeech = word["@_Type"]?.trim() ?? "";
     const inflections = inflectionGroups(word.BaseLang);
+    const usage = childText(word.BaseLang, "Usage");
+    const inflectionTexts = [
+      ...inflections.flat(),
+      ...definitePluralTexts({ headword, partOfSpeech, inflections }),
+    ];
     const senses = entries[headword] ?? [];
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
     senses.push({
+      word: text(word["@_ID"]),
       partOfSpeech,
       meaning: childText(word.BaseLang, "Meaning"),
       translation,
     });
     wordDetails.push({
       phonetic: childText(word.BaseLang, "Phonetic"),
-      inflections: inflections.flat(),
+      article: nounArticle({ partOfSpeech, inflections, usage }),
+      inflections: inflectionTexts,
       examples: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Example" }),
       compounds: pairedTexts({ base: word.BaseLang, target: word.TargetLang, child: "Compound" }),
     });
@@ -272,13 +350,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
     for (const form of [
       headword,
-      ...inflections.flat(),
-      ...generatedInflectionTexts({
-        headword,
-        partOfSpeech,
-        inflections,
-        usage: childText(word.BaseLang, "Usage"),
-      }),
+      ...inflectionTexts,
+      ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
       addToIndex({ index: swedishIndex, form, headword });
     }
@@ -291,6 +364,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       }
       russianIndex[displayTranslation] = matchingHeadwords;
     }
+  }
+
+  for (const [headword, senses] of Object.entries(entries)) {
+    const words = wordsOfEntry({ senses, details: detailEntries[headword] ?? [] });
+    senses.forEach((sense, index) => {
+      sense.word = words[index];
+    });
   }
 
   return {

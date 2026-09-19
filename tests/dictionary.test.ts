@@ -3,7 +3,7 @@ import type { DictionaryAsset } from "../src/dictionary-contract.ts";
 import { createSearch } from "../src/dictionary.ts";
 
 function sense(partOfSpeech: string, meaning: string, translation: string) {
-  return { partOfSpeech, meaning, translation };
+  return { word: "", partOfSpeech, meaning, translation };
 }
 
 const dictionary = {

@@ -30,19 +30,41 @@ describe("Lexin source edition import", () => {
       attribution: "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)",
       license: "CC BY 4.0",
     });
+    // Lexin numbers the book and the verb apart, so the spelling holds two words.
     expect(assets.dictionary.entries.bok).toEqual([
-      { partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
-      { partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+      { word: "1", partOfSpeech: "subst.", meaning: "en samling sidor", translation: "книга" },
+      { word: "14", partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
+    ]);
+    expect(assets.dictionary.entries.hus).toEqual([
+      { word: "", partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" },
     ]);
     expect(assets.details.entries.bok).toEqual([
       {
         phonetic: "bu:k",
-        inflections: ["boken", "böcker"],
+        article: "en",
+        inflections: ["boken", "böcker", "böckerna"],
         examples: [{ swedish: "jag läser en bok", russian: "я читаю книгу" }],
         compounds: [{ swedish: "bokhylla", russian: "книжная полка" }],
       },
-      { phonetic: "", inflections: [], examples: [], compounds: [] },
+      { phonetic: "", article: "", inflections: [], examples: [], compounds: [] },
     ]);
+  });
+
+  it("completes a noun's paradigm with the definite plural Lexin leaves implicit", () => {
+    expect(assets.details.entries.bok[0].inflections).toEqual(["boken", "böcker", "böckerna"]);
+    expect(assets.details.entries.taxi[0].inflections).toEqual(["taxin", "taxi", "taxina"]);
+    // An adjective's comparative and superlative belong to a paradigm the word
+    // card does not show, so they stay out of its forms.
+    expect(assets.details.entries.sann[0].inflections).toEqual(["sant", "sanna"]);
+  });
+
+  it("reads a noun's article from the definite singular Lexin spells out", () => {
+    expect(assets.details.entries.bok[0].article).toBe("en");
+    expect(assets.details.entries.arsle[0].article).toBe("ett");
+    // A word Lexin marks as plural lists a definite plural, not a definite
+    // singular, so it carries no article.
+    expect(assets.details.entries.jeans[0].article).toBe("");
+    expect(assets.details.entries.hus[0].article).toBe("");
   });
 
   it("indexes every translation against the headwords that carry it", () => {
@@ -53,6 +75,7 @@ describe("Lexin source edition import", () => {
       "книга": ["bok"],
       "младенец": ["baby"],
       "правдивый": ["sann"],
+      "джинсы": ["jeans"],
       "сентиментальная ценность": ["affektions|värde"],
       "совместимый": ["förenlig"],
       "сообщать": ["anger"],
