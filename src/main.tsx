@@ -134,18 +134,19 @@ function LookupApp() {
       return;
     }
 
-    // A word like "fika" indexes several headwords, so an exact link opens all
-    // of them the way choosing that suggestion does.
-    const [closestChoice] = deepLinkOutcome.kind === "choices" ? deepLinkOutcome.choices : [];
-    if (
-      closestChoice === undefined ||
-      normalizeLookupText(closestChoice.displayWord) !== normalizeLookupText(lookupQuery)
-    ) {
+    // A word like "fika" indexes several words, so an exact link opens all of
+    // them rather than the one a suggestion would.
+    const exactChoices = deepLinkOutcome.kind === "choices"
+      ? deepLinkOutcome.choices.filter((choice) =>
+          normalizeLookupText(choice.displayWord) === normalizeLookupText(lookupQuery))
+      : [];
+    const [closestChoice] = exactChoices;
+    if (closestChoice === undefined) {
       return;
     }
 
-    setDeepLinkHeadword(closestChoice.headwords[0] ?? null);
-    addToLibrary(closestChoice.headwords);
+    setDeepLinkHeadword(closestChoice.word.headword);
+    addWordsToLibrary(exactChoices.map(({ word }) => word));
   }, [lookupState]);
 
   // A lookup opens a spelling, which can hold more than one word, and every
@@ -182,7 +183,10 @@ function LookupApp() {
   }
 
   function addToLibrary(headwords: readonly string[]) {
-    const openedWords = wordsOfHeadwords(headwords);
+    addWordsToLibrary(wordsOfHeadwords(headwords));
+  }
+
+  function addWordsToLibrary(openedWords: readonly LibraryWord[]) {
     const openedKeys = openedWords.map(wordKey);
     const apply = () => {
       setLibraryWords((currentWords) => {
@@ -205,15 +209,10 @@ function LookupApp() {
     }
   }
 
-  function selectChoice({
-    headwords,
-    displayQuery,
-  }: {
-    headwords: readonly string[];
-    displayQuery: string;
-  }) {
+  // A suggestion names one word, and that word alone joins the library.
+  function selectChoice({ word, displayQuery }: { word: LibraryWord; displayQuery: string }) {
     setQuery(displayQuery);
-    addToLibrary(headwords);
+    addWordsToLibrary([word]);
   }
 
   return (

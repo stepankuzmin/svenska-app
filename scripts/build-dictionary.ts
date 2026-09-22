@@ -207,11 +207,10 @@ function nounArticle({
   return definiteSingular.endsWith("n") ? "en" : "";
 }
 
-// Lexin numbers the words a spelling holds and repeats that number on every
-// sense of a word, which is the identity a lookup library can keep. A spelling
-// that holds one word needs none, and a cross reference carries no meaning,
-// translation or forms of its own, so it joins the first word of its spelling
-// rather than standing as a word nobody can read.
+// Lexin numbers every word and repeats that number on each of its senses,
+// which is the stable identity a lookup library keeps. A cross reference
+// carries no meaning, translation or forms of its own, so it joins the first
+// word of its spelling rather than standing as a word nobody can read.
 function wordsOfEntry({
   senses,
   details,
@@ -219,39 +218,74 @@ function wordsOfEntry({
   senses: readonly { word: string; meaning: string; translation: string }[];
   details: readonly { inflections: readonly string[] }[];
 }): string[] {
-  const words = [...new Set(senses.map((sense) => sense.word))].filter((word) =>
+  const numbered = [...new Set(senses.map((sense) => sense.word))];
+  const words = numbered.filter((word) =>
     senses.some((sense, index) =>
       sense.word === word &&
       (sense.meaning.length > 0 ||
         sense.translation.length > 0 ||
         (details[index]?.inflections.length ?? 0) > 0)));
+  const [firstWord] = words.length > 0 ? words : numbered;
 
-  if (words.length < 2) {
-    return senses.map(() => "");
-  }
-
-  return senses.map((sense) => words.includes(sense.word) ? sense.word : words[0]);
+  return senses.map((sense) => words.includes(sense.word) ? sense.word : firstWord);
 }
+
+// The indexes name words by their Lexin number alone, which holds only while a
+// number names one word. Lexin reuses a number just for a word it spells both
+// with and without a segment marker, as `binde|streck` and `bindestreck`.
+function assertWordNumbersAreUnique(entries: DictionaryAsset["entries"]): void {
+  const spellings = new Map<string, string>();
+  for (const [headword, senses] of Object.entries(entries)) {
+    const spelling = headword.replaceAll("|", "");
+    for (const { word } of senses) {
+      const known = spellings.get(word) ?? spelling;
+      if (known !== spelling) {
+        throw new Error(`Lexin number ${word} names both ${known} and ${spelling}.`);
+      }
+      spellings.set(word, spelling);
+    }
+  }
+}
+
+// An index names the sense a form or translation came from until the build
+// knows which word that sense belongs to.
+type IndexedSense = { headword: string; senseIndex: number };
 
 function addToIndex({
   index,
   form,
-  headword,
+  sense,
 }: {
-  index: Record<string, string[]>;
+  index: Map<string, IndexedSense[]>;
   form: string;
-  headword: string;
+  sense: IndexedSense;
 }): void {
   const displayForm = form.replaceAll("|", "").trim();
   if (displayForm.length === 0) {
     return;
   }
 
-  const matchingHeadwords = index[displayForm] ?? [];
-  if (!matchingHeadwords.includes(headword)) {
-    matchingHeadwords.push(headword);
+  const indexedSenses = index.get(displayForm) ?? [];
+  indexedSenses.push(sense);
+  index.set(displayForm, indexedSenses);
+}
+
+// A form or translation leads to the Lexin numbers of the words whose senses
+// carry it, so choosing it opens that word rather than every word its spelling
+// holds.
+function wordIndex({
+  index,
+  entries,
+}: {
+  index: ReadonlyMap<string, readonly IndexedSense[]>;
+  entries: DictionaryAsset["entries"];
+}): Record<string, string[]> {
+  const words: Record<string, string[]> = {};
+  for (const [form, indexedSenses] of index) {
+    words[form] = [...new Set(indexedSenses.map(({ headword, senseIndex }) =>
+      entries[headword][senseIndex].word))];
   }
-  index[displayForm] = matchingHeadwords;
+  return words;
 }
 
 function childValues(
@@ -312,8 +346,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
 
   const entries: DictionaryAsset["entries"] = {};
   const detailEntries: DictionaryDetailsAsset["entries"] = {};
-  const swedishIndex: DictionaryAsset["swedishIndex"] = {};
-  const russianIndex: DictionaryAsset["russianIndex"] = {};
+  const swedishIndex = new Map<string, IndexedSense[]>();
+  const russianIndex = new Map<string, IndexedSense[]>();
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
 
   for (const word of words) {
@@ -330,6 +364,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       ...definitePluralTexts({ headword, partOfSpeech, inflections }),
     ];
     const senses = entries[headword] ?? [];
+    const sense = { headword, senseIndex: senses.length };
     const wordDetails = detailEntries[headword] ?? [];
     const translation = childText(word.TargetLang, "Translation");
     senses.push({
@@ -353,17 +388,10 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       ...inflectionTexts,
       ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
-      addToIndex({ index: swedishIndex, form, headword });
+      addToIndex({ index: swedishIndex, form, sense });
     }
 
-    const displayTranslation = translation.trim();
-    if (displayTranslation.length > 0) {
-      const matchingHeadwords = russianIndex[displayTranslation] ?? [];
-      if (!matchingHeadwords.includes(headword)) {
-        matchingHeadwords.push(headword);
-      }
-      russianIndex[displayTranslation] = matchingHeadwords;
-    }
+    addToIndex({ index: russianIndex, form: translation, sense });
   }
 
   for (const [headword, senses] of Object.entries(entries)) {
@@ -372,6 +400,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       sense.word = words[index];
     });
   }
+  assertWordNumbersAreUnique(entries);
 
   return {
     dictionary: {
@@ -381,8 +410,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
         license: "CC BY 4.0",
       },
       entries,
-      swedishIndex,
-      russianIndex,
+      swedishIndex: wordIndex({ index: swedishIndex, entries }),
+      russianIndex: wordIndex({ index: russianIndex, entries }),
     },
     details: {
       sourceEditionDate: sourceDictionary["@_Version"],

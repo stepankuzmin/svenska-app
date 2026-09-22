@@ -110,7 +110,7 @@
     </BaseLang>
     <TargetLang><Translation>джинсы</Translation></TargetLang>
   </Word>
-  <Word ID="14" MatchingID="114" Type="subst." Value="AB">
+  <Word ID="15" MatchingID="114" Type="subst." Value="AB">
     <BaseLang><Meaning>aktiebolag</Meaning></BaseLang>
     <TargetLang><Translation>АО</Translation></TargetLang>
   </Word>

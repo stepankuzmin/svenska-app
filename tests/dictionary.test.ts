@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
 import { createSearch } from "../src/dictionary.ts";
 
-function sense(partOfSpeech: string, meaning: string, translation: string) {
-  return { word: "", partOfSpeech, meaning, translation };
+function sense(word: string, partOfSpeech: string, meaning: string, translation: string) {
+  return { word, partOfSpeech, meaning, translation };
 }
 
 const dictionary = {
@@ -14,60 +14,68 @@ const dictionary = {
   },
   entries: {
     bok: [
-      sense("subst.", "en samling sidor", "книга"),
-      sense("verb", "reservera", "бронировать"),
+      sense("101", "subst.", "en samling sidor", "книга"),
+      sense("101", "verb", "reservera", "бронировать"),
     ],
-    hus: [sense("subst.", "byggnad", "дом")],
-    hem: [sense("subst.", "plats där någon bor", "дом")],
-    koja: [sense("subst.", "enkel bostad", "дом")],
-    torp: [sense("subst.", "litet lantställe", "дом")],
-    villa: [sense("subst.", "fristående bostad", "дом")],
-    stuga: [sense("subst.", "litet hus", "дом")],
-    residens: [sense("subst.", "officiell bostad", "дом")],
-    hemvist: [sense("subst.", "stadigvarande plats", "дом")],
-    byggnad: [sense("subst.", "uppförd konstruktion", "дом")],
-    bostad: [sense("subst.", "plats där någon bor", "жилой дом")],
-    dominant: [sense("adj.", "som har störst inflytande", "доминирующий")],
+    hus: [sense("102", "subst.", "byggnad", "дом")],
+    hem: [sense("103", "subst.", "plats där någon bor", "дом")],
+    koja: [sense("104", "subst.", "enkel bostad", "дом")],
+    torp: [sense("105", "subst.", "litet lantställe", "дом")],
+    villa: [sense("106", "subst.", "fristående bostad", "дом")],
+    stuga: [sense("107", "subst.", "litet hus", "дом")],
+    residens: [sense("108", "subst.", "officiell bostad", "дом")],
+    hemvist: [sense("109", "subst.", "stadigvarande plats", "дом")],
+    byggnad: [sense("110", "subst.", "uppförd konstruktion", "дом")],
+    bostad: [sense("111", "subst.", "plats där någon bor", "жилой дом")],
+    dominant: [sense("112", "adj.", "som har störst inflytande", "доминирующий")],
     anger: [
-      sense("verb", "meddela", "сообщать"),
-      sense("verb", "anmäla", "доносить"),
-      sense("verb", "anmäla upprepade gånger", "доносительство"),
-      sense("verb", "inte bära fram", "недоносить"),
+      sense("113", "verb", "meddela", "сообщать"),
+      sense("113", "verb", "anmäla", "доносить"),
+      sense("113", "verb", "anmäla upprepade gånger", "доносительство"),
+      sense("113", "verb", "inte bära fram", "недоносить"),
     ],
-    angelägen: [sense("adj.", "viktig", "важный")],
-    angett: [sense("adj.", "uppgiven", "указанный")],
-    arrangemang: [sense("subst.", "evenemang", "мероприятие")],
-    "abort|rådgivning": [sense("subst.", "rådgivning om abort", "консультация по аборту")],
+    angelägen: [sense("114", "adj.", "viktig", "важный")],
+    angett: [sense("115", "adj.", "uppgiven", "указанный")],
+    arrangemang: [sense("116", "subst.", "evenemang", "мероприятие")],
+    "abort|rådgivning": [sense("117", "subst.", "rådgivning om abort", "консультация по аборту")],
+    fast: [
+      { word: "3917", partOfSpeech: "adj.", meaning: "hård, massiv", translation: "твёрдый" },
+      { word: "3917", partOfSpeech: "adj.", meaning: "som har stabilt läge", translation: "крепкий" },
+      { word: "3918", partOfSpeech: "konj.", meaning: "trots att, fastän", translation: "хотя" },
+    ],
   },
   swedishIndex: {
-    ange: ["anger"],
-    anger: ["anger"],
-    angett: ["anger", "angett"],
-    angelägen: ["angelägen"],
-    arrangemang: ["arrangemang"],
-    bok: ["bok"],
-    boken: ["bok"],
-    bostad: ["bostad"],
-    dominant: ["dominant"],
-    byggnad: ["byggnad"],
-    hem: ["hem"],
-    hemvist: ["hemvist"],
-    hus: ["hus"],
-    koja: ["koja"],
-    residens: ["residens"],
-    stuga: ["stuga"],
-    torp: ["torp"],
-    villa: ["villa"],
-    abortrådgivning: ["abort|rådgivning"],
+    ange: ["113"],
+    anger: ["113"],
+    angett: ["113", "115"],
+    angelägen: ["114"],
+    arrangemang: ["116"],
+    bok: ["101"],
+    boken: ["101"],
+    bostad: ["111"],
+    dominant: ["112"],
+    byggnad: ["110"],
+    hem: ["103"],
+    hemvist: ["109"],
+    hus: ["102"],
+    koja: ["104"],
+    residens: ["108"],
+    stuga: ["107"],
+    torp: ["105"],
+    villa: ["106"],
+    abortrådgivning: ["117"],
+    fast: ["3917", "3918"],
+    fastare: ["3917"],
   },
   russianIndex: {
-    "100 граммов": ["hus"],
-    "бронировать": ["bok"],
-    "доносить": ["anger"],
-    "доносительство": ["anger"],
-    "дом": ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
-    "книга": ["bok"],
-    "недоносить": ["anger"],
+    "100 граммов": ["102"],
+    "бронировать": ["101"],
+    "доносить": ["113"],
+    "доносительство": ["113"],
+    "дом": ["102", "103", "104", "105", "106", "107", "108", "109", "110"],
+    "книга": ["101"],
+    "недоносить": ["113"],
+    "хотя": ["3918"],
   },
 } satisfies DictionaryAsset;
 
@@ -88,11 +96,12 @@ describe("dictionary lookup", () => {
       headword: "anger",
       senses: dictionary.entries.anger,
       suggestions: [
-        { displayWord: "ange", headwords: ["anger"], language: "sv" },
-        { displayWord: "anger", headwords: ["anger"], language: "sv" },
-        { displayWord: "angett", headwords: ["anger", "angett"], language: "sv" },
-        { displayWord: "angelägen", headwords: ["angelägen"], language: "sv" },
-        { displayWord: "arrangemang", headwords: ["arrangemang"], language: "sv" },
+        { displayWord: "ange", word: { headword: "anger", word: "113" }, language: "sv" },
+        { displayWord: "anger", word: { headword: "anger", word: "113" }, language: "sv" },
+        { displayWord: "angett", word: { headword: "anger", word: "113" }, language: "sv" },
+        { displayWord: "angett", word: { headword: "angett", word: "115" }, language: "sv" },
+        { displayWord: "angelägen", word: { headword: "angelägen", word: "114" }, language: "sv" },
+        { displayWord: "arrangemang", word: { headword: "arrangemang", word: "116" }, language: "sv" },
       ],
     });
   });
@@ -117,18 +126,18 @@ describe("dictionary lookup", () => {
     expect(search("доноси")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "доносить", headwords: ["anger"], language: "ru" },
-        { displayWord: "доносительство", headwords: ["anger"], language: "ru" },
-        { displayWord: "недоносить", headwords: ["anger"], language: "ru" },
+        { displayWord: "доносить", word: { headword: "anger", word: "113" }, language: "ru" },
+        { displayWord: "доносительство", word: { headword: "anger", word: "113" }, language: "ru" },
+        { displayWord: "недоносить", word: { headword: "anger", word: "113" }, language: "ru" },
       ],
     });
+    // A translation many words share offers each of them on its own.
     expect(search("дом")).toMatchObject({
       kind: "choices",
-      choices: [{
-        displayWord: "дом",
-        headwords: ["hus", "hem", "koja", "torp", "villa", "stuga", "residens", "hemvist", "byggnad"],
-        language: "ru",
-      }],
+      choices: ([
+        ["hus", "102"], ["hem", "103"], ["koja", "104"], ["torp", "105"], ["villa", "106"],
+        ["stuga", "107"], ["residens", "108"], ["hemvist", "109"], ["byggnad", "110"],
+      ] as const).map(([headword, word]) => ({ displayWord: "дом", word: { headword, word }, language: "ru" })),
     });
   });
 
@@ -136,17 +145,34 @@ describe("dictionary lookup", () => {
     expect(search("ok")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "bok", headwords: ["bok"], language: "sv" },
-        { displayWord: "boken", headwords: ["bok"], language: "sv" },
+        { displayWord: "bok", word: { headword: "bok", word: "101" }, language: "sv" },
+        { displayWord: "boken", word: { headword: "bok", word: "101" }, language: "sv" },
       ],
     });
     expect(search("ниров")).toMatchObject({
       kind: "choices",
-      choices: [{ displayWord: "бронировать", headwords: ["bok"], language: "ru" }],
+      choices: [{ displayWord: "бронировать", word: { headword: "bok", word: "101" }, language: "ru" }],
     });
     expect(search("100")).toMatchObject({
       kind: "choices",
-      choices: [{ displayWord: "100 граммов", headwords: ["hus"], language: "ru" }],
+      choices: [{ displayWord: "100 граммов", word: { headword: "hus", word: "102" }, language: "ru" }],
+    });
+  });
+
+  it("offers each word a spelling holds as a suggestion of its own", () => {
+    const adjective = { headword: "fast", word: "3917" };
+    const conjunction = { headword: "fast", word: "3918" };
+    expect(search("fas")).toEqual({
+      kind: "choices",
+      choices: [
+        { displayWord: "fast", word: adjective, language: "sv" },
+        { displayWord: "fast", word: conjunction, language: "sv" },
+        { displayWord: "fastare", word: adjective, language: "sv" },
+      ],
+    });
+    expect(search("хот")).toEqual({
+      kind: "choices",
+      choices: [{ displayWord: "хотя", word: conjunction, language: "ru" }],
     });
   });
 

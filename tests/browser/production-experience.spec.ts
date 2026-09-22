@@ -4,57 +4,58 @@ const manyRussianHeadwords = Array.from(
   { length: 120 },
   (_, index) => `result-${String(index).padStart(3, "0")}`,
 );
+const manyRussianWord = (headword: string) => String(1000 + manyRussianHeadwords.indexOf(headword));
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    AB: [{ word: "", partOfSpeech: "substantiv", meaning: "aktiebolag", translation: "АО" }],
-    abort: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
-    "abort|rådgivning": [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
-    anger: [{ word: "", partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
-    angett: [{ word: "", partOfSpeech: "adjektiv", meaning: "uppgiven", translation: "указанный" }],
-    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    fikapaus: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    hem: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    hus: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    villa: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    stuga: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    koja: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    residens: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
-    bostad: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "жилой дом" }],
-    dominant: [{ word: "", partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
+    AB: [{ word: "101", partOfSpeech: "substantiv", meaning: "aktiebolag", translation: "АО" }],
+    abort: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "аборт" }],
+    "abort|rådgivning": [{ word: "103", partOfSpeech: "substantiv", meaning: "", translation: "консультация по аборту" }],
+    anger: [{ word: "104", partOfSpeech: "verb", meaning: "meddela, uppge", translation: "сообщать" }],
+    angett: [{ word: "105", partOfSpeech: "adjektiv", meaning: "uppgiven", translation: "указанный" }],
+    fika: [{ word: "106", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fikapaus: [{ word: "107", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    hem: [{ word: "108", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    hus: [{ word: "109", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    villa: [{ word: "110", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    stuga: [{ word: "111", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    koja: [{ word: "112", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    residens: [{ word: "113", partOfSpeech: "substantiv", meaning: "", translation: "дом" }],
+    bostad: [{ word: "114", partOfSpeech: "substantiv", meaning: "", translation: "жилой дом" }],
+    dominant: [{ word: "115", partOfSpeech: "adjektiv", meaning: "", translation: "доминирующий" }],
     ...Object.fromEntries(manyRussianHeadwords.map((headword) => [
       headword,
-      [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: `яц-${headword}` }],
+      [{ word: manyRussianWord(headword), partOfSpeech: "substantiv", meaning: "", translation: `яц-${headword}` }],
     ])),
   },
   swedishIndex: {
-    AB: ["AB"],
-    abort: ["abort"],
-    abortrådgivning: ["abort|rådgivning"],
-    ange: ["anger"],
-    anger: ["anger"],
-    angett: ["anger", "angett"],
-    fika: ["fika"],
-    fikapaus: ["fikapaus"],
-    hem: ["hem"],
-    hus: ["hus"],
-    villa: ["villa"],
-    stuga: ["stuga"],
-    koja: ["koja"],
-    residens: ["residens"],
-    bostad: ["bostad"],
-    dominant: ["dominant"],
-    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [headword, [headword]])),
+    AB: ["101"],
+    abort: ["102"],
+    abortrådgivning: ["103"],
+    ange: ["104"],
+    anger: ["104"],
+    angett: ["104", "105"],
+    fika: ["106"],
+    fikapaus: ["107"],
+    hem: ["108"],
+    hus: ["109"],
+    villa: ["110"],
+    stuga: ["111"],
+    koja: ["112"],
+    residens: ["113"],
+    bostad: ["114"],
+    dominant: ["115"],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [headword, [manyRussianWord(headword)]])),
   },
   russianIndex: {
-    "100 граммов": ["hus"],
-    "АО": ["AB"],
-    "дом": ["hem", "hus", "villa", "stuga", "koja", "residens"],
-    "доминирующий": ["dominant"],
-    "перерыв на кофе": ["fika", "fikapaus"],
-    "жилой дом": ["bostad"],
-    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [`яц-${headword}`, [headword]])),
+    "100 граммов": ["109"],
+    "АО": ["101"],
+    "дом": ["108", "109", "110", "111", "112", "113"],
+    "доминирующий": ["115"],
+    "перерыв на кофе": ["106", "107"],
+    "жилой дом": ["114"],
+    ...Object.fromEntries(manyRussianHeadwords.map((headword) => [`яц-${headword}`, [manyRussianWord(headword)]])),
   },
 };
 
@@ -117,12 +118,16 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
 
   await page.getByLabel("Swedish or Russian word").fill("ange");
 
-  await expect(page.getByRole("option")).toHaveText(["ange", "anger", "angett"]);
-  await page.getByRole("option", { name: "angett" }).click();
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText([
+  // `angett` inflects `anger` and is a word of its own, so it is offered twice,
+  // each naming the word it opens, and a choice opens that word alone.
+  await expect(page.getByRole("option")).toHaveText([
+    "ange",
     "anger",
-    "angett",
+    "angett verb · сообщать",
+    "angett adjektiv · указанный",
   ]);
+  await page.getByRole("option", { name: "angett adjektiv · указанный" }).click();
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["angett"]);
 
   await page.getByLabel("Swedish or Russian word").fill("ab");
   await expect(page.getByRole("option").first()).toHaveText("AB");
@@ -145,24 +150,27 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
 
   await query.fill("дом");
 
-  await expect(page.getByRole("option")).toHaveText(["дом", "жилой дом", "доминирующий"]);
-  await expect(page.getByText("дом", { exact: true })).toHaveAttribute("lang", "ru");
+  // Six words translate as `дом`, and each is a suggestion of its own.
+  await expect(page.getByRole("option")).toHaveText([
+    "дом hem · substantiv",
+    "дом hus · substantiv",
+    "дом villa · substantiv",
+    "дом stuga · substantiv",
+    "дом koja · substantiv",
+    "дом residens · substantiv",
+    "жилой дом",
+    "доминирующий",
+  ]);
+  await expect(page.getByRole("option").first().locator("strong")).toHaveAttribute("lang", "ru");
 
-  for (let index = 0; index < 3; index += 1) {
+  for (let index = 0; index < 8; index += 1) {
     await page.getByLabel("Swedish or Russian word").press("ArrowDown");
   }
   await expect(page.getByRole("option", { name: "доминирующий" })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("option", { name: "доминирующий" })).toBeInViewport();
 
-  await page.getByRole("option", { name: "дом", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText([
-    "hem",
-    "hus",
-    "villa",
-    "stuga",
-    "koja",
-    "residens",
-  ]);
+  await page.getByRole("option", { name: "дом hus · substantiv" }).click();
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["hus"]);
 });
 
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {

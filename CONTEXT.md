@@ -23,7 +23,7 @@ The device-local collection of words opened by the user. Opening a word adds it 
 _Avoid_: Saved words, favourites
 
 **Word**:
-One of the words a spelling holds, and what the lookup library keeps. Lexin numbers them — `val 1` the whale, `val 2` the election — and repeats that number on every sense of a word, so a library entry survives a dictionary release that rearranges the senses. A spelling holding a single word needs no number, and a cross reference, carrying no meaning, translation or forms of its own, joins the first word of its spelling rather than standing as a word nobody can read. A library entry the dictionary no longer knows as a word opens every word its spelling holds.
+One of the words a spelling holds, and what the lookup library keeps. Lexin numbers every word — `val 18439` the whale, `val 18440` the election — and repeats that number on every sense of a word, so a library entry survives a dictionary release that rearranges the senses. The number is the word's stable identity: the lookup indexes name words by it, and the library keeps a word by its spelling and number, since Lexin gives one number to a word it spells both with and without a segment marker. A cross reference, carrying no meaning, translation or forms of its own, joins the first word of its spelling rather than standing as a word nobody can read. A library entry the dictionary no longer knows as a word opens every word its spelling holds.
 _Avoid_: Sense, entry, paradigm
 
 **Lookup result**:
@@ -56,16 +56,16 @@ A word leaves the lookup library by a swipe to the left across its card, which u
 _Avoid_: Delete, swipe action, undo
 
 **Lookup autocomplete**:
-The transient listbox of matching indexed words attached directly to the search field while the user types. Selecting a suggestion closes the listbox, opens the word card for its canonical headword, and adds that entry to the lookup library.
+The transient listbox of matching indexed words attached directly to the search field while the user types. Each suggestion names one word, so a spelling that holds two words — `fast` the adjective and `fast` the conjunction — is offered twice, and suggestions that read alike carry the word type and translation, or for a Russian suggestion the Swedish word, that tell them apart. Selecting a suggestion closes the listbox, opens the word card for that word, and adds that word alone to the lookup library.
 _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It shows every indexed Swedish word containing the query. Exact matches come first, followed by prefix matches and then other substring matches. Selecting an inflected form opens its canonical headword. No visible message replaces the library when there is no match.
+The lookup area responds to every non-blank change in the search field. It shows every indexed Swedish word containing the query, once for each word it leads to. An inflected form leads only to the word it inflects. Exact matches come first, followed by prefix matches and then other substring matches. Selecting an inflected form opens its canonical headword. No visible message replaces the library when there is no match.
 
-A Russian query shows every Russian index entry containing the entered text. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens all corresponding Swedish headwords.
+A Russian query shows every Russian index entry containing the entered text, once for each Swedish word that carries the translation. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens that Swedish word.
 
-Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word or choosing a suggestion opens that lookup and adds every word it holds to the library.
+Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word opens that lookup and adds every word its spelling holds to the library; choosing a suggestion adds the one word it names.
 
 A swipe to the left across a word card removes that word from the lookup library, and nothing else does.
 

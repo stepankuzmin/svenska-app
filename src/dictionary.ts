@@ -4,6 +4,7 @@ import {
   type DictionaryDetailsAsset,
 } from "./dictionary-contract";
 import { normalizeLookupText } from "./normalize-lookup-text";
+import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type LookupResult = {
   kind: "result";
@@ -12,9 +13,11 @@ type LookupResult = {
   suggestions: readonly LookupChoice[];
 };
 
+// A suggestion opens one word, so a spelling that holds two words — `fast` the
+// adjective and `fast` the conjunction — offers each as a suggestion of its own.
 export type LookupChoice = {
   displayWord: string;
-  headwords: readonly string[];
+  word: LibraryWord;
   language: "ru" | "sv";
 };
 
@@ -60,17 +63,43 @@ function russianMatchRank({ text, query }: { text: string; query: string }): num
 type IndexEntry = {
   displayWord: string;
   normalizedDisplayWord: string;
-  headwords: readonly string[];
+  words: readonly LibraryWord[];
 };
+
+// Lexin numbers every word, and a number names one word bar the odd word
+// Lexin spells two ways, which opens under both spellings.
+function wordsByNumber(entries: DictionaryAsset["entries"]): Map<string, LibraryWord[]> {
+  const byNumber = new Map<string, LibraryWord[]>();
+  for (const [headword, senses] of Object.entries(entries)) {
+    for (const { word } of wordsOf({ headword, senses })) {
+      const words = byNumber.get(word) ?? [];
+      words.push({ headword, word });
+      byNumber.set(word, words);
+    }
+  }
+  return byNumber;
+}
+
+function indexedWords(
+  numbers: readonly string[],
+  byNumber: ReadonlyMap<string, readonly LibraryWord[]>,
+): LibraryWord[] {
+  const words = new Map<string, LibraryWord>();
+  for (const libraryWord of numbers.flatMap((number) => byNumber.get(number) ?? [])) {
+    words.set(wordKey(libraryWord), libraryWord);
+  }
+  return [...words.values()];
+}
 
 function indexEntries(
   index: Record<string, string[]>,
+  byNumber: ReadonlyMap<string, readonly LibraryWord[]>,
   normalize: (value: string) => string,
 ): IndexEntry[] {
-  return Object.entries(index).map(([displayWord, headwords]) => ({
+  return Object.entries(index).map(([displayWord, numbers]) => ({
     displayWord,
     normalizedDisplayWord: normalize(displayWord),
-    headwords,
+    words: indexedWords(numbers, byNumber),
   }));
 }
 
@@ -78,9 +107,9 @@ function indexEntries(
 // into one bucket rather than the later one replacing the earlier.
 function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
   const byForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, headwords } of entries) {
+  for (const { normalizedDisplayWord, words } of entries) {
     const bucket = byForm.get(normalizedDisplayWord) ?? [];
-    for (const headword of headwords) {
+    for (const { headword } of words) {
       if (!bucket.includes(headword)) {
         bucket.push(headword);
       }
@@ -97,9 +126,10 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
-  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, normalizeSwedishLookupText);
+  const byNumber = wordsByNumber(dictionary.entries);
+  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, byNumber, normalizeSwedishLookupText);
   const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
-  const russianIndexEntries = indexEntries(dictionary.russianIndex, normalizeLookupText);
+  const russianIndexEntries = indexEntries(dictionary.russianIndex, byNumber, normalizeLookupText);
   const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
@@ -129,15 +159,18 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     });
 
     const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
-    for (const { displayWord, normalizedDisplayWord, headwords: indexedHeadwords } of russianIndexEntries) {
+    for (const { displayWord, normalizedDisplayWord, words } of russianIndexEntries) {
       const rank = russianMatchRank({ text: normalizedDisplayWord, query: normalizedQuery });
-      const headwords = indexedHeadwords.filter((headword) => entriesByHeadword.has(headword));
-      if (rank !== null && headwords.length > 0) {
-        rankedChoices.push({ choice: { displayWord, headwords, language: "ru" }, rank });
+      if (rank === null) {
+        continue;
+      }
+
+      for (const word of words) {
+        rankedChoices.push({ choice: { displayWord, word, language: "ru" }, rank });
       }
     }
 
-    for (const { displayWord, normalizedDisplayWord, headwords } of swedishIndexEntries) {
+    for (const { displayWord, normalizedDisplayWord, words } of swedishIndexEntries) {
       if (
         normalizedSwedishQuery.length === 0 ||
         !normalizedDisplayWord.includes(normalizedSwedishQuery)
@@ -150,15 +183,9 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
           ? 1
           : 2;
-      const indexedSwedishHeadwords = headwords.filter((headword) => entriesByHeadword.has(headword));
-      if (indexedSwedishHeadwords.length === 0) {
-        continue;
+      for (const word of words) {
+        rankedChoices.push({ choice: { displayWord, word, language: "sv" }, rank });
       }
-
-      rankedChoices.push({
-        choice: { displayWord, headwords: indexedSwedishHeadwords, language: "sv" },
-        rank,
-      });
     }
 
     rankedChoices.sort((left, right) => {

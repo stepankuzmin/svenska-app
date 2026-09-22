@@ -36,7 +36,7 @@ describe("Lexin source edition import", () => {
       { word: "14", partOfSpeech: "verb", meaning: "reservera", translation: "бронировать" },
     ]);
     expect(assets.dictionary.entries.hus).toEqual([
-      { word: "", partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" },
+      { word: "2", partOfSpeech: "subst.", meaning: "byggnad", translation: "дом" },
     ]);
     expect(assets.details.entries.bok).toEqual([
       {
@@ -67,35 +67,40 @@ describe("Lexin source edition import", () => {
     expect(assets.details.entries.hus[0].article).toBe("");
   });
 
-  it("indexes every translation against the headwords that carry it", () => {
+  it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
-      "бронировать": ["bok"],
-      "дом": ["hus", "hem"],
-      "жопа": ["arsle"],
-      "книга": ["bok"],
-      "младенец": ["baby"],
-      "правдивый": ["sann"],
-      "джинсы": ["jeans"],
-      "сентиментальная ценность": ["affektions|värde"],
-      "совместимый": ["förenlig"],
-      "сообщать": ["anger"],
-      "такси": ["taxi"],
-      "хуже": ["värre"],
-      "экшн": ["action"],
-      "АО": ["AB"],
+      "бронировать": ["14"],
+      "дом": ["2", "3"],
+      "жопа": ["6"],
+      "книга": ["1"],
+      "младенец": ["7"],
+      "правдивый": ["5"],
+      "джинсы": ["13"],
+      "сентиментальная ценность": ["10"],
+      "совместимый": ["9"],
+      "сообщать": ["4"],
+      "такси": ["8"],
+      "хуже": ["12"],
+      "экшн": ["11"],
+      "АО": ["15"],
     });
+  });
+
+  it("indexes a spelling against each word it holds and a form against the word it inflects", () => {
+    expect(assets.dictionary.swedishIndex.bok).toEqual(["1", "14"]);
+    expect(assets.dictionary.swedishIndex.boken).toEqual(["1"]);
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {
     expect(assets.dictionary.swedishIndex).toMatchObject({
-      arslena: ["arsle"],
-      affektionsvärdena: ["affektions|värde"],
-      babyarna: ["baby"],
-      babyerna: ["baby"],
-      böckerna: ["bok"],
-      sannare: ["sann"],
-      sannast: ["sann"],
-      taxina: ["taxi"],
+      arslena: ["6"],
+      affektionsvärdena: ["10"],
+      babyarna: ["7"],
+      babyerna: ["7"],
+      böckerna: ["1"],
+      sannare: ["5"],
+      sannast: ["5"],
+      taxina: ["8"],
     });
   });
 
@@ -124,8 +129,9 @@ describe("Lexin source edition import", () => {
 
   it("matches an uppercase headword and translation typed in lower case", () => {
     expect(search("ab")).toMatchObject({ kind: "result", headword: "AB" });
-    expect(closestSuggestion("ab")).toEqual({ displayWord: "AB", headwords: ["AB"], language: "sv" });
-    expect(closestSuggestion("ао")).toEqual({ displayWord: "АО", headwords: ["AB"], language: "ru" });
+    const ab = { headword: "AB", word: "15" };
+    expect(closestSuggestion("ab")).toEqual({ displayWord: "AB", word: ab, language: "sv" });
+    expect(closestSuggestion("ао")).toEqual({ displayWord: "АО", word: ab, language: "ru" });
   });
 
   it("accepts a shaped asset at startup without inspecting every sense", () => {

@@ -32,7 +32,7 @@ type LookupExperienceProps = {
   deepLinkHeadword: string | null;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
+  onSelectSuggestion: (selection: { word: LibraryWord; displayQuery: string }) => void;
   onRemoveWord: (card: string) => void;
 };
 
@@ -83,6 +83,26 @@ function getSuggestionItems(outcome: LookupOutcome | null): readonly LookupChoic
   }
 
   return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
+}
+
+function suggestionKey({ language, displayWord }: LookupChoice): string {
+  return `${language}:${displayWord}`;
+}
+
+// Suggestions that read alike open different words, so each names the word it
+// opens: its word type and translation, or for a Russian suggestion the
+// Swedish word itself.
+function suggestionHint(
+  item: LookupChoice,
+  entries: DictionaryAsset["entries"] | null,
+): string {
+  const { headword, word } = item.word;
+  const senses = (entries?.[headword] ?? []).filter((sense) => sense.word === word);
+  const partsOfSpeech = uniqueNonEmpty(senses.map((sense) => sense.partOfSpeech));
+  const hint = item.language === "sv"
+    ? [...partsOfSpeech, translationFor(senses)]
+    : [cleanLexinText(headword), ...partsOfSpeech];
+  return uniqueNonEmpty(hint).join(" · ");
 }
 
 function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly IndexedHeadword[] {
@@ -305,6 +325,15 @@ export function LookupExperience(props: LookupExperienceProps) {
     ? suggestions.slice(0, renderedSuggestionCount)
     : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
+  const repeatedSuggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const repeated = new Set<string>();
+    for (const item of suggestions) {
+      const key = suggestionKey(item);
+      (seen.has(key) ? repeated : seen).add(key);
+    }
+    return repeated;
+  }, [suggestions]);
   const queryInput = useRef<HTMLInputElement>(null);
   // A touch device focuses the field on the first tap instead, so the caret
   // never sits in a field that cannot raise a keyboard yet.
@@ -327,14 +356,10 @@ export function LookupExperience(props: LookupExperienceProps) {
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
   function selectSuggestion(item: LookupChoice) {
-    const [headword] = item.headwords;
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(headword === undefined ? null : firstCardOf(headword));
-    props.onSelectSuggestion({
-      headwords: item.headwords,
-      displayQuery: item.displayWord,
-    });
+    setExpandedCard(wordKey(item.word));
+    props.onSelectSuggestion({ word: item.word, displayQuery: item.displayWord });
   }
 
   function revealMoreSuggestions(event: UIEvent<HTMLUListElement>) {
@@ -487,7 +512,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${item.language}:${item.displayWord}`}
+                key={`${suggestionKey(item)}:${wordKey(item.word)}`}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
@@ -497,6 +522,12 @@ export function LookupExperience(props: LookupExperienceProps) {
                 <strong lang={item.language}>
                   {item.displayWord}
                 </strong>
+                {repeatedSuggestions.has(suggestionKey(item)) ? " " : null}
+                {repeatedSuggestions.has(suggestionKey(item)) ? (
+                  <span className="suggestion-hint">
+                    {suggestionHint(item, props.entries)}
+                  </span>
+                ) : null}
               </li>
             ))}
           </ul>

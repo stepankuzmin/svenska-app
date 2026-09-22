@@ -3,41 +3,41 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    abborre: [{ word: "", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ word: "", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
-    framgår: [{ word: "", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    abborre: [{ word: "101", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
+    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
     val: [
       { word: "18439", partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
       { word: "18440", partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
     ],
   },
   swedishIndex: {
-    abborre: ["abborre"],
-    abborren: ["abborre"],
-    abborrar: ["abborre"],
-    abborrarna: ["abborre"],
-    fika: ["fika"],
-    fikan: ["fika"],
-    fikor: ["fika"],
-    fikorna: ["fika"],
-    tack: ["tack"],
-    framgår: ["framgår"],
-    framgick: ["framgår"],
-    framgått: ["framgår"],
-    framgå: ["framgår"],
-    val: ["val"],
-    valen: ["val"],
-    valar: ["val"],
-    valarna: ["val"],
-    valet: ["val"],
+    abborre: ["101"],
+    abborren: ["101"],
+    abborrar: ["101"],
+    abborrarna: ["101"],
+    fika: ["102"],
+    fikan: ["102"],
+    fikor: ["102"],
+    fikorna: ["102"],
+    tack: ["103"],
+    framgår: ["104"],
+    framgick: ["104"],
+    framgått: ["104"],
+    framgå: ["104"],
+    val: ["18439", "18440"],
+    valen: ["18439", "18440"],
+    valar: ["18439"],
+    valarna: ["18439"],
+    valet: ["18440"],
   },
   russianIndex: {
-    "перерыв на кофе": ["fika"],
-    "спасибо": ["tack"],
-    "вытекать": ["framgår"],
-    "кит": ["val"],
-    "выбор": ["val"],
+    "перерыв на кофе": ["102"],
+    "спасибо": ["103"],
+    "вытекать": ["104"],
+    "кит": ["18439"],
+    "выбор": ["18440"],
   },
 };
 
@@ -213,6 +213,29 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
   await expect(cards.nth(0)).toContainText("кит");
 });
 
+test("a suggestion opens the one word it names", async ({ page }) => {
+  await page.goto(".");
+
+  await page.getByLabel("Swedish or Russian word").fill("val");
+  await expect(page.getByRole("option")).toHaveText([
+    "val substantiv · кит",
+    "val substantiv · выбор",
+    "valar",
+    "valen substantiv · кит",
+    "valen substantiv · выбор",
+    "valet",
+    "valarna",
+  ]);
+  await page.getByRole("option", { name: "val substantiv · выбор" }).click();
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("выбор");
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18440" },
+  ]);
+});
+
 test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
   await page.goto(".");
   await page.evaluate(
@@ -225,7 +248,7 @@ test("a library stored as spellings opens every word those spellings hold", asyn
   expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18439" },
     { headword: "val", word: "18440" },
-    { headword: "tack", word: "" },
+    { headword: "tack", word: "103" },
   ]);
 });
 
