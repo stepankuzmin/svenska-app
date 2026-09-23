@@ -45,6 +45,20 @@ jobs:
           path: dist
           retention-days: 1
 
+  automerge:
+    needs: build
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge the Dependabot update
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: gh pr merge --squash "$PR_URL"
+
   deploy:
     needs: build
     if: >-
