@@ -31,13 +31,13 @@ All matching senses for one Swedish headword, shown whether the search began in 
 _Avoid_: Russian-Swedish entry, individual sense result
 
 **Word card**:
-The compact, left-aligned presentation of one word. Its closed state shows the headword, transcription, word type, Swedish forms, meanings, and Russian translations.
+The compact, left-aligned presentation of one word. Its closed state is one line: the headword, its word type, and its Russian translations.
 
-One spelling can hold more than one word, and each fills a card of its own, carrying the meanings, examples and related words that belong to it:
+One spelling can hold more than one word, and each fills a card of its own, carrying the meanings, examples and compounds that belong to it:
 
 ```
-val   en val, valen, valar, valarna    stort fiskliknande däggdjur i havet   кит
-val   ett val, valet, val, valen       offentlig röstning                    выборы
+val   subst.   кит
+val   subst.   выбор · выборы
 ```
 
 Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card.
@@ -48,7 +48,7 @@ The inflected forms shown on a word card. A verb reads in citation order: `att f
 _Avoid_: Inflection list, paradigm
 
 **Extended word card**:
-The open state of a word card, adding Lexin examples and related words that contain the headword. At most one word card is extended in the lookup library. A word with neither examples nor related words has no extended state, and its card carries no disclosure.
+The open state of a word card, adding the transcription, Swedish forms, each meaning with its Russian translation, Lexin examples, and the compounds Lexin lists for the word. At most one word card is extended in the lookup library. A word with none of these has no extended state, and its card carries no disclosure.
 _Avoid_: Expanded result, accordion item
 
 **Removing a word**:
