@@ -85,50 +85,6 @@ function getSuggestionItems(outcome: LookupOutcome | null): readonly LookupChoic
   return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
 }
 
-function suggestionKey({ language, displayWord }: LookupChoice): string {
-  return `${language}:${displayWord}`;
-}
-
-function optionKey(item: LookupChoice): string {
-  return `${suggestionKey(item)}:${wordKey(item.word)}`;
-}
-
-// Every suggestion names the word it opens: its word type and translation, or
-// for a Russian suggestion the Swedish word and its type. Two words that still
-// read alike, as `jord` the planet and `jord` the soil, add their Swedish
-// meaning.
-function suggestionHints(
-  suggestions: readonly LookupChoice[],
-  entries: DictionaryAsset["entries"] | null,
-): ReadonlyMap<string, string> {
-  const groups = new Map<string, LookupChoice[]>();
-  for (const item of suggestions) {
-    groups.set(suggestionKey(item), [...(groups.get(suggestionKey(item)) ?? []), item]);
-  }
-
-  const hints = new Map<string, string>();
-  for (const group of groups.values()) {
-    const described = group.map((item) => {
-      const { headword, word } = item.word;
-      const senses = (entries?.[headword] ?? []).filter((sense) => sense.word === word);
-      const partsOfSpeech = uniqueNonEmpty(senses.map((sense) => sense.partOfSpeech));
-      const cleanHeadword = cleanLexinText(headword);
-      const hint = uniqueNonEmpty(item.language === "sv"
-        ? [...partsOfSpeech, translationFor(senses)]
-        : [cleanHeadword, ...partsOfSpeech]).join(" · ");
-      return { item, hint, meaning: senses[0]?.meaning ?? "" };
-    });
-    for (const { item, hint, meaning } of described) {
-      const alike = described.filter((other) => other.hint === hint).length > 1;
-      const full = alike && meaning.length > 0 ? uniqueNonEmpty([hint, meaning]).join(" · ") : hint;
-      if (full.length > 0) {
-        hints.set(optionKey(item), full);
-      }
-    }
-  }
-  return hints;
-}
-
 function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly IndexedHeadword[] {
   if (entries === null) {
     return [];
@@ -161,23 +117,36 @@ function formsOf({
   });
 }
 
-// A suggestion lists the Swedish forms its word card shows, so `fasta` reads
-// under `fast` the adjective it inflects.
-function suggestionForms(
+// Every suggestion reads the same way, so a list scans down one column of
+// Swedish words: the word, its type and translation on the first line, and its
+// Swedish forms beneath, as its card has them. A word with one form still
+// fills the line, and a Russian query offers the same rows, with what it
+// matched among the translations.
+type SuggestionRow = {
+  headword: string;
+  partsOfSpeech: string;
+  translation: string;
+  forms: string;
+};
+
+function suggestionRow(
   { headword, word }: LibraryWord,
   entries: DictionaryAsset["entries"] | null,
   details: DictionaryDetailsAsset["entries"] | null,
-): readonly string[] {
-  const senses = entries?.[headword];
-  const found = senses === undefined
-    ? undefined
-    : wordsOf({ headword, senses }).find((item) => item.word === word);
-  if (senses === undefined || found === undefined) {
-    return [];
-  }
-
-  const wordDetails = details?.[headword] ?? [];
-  return formsOf({ headword, senses, senseIndexes: found.senseIndexes, wordDetails });
+): SuggestionRow {
+  const cleanHeadword = cleanLexinText(headword);
+  const senses = entries?.[headword] ?? [];
+  const found = wordsOf({ headword, senses }).find((item) => item.word === word);
+  const wordSenses = found?.senseIndexes.map((senseIndex) => senses[senseIndex]) ?? [];
+  const forms = found === undefined
+    ? []
+    : formsOf({ headword, senses, senseIndexes: found.senseIndexes, wordDetails: details?.[headword] ?? [] });
+  return {
+    headword: cleanHeadword,
+    partsOfSpeech: uniqueNonEmpty(wordSenses.map((sense) => sense.partOfSpeech)).join(" · "),
+    translation: translationFor(wordSenses),
+    forms: (forms.length > 0 ? forms : [cleanHeadword]).join(", "),
+  };
 }
 
 function getLibraryItems(
@@ -382,10 +351,6 @@ export function LookupExperience(props: LookupExperienceProps) {
     ? suggestions.slice(0, renderedSuggestionCount)
     : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
-  const hints = useMemo(
-    () => suggestionHints(suggestions, props.entries),
-    [suggestions, props.entries],
-  );
   const queryInput = useRef<HTMLInputElement>(null);
   // A touch device focuses the field on the first tap instead, so the caret
   // never sits in a field that cannot raise a keyboard yet.
@@ -562,29 +527,30 @@ export function LookupExperience(props: LookupExperienceProps) {
             onScroll={revealMoreSuggestions}
           >
             {visibleSuggestions.map((item, index) => {
-              const hint = hints.get(optionKey(item));
-              const forms = suggestionForms(item.word, props.entries, props.details);
+              const row = suggestionRow(item.word, props.entries, props.details);
               return (
                 <li
                   id={`${listId}-${index}`}
-                  key={optionKey(item)}
+                  key={wordKey(item.word)}
                   role="option"
                   aria-selected={index === activeSuggestionIndex}
                   aria-posinset={index + 1}
                   aria-setsize={suggestions.length}
                   onClick={() => selectSuggestion(item)}
                 >
-                  <span className="suggestion-main">
-                    <strong lang={item.language}>
-                      {item.displayWord}
-                    </strong>
-                    {hint === undefined ? null : " "}
-                    {hint === undefined ? null : <span className="suggestion-hint">{hint}</span>}
+                  <span className="suggestion-word">
+                    <strong lang="sv">{row.headword}</strong>
+                    {row.partsOfSpeech.length > 0 ? " " : null}
+                    {row.partsOfSpeech.length > 0
+                      ? <span className="suggestion-type">{row.partsOfSpeech}</span>
+                      : null}
+                    {row.translation.length > 0 ? " " : null}
+                    {row.translation.length > 0
+                      ? <span className="suggestion-translation" lang="ru">{row.translation}</span>
+                      : null}
                   </span>
-                  {forms.length > 1 ? " " : null}
-                  {forms.length > 1
-                    ? <span className="suggestion-forms" lang="sv">{forms.join(", ")}</span>
-                    : null}
+                  {" "}
+                  <span className="suggestion-forms" lang="sv">{row.forms}</span>
                 </li>
               );
             })}

@@ -14,10 +14,11 @@ type LookupResult = {
 };
 
 // A suggestion opens one word, and a word — one meaning of one word type, as
-// Lexin numbers it — is offered once however many of its forms match: `fast`
-// the adjective stands for `fasta` too, beside `fast` the conjunction. A Swedish
-// suggestion reads as its headword, a Russian one as its best matching
-// translation, and `exact` tells whether the query spells a form in full.
+// Lexin numbers it — is offered once however many of its forms or translations
+// match: `fast` the adjective stands for `fasta` too, beside `fast` the
+// conjunction. `displayWord` is the best match, the headword for a Swedish one
+// and the translation for a Russian one, and `exact` tells whether the query
+// spells it in full.
 export type LookupChoice = {
   displayWord: string;
   word: LibraryWord;
@@ -164,7 +165,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
 
     const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
     function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
-      const key = `${choice.language}:${wordKey(choice.word)}`;
+      const key = wordKey(choice.word);
       const offered = rankedChoices.get(key);
       if (offered === undefined || rank < offered.rank ||
         (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {

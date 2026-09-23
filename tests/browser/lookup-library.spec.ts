@@ -72,6 +72,16 @@ const details = {
       ],
     }],
     tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
+    jord: [
+      { phonetic: "jo:rd", article: "en", inflections: ["jorden"], examples: [], compounds: [] },
+      {
+        phonetic: "jo:rd",
+        article: "en",
+        inflections: ["jorden", "jordar", "jordarna"],
+        examples: [],
+        compounds: [],
+      },
+    ],
     val: [
       {
         phonetic: "vA:l",
@@ -236,10 +246,10 @@ test("a suggestion opens the one word it names", async ({ page }) => {
 
   await page.getByLabel("Swedish or Russian word").fill("val");
   await expect(page.getByRole("option")).toHaveText([
-    "val substantiv · кит en val, valen, valar, valarna",
-    "val substantiv · выбор ett val, valet, val, valen",
+    "val substantiv кит en val, valen, valar, valarna",
+    "val substantiv выбор ett val, valet, val, valen",
   ]);
-  await page.getByRole("option", { name: /^val substantiv · выбор/ }).click();
+  await page.getByRole("option", { name: /^val substantiv выбор/ }).click();
 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(1);
@@ -249,14 +259,27 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   ]);
 });
 
-test("suggestions that still read alike add the Swedish meaning", async ({ page }) => {
+test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {
   await page.goto(".");
 
-  await page.getByLabel("Swedish or Russian word").fill("земля");
-  await expect(page.getByRole("option")).toHaveText([
-    "земля jord · substantiv · planeten Tellus",
-    "земля jord · substantiv · mull, mylla",
+  // `jord` the planet and `jord` the soil read apart by their forms.
+  const query = page.getByLabel("Swedish or Russian word");
+  const options = page.getByRole("option");
+  await query.fill("земля");
+  await expect(options).toHaveText([
+    "jord substantiv земля en jord, jorden",
+    "jord substantiv земля en jord, jorden, jordar, jordarna",
   ]);
+
+  // A word with a single form still fills the forms line, so every row keeps
+  // one shape.
+  await query.fill("tack");
+  await expect(options).toHaveText(["tack interjektion спасибо tack"]);
+  const single = await options.first().boundingBox();
+  await query.fill("val");
+  await expect(options.first()).toHaveText("val substantiv кит en val, valen, valar, valarna");
+  const several = await options.first().boundingBox();
+  expect(single?.height).toBe(several?.height);
 });
 
 test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
