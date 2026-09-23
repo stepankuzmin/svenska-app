@@ -3,41 +3,51 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    abborre: [{ word: "", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ word: "", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
-    framgår: [{ word: "", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    abborre: [{ word: "101", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
+    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    ni: [{ word: "10630", partOfSpeech: "pronomen", meaning: "", translation: "вы" }],
+    jord: [
+      { word: "7322", partOfSpeech: "substantiv", meaning: "planeten Tellus", translation: "земля" },
+      { word: "7323", partOfSpeech: "substantiv", meaning: "mull, mylla", translation: "земля" },
+    ],
     val: [
       { word: "18439", partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
       { word: "18440", partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
     ],
   },
   swedishIndex: {
-    abborre: ["abborre"],
-    abborren: ["abborre"],
-    abborrar: ["abborre"],
-    abborrarna: ["abborre"],
-    fika: ["fika"],
-    fikan: ["fika"],
-    fikor: ["fika"],
-    fikorna: ["fika"],
-    tack: ["tack"],
-    framgår: ["framgår"],
-    framgick: ["framgår"],
-    framgått: ["framgår"],
-    framgå: ["framgår"],
-    val: ["val"],
-    valen: ["val"],
-    valar: ["val"],
-    valarna: ["val"],
-    valet: ["val"],
+    abborre: ["101"],
+    abborren: ["101"],
+    abborrar: ["101"],
+    abborrarna: ["101"],
+    fika: ["102"],
+    fikan: ["102"],
+    fikor: ["102"],
+    fikorna: ["102"],
+    tack: ["103"],
+    framgår: ["104"],
+    framgick: ["104"],
+    framgått: ["104"],
+    framgå: ["104"],
+    ni: ["10630"],
+    jord: ["7322", "7323"],
+    val: ["18439", "18440"],
+    valen: ["18439", "18440"],
+    valar: ["18439"],
+    valarna: ["18439"],
+    valet: ["18440"],
   },
   russianIndex: {
-    "перерыв на кофе": ["fika"],
-    "спасибо": ["tack"],
-    "вытекать": ["framgår"],
-    "кит": ["val"],
-    "выбор": ["val"],
+    "перерыв на кофе": ["102"],
+    "спасибо": ["103"],
+    "вытекать": ["104"],
+    "вы": ["10630"],
+    "Вы": ["10630"],
+    "земля": ["7322", "7323"],
+    "кит": ["18439"],
+    "выбор": ["18440"],
   },
 };
 
@@ -62,6 +72,16 @@ const details = {
       ],
     }],
     tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
+    jord: [
+      { phonetic: "jo:rd", article: "en", inflections: ["jorden"], examples: [], compounds: [] },
+      {
+        phonetic: "jo:rd",
+        article: "en",
+        inflections: ["jorden", "jordar", "jordarna"],
+        examples: [],
+        compounds: [],
+      },
+    ],
     val: [
       {
         phonetic: "vA:l",
@@ -112,8 +132,8 @@ test("chosen words persist in most-recent order and only one card is extended", 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
-  await expect(page.getByRole("option", { name: "fika", exact: true })).toBeVisible();
-  await page.getByRole("option", { name: "fika", exact: true }).click();
+  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
+  await page.getByRole("option", { name: /^fika substantiv/ }).click();
 
   const library = page.getByRole("region", { name: "Library" });
   await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
@@ -144,10 +164,18 @@ test("a q link opens its exact match rather than previewing it", async ({ page }
   await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("fika");
 });
 
+test("a q link opens a word two index entries lead to once", async ({ page }) => {
+  await page.goto("./?q=вы");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("ni");
+});
+
 test("a q link with no exact match still previews suggestions", async ({ page }) => {
   await page.goto("./?q=fik");
 
-  await expect(page.getByRole("option", { name: "fika", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
   await expect(page.getByRole("region", { name: "Library" })).toHaveCount(0);
 });
 
@@ -213,6 +241,47 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
   await expect(cards.nth(0)).toContainText("кит");
 });
 
+test("a suggestion opens the one word it names", async ({ page }) => {
+  await page.goto(".");
+
+  await page.getByLabel("Swedish or Russian word").fill("val");
+  await expect(page.getByRole("option")).toHaveText([
+    "val substantiv кит en val, valen, valar, valarna",
+    "val substantiv выбор ett val, valet, val, valen",
+  ]);
+  await page.getByRole("option", { name: /^val substantiv выбор/ }).click();
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("выбор");
+  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+    { headword: "val", word: "18440" },
+  ]);
+});
+
+test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {
+  await page.goto(".");
+
+  // `jord` the planet and `jord` the soil read apart by their forms.
+  const query = page.getByLabel("Swedish or Russian word");
+  const options = page.getByRole("option");
+  await query.fill("земля");
+  await expect(options).toHaveText([
+    "jord substantiv земля en jord, jorden",
+    "jord substantiv земля en jord, jorden, jordar, jordarna",
+  ]);
+
+  // A word with a single form still fills the forms line, so every row keeps
+  // one shape.
+  await query.fill("tack");
+  await expect(options).toHaveText(["tack interjektion спасибо tack"]);
+  const single = await options.first().boundingBox();
+  await query.fill("val");
+  await expect(options.first()).toHaveText("val substantiv кит en val, valen, valar, valarna");
+  const several = await options.first().boundingBox();
+  expect(single?.height).toBe(several?.height);
+});
+
 test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
   await page.goto(".");
   await page.evaluate(
@@ -225,7 +294,7 @@ test("a library stored as spellings opens every word those spellings hold", asyn
   expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18439" },
     { headword: "val", word: "18440" },
-    { headword: "tack", word: "" },
+    { headword: "tack", word: "103" },
   ]);
 });
 

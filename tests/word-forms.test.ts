@@ -55,6 +55,25 @@ describe("Swedish word forms", () => {
     expect(formsFor("må", { partOfSpeech: "verb", inflections: ["måtte"] })).toEqual(["må", "måtte"]);
   });
 
+  it("keeps a form an adjective's paradigm spells twice", () => {
+    expect(formsFor("fast", { partOfSpeech: "adj.", inflections: ["fast", "fasta"] }))
+      .toEqual(["fast", "fast", "fasta"]);
+    expect(wordForms({
+      headword: "fast",
+      senses: [
+        { partOfSpeech: "adj.", article: "", inflections: ["fast", "fasta"] },
+        { partOfSpeech: "adj.", article: "", inflections: ["fast", "fasta"] },
+      ],
+    })).toEqual(["fast", "fast", "fasta"]);
+  });
+
+  it("keeps a plural spelled like the headword", () => {
+    expect(formsFor("adoptivbarn", {
+      partOfSpeech: "se",
+      inflections: ["adoptivbarnet", "adoptivbarn", "adoptivbarnen"],
+    })).toEqual(["adoptivbarn", "adoptivbarnet", "adoptivbarn", "adoptivbarnen"]);
+  });
+
   it("merges the forms Lexin spells out for one sense and leaves to another", () => {
     expect(wordForms({
       headword: "engelska",

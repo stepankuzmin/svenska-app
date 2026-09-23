@@ -3,11 +3,11 @@ import { expect, test } from "@playwright/test";
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    fika: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    fikapaus: [{ word: "", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fika: [{ word: "101", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fikapaus: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
   },
-  swedishIndex: { fika: ["fika"], fikapaus: ["fikapaus"] },
-  russianIndex: { "перерыв на кофе": ["fika", "fikapaus"] },
+  swedishIndex: { fika: ["101"], fikapaus: ["102"] },
+  russianIndex: { "перерыв на кофе": ["101", "102"] },
 };
 
 test("a tap opens a suggested word without the field grabbing focus first", async ({ page }) => {
@@ -22,7 +22,7 @@ test("a tap opens a suggested word without the field grabbing focus first", asyn
   await expect(query).not.toBeFocused();
 
   await query.fill("fik");
-  await page.getByRole("option", { name: "fika", exact: true }).tap();
+  await page.getByRole("option", { name: /^fika substantiv/ }).tap();
 
   await expect(query).toHaveValue("fika");
   await expect(page.getByRole("listbox")).toHaveCount(0);

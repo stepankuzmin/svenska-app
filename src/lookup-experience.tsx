@@ -32,7 +32,7 @@ type LookupExperienceProps = {
   deepLinkHeadword: string | null;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (selection: { headwords: readonly string[]; displayQuery: string }) => void;
+  onSelectSuggestion: (selection: { word: LibraryWord; displayQuery: string }) => void;
   onRemoveWord: (card: string) => void;
 };
 
@@ -96,6 +96,59 @@ function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly 
   });
 }
 
+function formsOf({
+  headword,
+  senses,
+  senseIndexes,
+  wordDetails,
+}: {
+  headword: string;
+  senses: readonly DictionarySense[];
+  senseIndexes: readonly number[];
+  wordDetails: readonly WordDetails[];
+}): readonly string[] {
+  return wordForms({
+    headword: cleanLexinText(headword),
+    senses: senseIndexes.map((senseIndex) => ({
+      partOfSpeech: senses[senseIndex].partOfSpeech,
+      article: wordDetails[senseIndex]?.article ?? "",
+      inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
+    })),
+  });
+}
+
+// Every suggestion reads the same way, so a list scans down one column of
+// Swedish words: the word, its type and translation on the first line, and its
+// Swedish forms beneath, as its card has them. A word with one form still
+// fills the line, and a Russian query offers the same rows, with what it
+// matched among the translations.
+type SuggestionRow = {
+  headword: string;
+  partsOfSpeech: string;
+  translation: string;
+  forms: string;
+};
+
+function suggestionRow(
+  { headword, word }: LibraryWord,
+  entries: DictionaryAsset["entries"] | null,
+  details: DictionaryDetailsAsset["entries"] | null,
+): SuggestionRow {
+  const cleanHeadword = cleanLexinText(headword);
+  const senses = entries?.[headword] ?? [];
+  const found = wordsOf({ headword, senses }).find((item) => item.word === word);
+  const wordSenses = found?.senseIndexes.map((senseIndex) => senses[senseIndex]) ?? [];
+  const forms = found === undefined
+    ? []
+    : formsOf({ headword, senses, senseIndexes: found.senseIndexes, wordDetails: details?.[headword] ?? [] });
+  return {
+    headword: cleanHeadword,
+    partsOfSpeech: uniqueNonEmpty(wordSenses.map((sense) => sense.partOfSpeech)).join(" · "),
+    translation: translationFor(wordSenses),
+    forms: (forms.length > 0 ? forms : [cleanHeadword]).join(", "),
+  };
+}
+
 function getLibraryItems(
   libraryWords: readonly LibraryWord[],
   entries: DictionaryAsset["entries"] | null,
@@ -122,14 +175,7 @@ function getLibraryItems(
     const item = {
       card: wordKey(libraryWord),
       headword,
-      forms: wordForms({
-        headword: cleanLexinText(headword),
-        senses: word.senseIndexes.map((senseIndex) => ({
-          partOfSpeech: senses[senseIndex].partOfSpeech,
-          article: wordDetails[senseIndex]?.article ?? "",
-          inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
-        })),
-      }),
+      forms: formsOf({ headword, senses, senseIndexes: word.senseIndexes, wordDetails }),
       senses: word.senseIndexes.map((senseIndex) => senses[senseIndex]),
       details: word.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
     };
@@ -327,14 +373,10 @@ export function LookupExperience(props: LookupExperienceProps) {
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
   function selectSuggestion(item: LookupChoice) {
-    const [headword] = item.headwords;
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(headword === undefined ? null : firstCardOf(headword));
-    props.onSelectSuggestion({
-      headwords: item.headwords,
-      displayQuery: item.displayWord,
-    });
+    setExpandedCard(wordKey(item.word));
+    props.onSelectSuggestion({ word: item.word, displayQuery: item.displayWord });
   }
 
   function revealMoreSuggestions(event: UIEvent<HTMLUListElement>) {
@@ -484,21 +526,34 @@ export function LookupExperience(props: LookupExperienceProps) {
             aria-label="Suggestions"
             onScroll={revealMoreSuggestions}
           >
-            {visibleSuggestions.map((item, index) => (
-              <li
-                id={`${listId}-${index}`}
-                key={`${item.language}:${item.displayWord}`}
-                role="option"
-                aria-selected={index === activeSuggestionIndex}
-                aria-posinset={index + 1}
-                aria-setsize={suggestions.length}
-                onClick={() => selectSuggestion(item)}
-              >
-                <strong lang={item.language}>
-                  {item.displayWord}
-                </strong>
-              </li>
-            ))}
+            {visibleSuggestions.map((item, index) => {
+              const row = suggestionRow(item.word, props.entries, props.details);
+              return (
+                <li
+                  id={`${listId}-${index}`}
+                  key={wordKey(item.word)}
+                  role="option"
+                  aria-selected={index === activeSuggestionIndex}
+                  aria-posinset={index + 1}
+                  aria-setsize={suggestions.length}
+                  onClick={() => selectSuggestion(item)}
+                >
+                  <span className="suggestion-word">
+                    <strong lang="sv">{row.headword}</strong>
+                    {row.partsOfSpeech.length > 0 ? " " : null}
+                    {row.partsOfSpeech.length > 0
+                      ? <span className="suggestion-type">{row.partsOfSpeech}</span>
+                      : null}
+                    {row.translation.length > 0 ? " " : null}
+                    {row.translation.length > 0
+                      ? <span className="suggestion-translation" lang="ru">{row.translation}</span>
+                      : null}
+                  </span>
+                  {" "}
+                  <span className="suggestion-forms" lang="sv">{row.forms}</span>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </form>

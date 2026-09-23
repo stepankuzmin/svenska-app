@@ -29,6 +29,9 @@ export const dictionaryMetadataSchema = z.object({
 export const dictionaryAssetSchema = z.object({
   metadata: dictionaryMetadataSchema,
   entries: z.record(z.string(), z.array(senseSchema)),
+  // Both indexes lead from a form or translation to the Lexin numbers of the
+  // words that carry it, written `headword#number` for a number Lexin gives
+  // two spellings.
   swedishIndex: z.record(z.string(), z.array(z.string()).min(1)),
   russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
 });

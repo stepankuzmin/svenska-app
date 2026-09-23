@@ -33,7 +33,10 @@ function senseForms({
 }
 
 // Every sense of one word inflects the same way, give or take the forms Lexin
-// spells out for one sense and leaves to another.
+// spells out for one sense and leaves to another. A paradigm can spell one
+// form twice — the adjective `fast, fast, fasta` has a neuter like its
+// headword — so the senses merge by how often each spells a form, not into a
+// set.
 export function wordForms({
   headword,
   senses,
@@ -41,6 +44,16 @@ export function wordForms({
   headword: string;
   senses: readonly WordSense[];
 }): string[] {
-  const forms = senses.flatMap((sense) => senseForms({ headword, ...sense }));
-  return [...new Set(forms)].filter((form) => form.length > 0);
+  const forms: string[] = [];
+  for (const sense of senses) {
+    const spelled = new Map<string, number>();
+    for (const form of senseForms({ headword, ...sense })) {
+      const count = (spelled.get(form) ?? 0) + 1;
+      spelled.set(form, count);
+      if (form.length > 0 && forms.filter((known) => known === form).length < count) {
+        forms.push(form);
+      }
+    }
+  }
+  return forms;
 }

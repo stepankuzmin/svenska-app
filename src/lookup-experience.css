@@ -141,7 +141,7 @@ body {
 }
 
 .suggestion-menu {
-  --suggestion-row: 3rem;
+  --suggestion-row: 3.75rem;
   background: var(--lookup-card);
   border: 1px solid #8e8e93;
   border-block-start: 0;
@@ -159,11 +159,12 @@ body {
 }
 
 .suggestion-menu li {
-  align-items: center;
   cursor: default;
-  display: flex;
-  min-block-size: 3rem;
-  padding: .68rem .8rem;
+  align-content: center;
+  block-size: var(--suggestion-row);
+  display: grid;
+  gap: .1rem;
+  padding: 0 .8rem;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
@@ -172,7 +173,27 @@ body {
 .suggestion-menu li + li { border-block-start: 1px solid var(--lookup-soft-line); }
 .suggestion-menu li[aria-selected="true"] { background: #e9f2fc; }
 
-.suggestion-menu strong { letter-spacing: -.01em; }
+/* Each part keeps its place on every row, and the part that runs long gives way. */
+.suggestion-word,
+.suggestion-forms {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suggestion-word strong { letter-spacing: -.01em; }
+
+.suggestion-type {
+  color: var(--lookup-muted);
+  font-size: .86rem;
+}
+
+.suggestion-forms {
+  color: var(--lookup-muted);
+  font-size: .86rem;
+  line-height: 1.3;
+}
 
 .word-library h2 {
   color: var(--lookup-muted);

@@ -4,6 +4,7 @@ import {
   type DictionaryDetailsAsset,
 } from "./dictionary-contract";
 import { normalizeLookupText } from "./normalize-lookup-text";
+import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type LookupResult = {
   kind: "result";
@@ -12,10 +13,17 @@ type LookupResult = {
   suggestions: readonly LookupChoice[];
 };
 
+// A suggestion opens one word, and a word — one meaning of one word type, as
+// Lexin numbers it — is offered once however many of its forms or translations
+// match: `fast` the adjective stands for `fasta` too, beside `fast` the
+// conjunction. `displayWord` is the best match, the headword for a Swedish one
+// and the translation for a Russian one, and `exact` tells whether the query
+// spells it in full.
 export type LookupChoice = {
   displayWord: string;
-  headwords: readonly string[];
+  word: LibraryWord;
   language: "ru" | "sv";
+  exact: boolean;
 };
 
 export type LookupOutcome =
@@ -60,17 +68,43 @@ function russianMatchRank({ text, query }: { text: string; query: string }): num
 type IndexEntry = {
   displayWord: string;
   normalizedDisplayWord: string;
-  headwords: readonly string[];
+  words: readonly LibraryWord[];
 };
+
+// An index names a word by its Lexin number, or by its spelling and number
+// where Lexin gives one number to two spellings.
+function wordsByIndexKey(entries: DictionaryAsset["entries"]): Map<string, LibraryWord[]> {
+  const byKey = new Map<string, LibraryWord[]>();
+  for (const [headword, senses] of Object.entries(entries)) {
+    for (const { word } of wordsOf({ headword, senses })) {
+      const libraryWord = { headword, word };
+      byKey.set(word, [...(byKey.get(word) ?? []), libraryWord]);
+      byKey.set(wordKey(libraryWord), [libraryWord]);
+    }
+  }
+  return byKey;
+}
+
+function indexedWords(
+  keys: readonly string[],
+  byKey: ReadonlyMap<string, readonly LibraryWord[]>,
+): LibraryWord[] {
+  const words = new Map<string, LibraryWord>();
+  for (const libraryWord of keys.flatMap((key) => byKey.get(key) ?? [])) {
+    words.set(wordKey(libraryWord), libraryWord);
+  }
+  return [...words.values()];
+}
 
 function indexEntries(
   index: Record<string, string[]>,
+  byKey: ReadonlyMap<string, readonly LibraryWord[]>,
   normalize: (value: string) => string,
 ): IndexEntry[] {
-  return Object.entries(index).map(([displayWord, headwords]) => ({
+  return Object.entries(index).map(([displayWord, keys]) => ({
     displayWord,
     normalizedDisplayWord: normalize(displayWord),
-    headwords,
+    words: indexedWords(keys, byKey),
   }));
 }
 
@@ -78,9 +112,9 @@ function indexEntries(
 // into one bucket rather than the later one replacing the earlier.
 function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
   const byForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, headwords } of entries) {
+  for (const { normalizedDisplayWord, words } of entries) {
     const bucket = byForm.get(normalizedDisplayWord) ?? [];
-    for (const headword of headwords) {
+    for (const { headword } of words) {
       if (!bucket.includes(headword)) {
         bucket.push(headword);
       }
@@ -97,9 +131,10 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
-  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, normalizeSwedishLookupText);
+  const byKey = wordsByIndexKey(dictionary.entries);
+  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, byKey, normalizeSwedishLookupText);
   const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
-  const russianIndexEntries = indexEntries(dictionary.russianIndex, normalizeLookupText);
+  const russianIndexEntries = indexEntries(dictionary.russianIndex, byKey, normalizeLookupText);
   const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
@@ -128,16 +163,28 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       return entry === undefined ? [] : [entry];
     });
 
-    const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
-    for (const { displayWord, normalizedDisplayWord, headwords: indexedHeadwords } of russianIndexEntries) {
-      const rank = russianMatchRank({ text: normalizedDisplayWord, query: normalizedQuery });
-      const headwords = indexedHeadwords.filter((headword) => entriesByHeadword.has(headword));
-      if (rank !== null && headwords.length > 0) {
-        rankedChoices.push({ choice: { displayWord, headwords, language: "ru" }, rank });
+    const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
+    function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
+      const key = wordKey(choice.word);
+      const offered = rankedChoices.get(key);
+      if (offered === undefined || rank < offered.rank ||
+        (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {
+        rankedChoices.set(key, { choice: { ...choice, exact: rank === 0 }, rank });
       }
     }
 
-    for (const { displayWord, normalizedDisplayWord, headwords } of swedishIndexEntries) {
+    for (const { displayWord, normalizedDisplayWord, words } of russianIndexEntries) {
+      const rank = russianMatchRank({ text: normalizedDisplayWord, query: normalizedQuery });
+      if (rank === null) {
+        continue;
+      }
+
+      for (const word of words) {
+        offer({ displayWord, word, language: "ru" }, rank);
+      }
+    }
+
+    for (const { normalizedDisplayWord, words } of swedishIndexEntries) {
       if (
         normalizedSwedishQuery.length === 0 ||
         !normalizedDisplayWord.includes(normalizedSwedishQuery)
@@ -150,18 +197,12 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
           ? 1
           : 2;
-      const indexedSwedishHeadwords = headwords.filter((headword) => entriesByHeadword.has(headword));
-      if (indexedSwedishHeadwords.length === 0) {
-        continue;
+      for (const word of words) {
+        offer({ displayWord: word.headword.replaceAll("|", ""), word, language: "sv" }, rank);
       }
-
-      rankedChoices.push({
-        choice: { displayWord, headwords: indexedSwedishHeadwords, language: "sv" },
-        rank,
-      });
     }
 
-    rankedChoices.sort((left, right) => {
+    const sortedChoices = [...rankedChoices.values()].sort((left, right) => {
       const rankDifference = left.rank - right.rank;
       if (rankDifference !== 0) {
         return rankDifference;
@@ -175,7 +216,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
             left.choice.language,
           );
     });
-    const choices = rankedChoices.map(({ choice }) => choice);
+    const choices = sortedChoices.map(({ choice }) => choice);
 
     const resultEntry = exactSwedishEntries.length === 1 ? exactSwedishEntries[0] : undefined;
     if (resultEntry !== undefined) {

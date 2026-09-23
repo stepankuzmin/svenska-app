@@ -11,7 +11,6 @@ import {
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
-import { normalizeLookupText } from "./normalize-lookup-text";
 import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
 import "./lookup-experience.css";
 
@@ -134,18 +133,18 @@ function LookupApp() {
       return;
     }
 
-    // A word like "fika" indexes several headwords, so an exact link opens all
-    // of them the way choosing that suggestion does.
-    const [closestChoice] = deepLinkOutcome.kind === "choices" ? deepLinkOutcome.choices : [];
-    if (
-      closestChoice === undefined ||
-      normalizeLookupText(closestChoice.displayWord) !== normalizeLookupText(lookupQuery)
-    ) {
+    // A word like "fika" indexes several words, so an exact link opens all of
+    // them rather than the one a suggestion would.
+    const exactChoices = deepLinkOutcome.kind === "choices"
+      ? deepLinkOutcome.choices.filter((choice) => choice.exact)
+      : [];
+    const [closestChoice] = exactChoices;
+    if (closestChoice === undefined) {
       return;
     }
 
-    setDeepLinkHeadword(closestChoice.headwords[0] ?? null);
-    addToLibrary(closestChoice.headwords);
+    setDeepLinkHeadword(closestChoice.word.headword);
+    addWordsToLibrary(exactChoices.map(({ word }) => word));
   }, [lookupState]);
 
   // A lookup opens a spelling, which can hold more than one word, and every
@@ -182,7 +181,13 @@ function LookupApp() {
   }
 
   function addToLibrary(headwords: readonly string[]) {
-    const openedWords = wordsOfHeadwords(headwords);
+    addWordsToLibrary(wordsOfHeadwords(headwords));
+  }
+
+  // Two index entries can lead to one word, as `вы` and `Вы` both lead to
+  // `ni`, and the word joins the library once.
+  function addWordsToLibrary(words: readonly LibraryWord[]) {
+    const openedWords = [...new Map(words.map((word) => [wordKey(word), word])).values()];
     const openedKeys = openedWords.map(wordKey);
     const apply = () => {
       setLibraryWords((currentWords) => {
@@ -205,15 +210,10 @@ function LookupApp() {
     }
   }
 
-  function selectChoice({
-    headwords,
-    displayQuery,
-  }: {
-    headwords: readonly string[];
-    displayQuery: string;
-  }) {
+  // A suggestion names one word, and that word alone joins the library.
+  function selectChoice({ word, displayQuery }: { word: LibraryWord; displayQuery: string }) {
     setQuery(displayQuery);
-    addToLibrary(headwords);
+    addWordsToLibrary([word]);
   }
 
   return (
