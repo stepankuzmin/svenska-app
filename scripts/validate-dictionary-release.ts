@@ -4,15 +4,13 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dictionaryAssetSchema, dictionaryDetailsAssetSchema } from "../src/dictionary-contract.ts";
 
-type DictionaryReleaseValidation = {
-  directory: string;
-  sourceEditionDate: string;
-};
-
 export async function validateDictionaryRelease({
   directory,
   sourceEditionDate,
-}: DictionaryReleaseValidation): Promise<void> {
+}: {
+  directory: string;
+  sourceEditionDate: string;
+}): Promise<void> {
   const files = await readdir(directory);
   const dictionaryAssets = files.filter((file) => /^lexin-dictionary\.[a-f0-9]{16}\.json$/.test(file));
   if (dictionaryAssets.length !== 1) {

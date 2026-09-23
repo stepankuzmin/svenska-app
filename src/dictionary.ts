@@ -3,7 +3,7 @@ import {
   type DictionaryAsset,
   type DictionaryDetailsAsset,
 } from "./dictionary-contract";
-import { normalizeLookupText } from "./normalize-lookup-text";
+import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "./normalize-lookup-text";
 import { wordKey, wordsOf, type LibraryWord } from "./words";
 
 type LookupResult = {
@@ -30,10 +30,6 @@ export type LookupOutcome =
   | LookupResult
   | { kind: "choices"; choices: readonly LookupChoice[] }
   | { kind: "no-match" };
-
-function normalizeSwedishLookupText(value: string): string {
-  return normalizeLookupText(value.replaceAll("|", ""));
-}
 
 function isWordCharacter(value: string | undefined): boolean {
   return value !== undefined && /[\p{L}\p{N}]/u.test(value);
@@ -96,11 +92,15 @@ function indexedWords(
   return [...words.values()];
 }
 
-function indexEntries(
-  index: Record<string, string[]>,
-  byKey: ReadonlyMap<string, readonly LibraryWord[]>,
-  normalize: (value: string) => string,
-): IndexEntry[] {
+function indexEntries({
+  index,
+  byKey,
+  normalize,
+}: {
+  index: Record<string, string[]>;
+  byKey: ReadonlyMap<string, readonly LibraryWord[]>;
+  normalize: (value: string) => string;
+}): IndexEntry[] {
   return Object.entries(index).map(([displayWord, keys]) => ({
     displayWord,
     normalizedDisplayWord: normalize(displayWord),
@@ -125,16 +125,18 @@ function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> 
 }
 
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
-  const entries = Object.entries(dictionary.entries).map(([headword, senses]) => ({
-    headword,
-    normalizedHeadword: normalizeSwedishLookupText(headword),
-    senses,
-  }));
-  const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
   const byKey = wordsByIndexKey(dictionary.entries);
-  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, byKey, normalizeSwedishLookupText);
+  const swedishIndexEntries = indexEntries({
+    index: dictionary.swedishIndex,
+    byKey,
+    normalize: normalizeSwedishLookupText,
+  });
   const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
-  const russianIndexEntries = indexEntries(dictionary.russianIndex, byKey, normalizeLookupText);
+  const russianIndexEntries = indexEntries({
+    index: dictionary.russianIndex,
+    byKey,
+    normalize: normalizeLookupText,
+  });
   const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
@@ -144,25 +146,6 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
 
     const normalizedSwedishQuery = normalizeSwedishLookupText(query);
-    const exactSwedishEntry = entries.find(
-      ({ normalizedHeadword }) => normalizedHeadword === normalizedSwedishQuery,
-    );
-    const indexedHeadwords = swedishHeadwordsByForm.get(normalizedSwedishQuery) ?? [];
-    const exactIndexedEntries = indexedHeadwords.flatMap(
-      (headword) => {
-        const entry = entriesByHeadword.get(headword);
-        return entry === undefined || entry === exactSwedishEntry ? [] : [entry];
-      },
-    );
-    const exactSwedishEntries = exactSwedishEntry === undefined
-      ? exactIndexedEntries
-      : [exactSwedishEntry, ...exactIndexedEntries];
-    const russianHeadwords = russianHeadwordsByForm.get(normalizedQuery) ?? [];
-    const exactRussianEntries = russianHeadwords.flatMap((headword) => {
-      const entry = entriesByHeadword.get(headword);
-      return entry === undefined ? [] : [entry];
-    });
-
     const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
     function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
       const key = wordKey(choice.word);
@@ -198,7 +181,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
           ? 1
           : 2;
       for (const word of words) {
-        offer({ displayWord: word.headword.replaceAll("|", ""), word, language: "sv" }, rank);
+        offer({ displayWord: cleanLexinText(word.headword), word, language: "sv" }, rank);
       }
     }
 
@@ -218,22 +201,18 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     });
     const choices = sortedChoices.map(({ choice }) => choice);
 
-    const resultEntry = exactSwedishEntries.length === 1 ? exactSwedishEntries[0] : undefined;
-    if (resultEntry !== undefined) {
+    const swedishHeadwords = swedishHeadwordsByForm.get(normalizedSwedishQuery) ?? [];
+    const russianHeadwords = russianHeadwordsByForm.get(normalizedQuery) ?? [];
+    const resultHeadword = swedishHeadwords.length === 1
+      ? swedishHeadwords[0]
+      : russianHeadwords.length === 1 && choices.length === 1
+        ? russianHeadwords[0]
+        : undefined;
+    if (resultHeadword !== undefined) {
       return {
         kind: "result",
-        headword: resultEntry.headword,
-        senses: resultEntry.senses,
-        suggestions: choices,
-      };
-    }
-
-    if (exactRussianEntries.length === 1 && choices.length === 1) {
-      const [exactRussianEntry] = exactRussianEntries;
-      return {
-        kind: "result",
-        headword: exactRussianEntry.headword,
-        senses: exactRussianEntry.senses,
+        headword: resultHeadword,
+        senses: dictionary.entries[resultHeadword],
         suggestions: choices,
       };
     }
