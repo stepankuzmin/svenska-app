@@ -44,7 +44,7 @@ Senses share a card when one paradigm spells the other out in full, so a spellin
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
-The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first. A card carries the one paradigm its word inflects by.
+The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first, and keeps a form its paradigm spells twice: an adjective reads `fast, fast, fasta`, its neuter spelled like its headword. A card carries the one paradigm its word inflects by.
 _Avoid_: Inflection list, paradigm
 
 **Extended word card**:
