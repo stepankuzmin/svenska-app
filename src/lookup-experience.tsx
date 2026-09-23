@@ -94,8 +94,9 @@ function optionKey(item: LookupChoice): string {
 }
 
 // Every suggestion names the word it opens: its word type and translation, or
-// for a Russian suggestion the Swedish word and its type. Two words that still read alike, as `jord` the planet and `jord`
-// the soil, add their Swedish meaning.
+// for a Russian suggestion the Swedish word and its type. Two words that still
+// read alike, as `jord` the planet and `jord` the soil, add their Swedish
+// meaning.
 function suggestionHints(
   suggestions: readonly LookupChoice[],
   entries: DictionaryAsset["entries"] | null,
@@ -139,6 +140,46 @@ function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly 
   });
 }
 
+function formsOf({
+  headword,
+  senses,
+  senseIndexes,
+  wordDetails,
+}: {
+  headword: string;
+  senses: readonly DictionarySense[];
+  senseIndexes: readonly number[];
+  wordDetails: readonly WordDetails[];
+}): readonly string[] {
+  return wordForms({
+    headword: cleanLexinText(headword),
+    senses: senseIndexes.map((senseIndex) => ({
+      partOfSpeech: senses[senseIndex].partOfSpeech,
+      article: wordDetails[senseIndex]?.article ?? "",
+      inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
+    })),
+  });
+}
+
+// A suggestion lists the Swedish forms its word card shows, so `fasta` reads
+// under `fast` the adjective it inflects.
+function suggestionForms(
+  { headword, word }: LibraryWord,
+  entries: DictionaryAsset["entries"] | null,
+  details: DictionaryDetailsAsset["entries"] | null,
+): readonly string[] {
+  const senses = entries?.[headword];
+  const found = senses === undefined
+    ? undefined
+    : wordsOf({ headword, senses }).find((item) => item.word === word);
+  if (senses === undefined || found === undefined) {
+    return [];
+  }
+
+  const wordDetails = details?.[headword] ?? [];
+  return formsOf({ headword, senses, senseIndexes: found.senseIndexes, wordDetails });
+}
+
 function getLibraryItems(
   libraryWords: readonly LibraryWord[],
   entries: DictionaryAsset["entries"] | null,
@@ -165,14 +206,7 @@ function getLibraryItems(
     const item = {
       card: wordKey(libraryWord),
       headword,
-      forms: wordForms({
-        headword: cleanLexinText(headword),
-        senses: word.senseIndexes.map((senseIndex) => ({
-          partOfSpeech: senses[senseIndex].partOfSpeech,
-          article: wordDetails[senseIndex]?.article ?? "",
-          inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
-        })),
-      }),
+      forms: formsOf({ headword, senses, senseIndexes: word.senseIndexes, wordDetails }),
       senses: word.senseIndexes.map((senseIndex) => senses[senseIndex]),
       details: word.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
     };
@@ -527,25 +561,33 @@ export function LookupExperience(props: LookupExperienceProps) {
             aria-label="Suggestions"
             onScroll={revealMoreSuggestions}
           >
-            {visibleSuggestions.map((item, index) => (
-              <li
-                id={`${listId}-${index}`}
-                key={optionKey(item)}
-                role="option"
-                aria-selected={index === activeSuggestionIndex}
-                aria-posinset={index + 1}
-                aria-setsize={suggestions.length}
-                onClick={() => selectSuggestion(item)}
-              >
-                <strong lang={item.language}>
-                  {item.displayWord}
-                </strong>
-                {hints.has(optionKey(item)) ? " " : null}
-                {hints.has(optionKey(item)) ? (
-                  <span className="suggestion-hint">{hints.get(optionKey(item))}</span>
-                ) : null}
-              </li>
-            ))}
+            {visibleSuggestions.map((item, index) => {
+              const hint = hints.get(optionKey(item));
+              const forms = suggestionForms(item.word, props.entries, props.details);
+              return (
+                <li
+                  id={`${listId}-${index}`}
+                  key={optionKey(item)}
+                  role="option"
+                  aria-selected={index === activeSuggestionIndex}
+                  aria-posinset={index + 1}
+                  aria-setsize={suggestions.length}
+                  onClick={() => selectSuggestion(item)}
+                >
+                  <span className="suggestion-main">
+                    <strong lang={item.language}>
+                      {item.displayWord}
+                    </strong>
+                    {hint === undefined ? null : " "}
+                    {hint === undefined ? null : <span className="suggestion-hint">{hint}</span>}
+                  </span>
+                  {forms.length > 1 ? " " : null}
+                  {forms.length > 1
+                    ? <span className="suggestion-forms" lang="sv">{forms.join(", ")}</span>
+                    : null}
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </form>

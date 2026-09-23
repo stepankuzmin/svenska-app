@@ -122,8 +122,8 @@ test("chosen words persist in most-recent order and only one card is extended", 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
-  await expect(page.getByRole("option", { name: "fika substantiv · перерыв на кофе", exact: true })).toBeVisible();
-  await page.getByRole("option", { name: "fika substantiv · перерыв на кофе", exact: true }).click();
+  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
+  await page.getByRole("option", { name: /^fika substantiv/ }).click();
 
   const library = page.getByRole("region", { name: "Library" });
   await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
@@ -165,7 +165,7 @@ test("a q link opens a word two index entries lead to once", async ({ page }) =>
 test("a q link with no exact match still previews suggestions", async ({ page }) => {
   await page.goto("./?q=fik");
 
-  await expect(page.getByRole("option", { name: "fika substantiv · перерыв на кофе", exact: true })).toBeVisible();
+  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
   await expect(page.getByRole("region", { name: "Library" })).toHaveCount(0);
 });
 
@@ -236,10 +236,10 @@ test("a suggestion opens the one word it names", async ({ page }) => {
 
   await page.getByLabel("Swedish or Russian word").fill("val");
   await expect(page.getByRole("option")).toHaveText([
-    "val substantiv · кит",
-    "val substantiv · выбор",
+    "val substantiv · кит en val, valen, valar, valarna",
+    "val substantiv · выбор ett val, valet, val, valen",
   ]);
-  await page.getByRole("option", { name: "val substantiv · выбор" }).click();
+  await page.getByRole("option", { name: /^val substantiv · выбор/ }).click();
 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(1);

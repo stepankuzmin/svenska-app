@@ -159,9 +159,10 @@ body {
 }
 
 .suggestion-menu li {
-  align-items: center;
   cursor: default;
   display: flex;
+  flex-direction: column;
+  justify-content: center;
   min-block-size: 3rem;
   padding: .68rem .8rem;
   touch-action: manipulation;
@@ -173,6 +174,20 @@ body {
 .suggestion-menu li[aria-selected="true"] { background: #e9f2fc; }
 
 .suggestion-menu strong { letter-spacing: -.01em; }
+
+.suggestion-main {
+  align-items: baseline;
+  display: flex;
+  min-inline-size: 0;
+}
+
+.suggestion-forms {
+  color: var(--lookup-muted);
+  font-size: .8125rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .suggestion-hint {
   color: var(--lookup-muted);

@@ -22,7 +22,7 @@ test("a tap opens a suggested word without the field grabbing focus first", asyn
   await expect(query).not.toBeFocused();
 
   await query.fill("fik");
-  await page.getByRole("option", { name: "fika substantiv · перерыв на кофе", exact: true }).tap();
+  await page.getByRole("option", { name: /^fika substantiv/ }).tap();
 
   await expect(query).toHaveValue("fika");
   await expect(page.getByRole("listbox")).toHaveCount(0);
