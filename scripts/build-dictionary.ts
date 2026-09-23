@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
-import { normalizeLookupText } from "../src/normalize-lookup-text.ts";
+import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
 import { wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
@@ -26,13 +26,6 @@ const sourceEditionSchema = z.object({
     Word: z.union([xmlWordSchema, z.array(xmlWordSchema).min(1)]),
   }),
 });
-
-export type Dictionary = DictionaryAsset;
-
-type DictionaryAssets = {
-  dictionary: DictionaryAsset;
-  details: DictionaryDetailsAsset;
-};
 
 function text(value: unknown): string {
   if (typeof value === "string") {
@@ -98,15 +91,13 @@ function definitePluralTexts({
   inflections: readonly string[][];
 }): string[] {
   if (partOfSpeech === "subst." && inflections.length === 2) {
-    const normalizedHeadword = normalizeLookupText(headword.replaceAll("|", ""));
-    const normalizedDefiniteSingular = normalizeLookupText(
-      (inflections[0][0] ?? "").replaceAll("|", ""),
-    );
+    const normalizedHeadword = normalizeSwedishLookupText(headword);
+    const normalizedDefiniteSingular = normalizeSwedishLookupText(inflections[0][0] ?? "");
     const normalizedSecondGroup = new Set(
-      inflections[1].map((form) => normalizeLookupText(form.replaceAll("|", ""))),
+      inflections[1].map(normalizeSwedishLookupText),
     );
     const alreadyIncludesDefinitePlural = inflections[0].some((plural) => {
-      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      const normalizedPlural = normalizeSwedishLookupText(plural);
       const definitePlural = normalizedPlural.endsWith("r")
         ? `${normalizedPlural}na`
         : normalizedPlural === `${normalizedHeadword}n`
@@ -119,7 +110,7 @@ function definitePluralTexts({
     }
 
     return inflections[1].flatMap((plural) => {
-      const normalizedPlural = normalizeLookupText(plural.replaceAll("|", ""));
+      const normalizedPlural = normalizeSwedishLookupText(plural);
       if (normalizedPlural.endsWith("r")) {
         return `${plural}na`;
       }
@@ -200,7 +191,7 @@ function nounArticle({
     return "";
   }
 
-  const definiteSingular = (inflections[0][0] ?? "").replaceAll("|", "");
+  const definiteSingular = cleanLexinText(inflections[0][0] ?? "");
   if (definiteSingular.endsWith("t")) {
     return "ett";
   }
@@ -262,7 +253,7 @@ function addToIndex({
   form: string;
   sense: IndexedSense;
 }): void {
-  const displayForm = form.replaceAll("|", "").trim();
+  const displayForm = cleanLexinText(form).trim();
   if (displayForm.length === 0) {
     return;
   }
@@ -332,7 +323,7 @@ function pairedTexts({
   );
 
   return baseValues.flatMap((value, index) => {
-    const swedish = text(value).replaceAll("|", "");
+    const swedish = cleanLexinText(text(value));
     if (swedish.length === 0) {
       return [];
     }
@@ -345,7 +336,10 @@ function pairedTexts({
   });
 }
 
-export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAssets {
+export function buildDictionaryAssets({ xml }: { xml: string }): {
+  dictionary: DictionaryAsset;
+  details: DictionaryDetailsAsset;
+} {
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: "@_" });
   const source = sourceEditionSchema.parse(parser.parse(xml));
   const sourceDictionary = source.Dictionary;
@@ -424,10 +418,6 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       entries: detailEntries,
     },
   };
-}
-
-export function buildDictionary({ xml }: { xml: string }): Dictionary {
-  return buildDictionaryAssets({ xml }).dictionary;
 }
 
 async function main(): Promise<void> {

@@ -27,14 +27,11 @@ type LookupState =
       search: (query: string) => LookupOutcome;
       entries: DictionaryAsset["entries"];
     }
-  | { kind: "unavailable-offline" };
+  | { kind: "unavailable-offline" }
+  | { kind: "failed" };
 
 function readDeepLinkQuery(): string {
   return new URLSearchParams(window.location.search).get("q") ?? "";
-}
-
-function prefersMotion(): boolean {
-  return !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
@@ -83,6 +80,7 @@ function LookupApp() {
     }
 
     async function load() {
+      const detailsRequest = loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
       const asset = await loadAsset(dictionaryAssetUrl);
       if (!hasDictionaryAssetShape(asset)) {
         throw new Error("Dictionary asset has an invalid format.");
@@ -100,8 +98,7 @@ function LookupApp() {
         return resolvedWords;
       });
 
-      // Details carry examples and inflections; lookup works without them.
-      const details = await loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
+      const details = await detailsRequest;
       if (
         hasDictionaryDetailsShape(details) &&
         details.sourceEditionDate === asset.metadata.sourceEditionDate
@@ -111,9 +108,7 @@ function LookupApp() {
     }
 
     load().catch(() => {
-      if (!navigator.onLine) {
-        setLookupState({ kind: "unavailable-offline" });
-      }
+      setLookupState({ kind: navigator.onLine ? "failed" : "unavailable-offline" });
     });
   }, []);
 
@@ -129,7 +124,7 @@ function LookupApp() {
     const deepLinkOutcome = lookupState.search(lookupQuery);
     if (deepLinkOutcome.kind === "result") {
       setDeepLinkHeadword(deepLinkOutcome.headword);
-      addToLibrary([deepLinkOutcome.headword]);
+      openResult(deepLinkOutcome);
       return;
     }
 
@@ -147,22 +142,11 @@ function LookupApp() {
     addWordsToLibrary(exactChoices.map(({ word }) => word));
   }, [lookupState]);
 
-  // A lookup opens a spelling, which can hold more than one word, and every
-  // word it holds joins the library in its own right.
-  function wordsOfHeadwords(headwords: readonly string[]): LibraryWord[] {
-    const entries = lookupState.kind === "ready" ? lookupState.entries : {};
-    return headwords.flatMap((headword) => {
-      const senses = entries[headword];
-      return senses === undefined
-        ? [{ headword, word: "" }]
-        : wordsOf({ headword, senses }).map(({ word }) => ({ headword, word }));
-    });
-  }
-
-  // The library moves as one: a word joining it or leaving it carries the cards
-  // around it to their new places.
   function withLibraryMotion(apply: () => void) {
-    if (!prefersMotion() || typeof document.startViewTransition !== "function") {
+    if (
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      typeof document.startViewTransition !== "function"
+    ) {
       apply();
       return;
     }
@@ -180,38 +164,35 @@ function LookupApp() {
     });
   }
 
-  function addToLibrary(headwords: readonly string[]) {
-    addWordsToLibrary(wordsOfHeadwords(headwords));
+  function openResult({ headword, senses }: { headword: string; senses: readonly { word: string }[] }) {
+    addWordsToLibrary(wordsOf({ headword, senses }).map(({ word }) => ({ headword, word })));
   }
 
   // Two index entries can lead to one word, as `вы` and `Вы` both lead to
   // `ni`, and the word joins the library once.
   function addWordsToLibrary(words: readonly LibraryWord[]) {
     const openedWords = [...new Map(words.map((word) => [wordKey(word), word])).values()];
-    const openedKeys = openedWords.map(wordKey);
-    const apply = () => {
+    const openedKeys = new Set(openedWords.map(wordKey));
+    withLibraryMotion(() => {
       setLibraryWords((currentWords) => {
         const nextWords = [
           ...openedWords,
-          ...currentWords.filter((item) => !openedKeys.includes(wordKey(item))),
+          ...currentWords.filter((item) => !openedKeys.has(wordKey(item))),
         ];
         writeLookupLibrary(nextWords);
         return nextWords;
       });
-    };
-
-    withLibraryMotion(apply);
+    });
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (outcome?.kind === "result") {
-      addToLibrary([outcome.headword]);
+      openResult(outcome);
+      setQuery("");
     }
   }
 
-  // A suggestion names one word, and that word alone joins the library. The
-  // field empties so the next lookup starts from nothing.
   function selectChoice(word: LibraryWord) {
     setQuery("");
     addWordsToLibrary([word]);

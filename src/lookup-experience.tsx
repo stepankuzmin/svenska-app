@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupChoice, LookupOutcome } from "./dictionary";
-import { normalizeLookupText } from "./normalize-lookup-text";
+import { cleanLexinText, normalizeLookupText } from "./normalize-lookup-text";
 import { wordForms } from "./word-forms";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { wordKey, wordsOf, type LibraryWord } from "./words";
@@ -21,7 +21,7 @@ import { wordKey, wordsOf, type LibraryWord } from "./words";
 type DictionarySense = DictionaryAsset["entries"][string][number];
 type WordDetails = DictionaryDetailsAsset["entries"][string][number];
 
-export type LookupStatus = "loading" | "ready" | "unavailable-offline";
+export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed";
 
 type LookupExperienceProps = {
   query: string;
@@ -60,10 +60,6 @@ const suggestionBatchSize = 100;
 // take part in the move to the top.
 const animatedCardLimit = 12;
 
-function cleanLexinText(value: string): string {
-  return value.replaceAll("|", "");
-}
-
 function uniqueNonEmpty(values: readonly string[]): string[] {
   return [...new Set(values.filter((value) => value.length > 0))];
 }
@@ -101,11 +97,6 @@ function formsOf({
   });
 }
 
-// Every suggestion reads the same way, so a list scans down one column of
-// Swedish words: the word, its type and translation on the first line, and its
-// Swedish forms beneath, as its card has them. A word with one form still
-// fills the line, and a Russian query offers the same rows, with what it
-// matched among the translations.
 type SuggestionRow = {
   headword: string;
   partsOfSpeech: string;
@@ -113,11 +104,15 @@ type SuggestionRow = {
   forms: string;
 };
 
-function suggestionRow(
-  { headword, word }: LibraryWord,
-  entries: DictionaryAsset["entries"] | null,
-  details: DictionaryDetailsAsset["entries"] | null,
-): SuggestionRow {
+function suggestionRow({
+  word: { headword, word },
+  entries,
+  details,
+}: {
+  word: LibraryWord;
+  entries: DictionaryAsset["entries"] | null;
+  details: DictionaryDetailsAsset["entries"] | null;
+}): SuggestionRow {
   const cleanHeadword = cleanLexinText(headword);
   const senses = entries?.[headword] ?? [];
   const found = wordsOf({ headword, senses }).find((item) => item.word === word);
@@ -133,11 +128,15 @@ function suggestionRow(
   };
 }
 
-function getLibraryItems(
-  libraryWords: readonly LibraryWord[],
-  entries: DictionaryAsset["entries"] | null,
-  details: DictionaryDetailsAsset["entries"] | null,
-): readonly WordItem[] {
+function getLibraryItems({
+  libraryWords,
+  entries,
+  details,
+}: {
+  libraryWords: readonly LibraryWord[];
+  entries: DictionaryAsset["entries"] | null;
+  details: DictionaryDetailsAsset["entries"] | null;
+}): readonly WordItem[] {
   if (entries === null) {
     return [];
   }
@@ -335,7 +334,7 @@ const SuggestionMenu = memo(function SuggestionMenu({
   onScroll: (event: UIEvent<HTMLUListElement>) => void;
 }) {
   const rows = useMemo(
-    () => items.map((item) => suggestionRow(item.word, entries, details)),
+    () => items.map((item) => suggestionRow({ word: item.word, entries, details })),
     [items, entries, details],
   );
 
@@ -390,7 +389,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   const matches = useMemo(() => getSuggestionItems(props.outcome), [props.outcome]);
   const suggestions = useDeferredValue(matches);
   const library = useMemo(
-    () => getLibraryItems(props.libraryWords, props.entries, props.details),
+    () => getLibraryItems({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
     [props.libraryWords, props.entries, props.details],
   );
   const inputId = "dictionary-query";
@@ -407,8 +406,6 @@ export function LookupExperience(props: LookupExperienceProps) {
   );
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
   const suggestionsStale = matches !== suggestions;
-  // A query the dictionary cannot place says so, rather than leaving the field
-  // to answer with nothing.
   const showNoMatches = autocompleteOpen &&
     props.status === "ready" &&
     props.query.trim().length > 0 &&
@@ -462,8 +459,6 @@ export function LookupExperience(props: LookupExperienceProps) {
     );
   }, []);
 
-  // A spelling that holds more than one word opens a card each, and the lookup
-  // extends the first of them.
   function firstCardOf(headword: string): string | null {
     const senses = props.entries?.[headword];
     const [firstWord] = senses === undefined ? [] : wordsOf({ headword, senses });
@@ -493,7 +488,6 @@ export function LookupExperience(props: LookupExperienceProps) {
       setAutocompleteOpen(false);
       setActiveSuggestionIndex(-1);
       setExpandedCard(firstCardOf(props.outcome.headword));
-      props.onQueryChange("");
     }
   }
 
@@ -611,7 +605,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       </form>
 
       <div
-        className={props.status === "unavailable-offline" ? "lookup-status" : "visually-hidden"}
+        className={props.status === "unavailable-offline" || props.status === "failed" ? "lookup-status" : "visually-hidden"}
         role="status"
         aria-live="polite"
       >
@@ -619,6 +613,7 @@ export function LookupExperience(props: LookupExperienceProps) {
         {props.status === "unavailable-offline"
           ? "Connect once while online. After that, you can look up words offline."
           : null}
+        {props.status === "failed" ? "The dictionary did not load. Reload to try again." : null}
       </div>
 
       {library.length > 0 ? (

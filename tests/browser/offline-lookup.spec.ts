@@ -71,3 +71,11 @@ test("a first offline visit explains that one connection is required", async ({ 
   await expect(page.getByRole("status")).toHaveText(/connect once/i);
   await expect(page.getByLabel("Swedish or Russian word")).toBeFocused();
 });
+
+test("a dictionary that fails to load online says so", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) => route.fulfill({ status: 500 }));
+
+  await page.goto(".");
+
+  await expect(page.getByRole("status")).toHaveText(/did not load/i);
+});

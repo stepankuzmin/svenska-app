@@ -11,10 +11,6 @@ type Swipe = {
   dragging: boolean;
 };
 
-function prefersReducedMotion(): boolean {
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
 export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
   const surface = useRef<HTMLDivElement>(null);
   const swipe = useRef<Swipe | null>(null);
@@ -44,7 +40,7 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
 
   function leave() {
     const element = surface.current;
-    if (element === null || prefersReducedMotion()) {
+    if (element === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       onRemove();
       return;
     }
