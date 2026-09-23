@@ -1,5 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const bokHeadword = /^bok$/;
+const connectOnce = /connect once/i;
+const didNotLoad = /did not load/i;
+
 async function searchFor(page: Page, query: string) {
   const field = page.getByLabel("Swedish or Russian word");
   await field.fill(query);
@@ -50,7 +54,7 @@ test("lookup remains available after an online visit and offline reload", async 
   await searchFor(page, "bok");
   // The tree and the volume are two words, so the lookup opens a card each.
   await expect(
-    page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^bok$/ }),
+    page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: bokHeadword }),
   ).toHaveCount(2);
 
   const field = page.getByLabel("Swedish or Russian word");
@@ -68,7 +72,7 @@ test("a first offline visit explains that one connection is required", async ({ 
 
   await page.goto(".");
 
-  await expect(page.getByRole("status")).toHaveText(/connect once/i);
+  await expect(page.getByRole("status")).toHaveText(connectOnce);
   await expect(page.getByLabel("Swedish or Russian word")).toBeFocused();
 });
 
@@ -77,5 +81,5 @@ test("a dictionary that fails to load online says so", async ({ page }) => {
 
   await page.goto(".");
 
-  await expect(page.getByRole("status")).toHaveText(/did not load/i);
+  await expect(page.getByRole("status")).toHaveText(didNotLoad);
 });

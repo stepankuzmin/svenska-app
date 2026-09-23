@@ -4,6 +4,9 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { dictionaryAssetSchema, dictionaryDetailsAssetSchema } from "../src/dictionary-contract.ts";
 
+const dictionaryAssetName = /^lexin-dictionary\.[a-f0-9]{16}\.json$/;
+const detailsAssetName = /^lexin-details\.[a-f0-9]{16}\.json$/;
+
 export async function validateDictionaryRelease({
   directory,
   sourceEditionDate,
@@ -12,11 +15,11 @@ export async function validateDictionaryRelease({
   sourceEditionDate: string;
 }): Promise<void> {
   const files = await readdir(directory);
-  const dictionaryAssets = files.filter((file) => /^lexin-dictionary\.[a-f0-9]{16}\.json$/.test(file));
+  const dictionaryAssets = files.filter((file) => dictionaryAssetName.test(file));
   if (dictionaryAssets.length !== 1) {
     throw new Error(`Expected one content-hashed dictionary asset, found ${dictionaryAssets.length}.`);
   }
-  const detailsAssets = files.filter((file) => /^lexin-details\.[a-f0-9]{16}\.json$/.test(file));
+  const detailsAssets = files.filter((file) => detailsAssetName.test(file));
   if (detailsAssets.length !== 1) {
     throw new Error(`Expected one content-hashed dictionary details asset, found ${detailsAssets.length}.`);
   }

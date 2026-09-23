@@ -31,8 +31,10 @@ export type LookupOutcome =
   | { kind: "choices"; choices: readonly LookupChoice[] }
   | { kind: "no-match" };
 
+const wordCharacter = /[\p{L}\p{N}]/u;
+
 function isWordCharacter(value: string | undefined): boolean {
-  return value !== undefined && /[\p{L}\p{N}]/u.test(value);
+  return value !== undefined && wordCharacter.test(value);
 }
 
 function containsWholeQuery({ text, query }: { text: string; query: string }): boolean {

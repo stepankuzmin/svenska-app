@@ -44,4 +44,4 @@ jobs:
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: |
-            --allowedTools "Bash(npm ci),Bash(npm test),Bash(npm run build),Bash(npm run typecheck),Bash(npm run dictionary:build),Bash(npm run release:check)"
+            --allowedTools "Bash(npm ci),Bash(npm test),Bash(npm run build),Bash(npm run typecheck),Bash(npm run dictionary:build),Bash(npm run release:check),Bash(npm run lint)"

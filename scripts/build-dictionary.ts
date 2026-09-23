@@ -171,6 +171,8 @@ function comparativeTexts({
   });
 }
 
+const pluralUsage = /^plur(al|\.)/i;
+
 // Lexin spells out a noun's gender only through its definite singular: an
 // en-word ends it with -n, an ett-word with -t. A word Lexin marks as plural
 // lists a definite plural instead, so it opens without an article.
@@ -187,7 +189,7 @@ function nounArticle({
     return "";
   }
 
-  if (inflections.length === 1 && /^plur(al|\.)/i.test(usage.trim())) {
+  if (inflections.length === 1 && pluralUsage.test(usage.trim())) {
     return "";
   }
 

@@ -1,5 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+const fikaNoun = /^fika substantiv/;
+const valNoun = /^val substantiv выбор/;
+const tackThenFika = [/tack/, /fika/];
+
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
@@ -144,8 +148,8 @@ test("chosen words persist in most-recent order and only one card is extended", 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
-  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
-  await page.getByRole("option", { name: /^fika substantiv/ }).click();
+  await expect(page.getByRole("option", { name: fikaNoun })).toBeVisible();
+  await page.getByRole("option", { name: fikaNoun }).click();
 
   const library = page.getByRole("region", { name: "Library" });
   await expect(library.getByText("[²fi:ka]", { exact: true })).toBeVisible();
@@ -159,10 +163,10 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await query.press("Enter");
   await expect(library.getByText("tack", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeHidden();
-  await expect(library.getByRole("listitem")).toHaveText([/tack/, /fika/]);
+  await expect(library.getByRole("listitem")).toHaveText(tackThenFika);
 
   await page.reload();
-  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText([/tack/, /fika/]);
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(tackThenFika);
   await expect(query).toBeFocused();
 });
 
@@ -187,7 +191,7 @@ test("a q link opens a word two index entries lead to once", async ({ page }) =>
 test("a q link with no exact match still previews suggestions", async ({ page }) => {
   await page.goto("./?q=fik");
 
-  await expect(page.getByRole("option", { name: /^fika substantiv/ })).toBeVisible();
+  await expect(page.getByRole("option", { name: fikaNoun })).toBeVisible();
   await expect(page.getByRole("region", { name: "Library" })).toHaveCount(0);
 });
 
@@ -261,7 +265,7 @@ test("a suggestion opens the one word it names", async ({ page }) => {
     "val substantiv кит en val, valen, valar, valarna",
     "val substantiv выбор ett val, valet, val, valen",
   ]);
-  await page.getByRole("option", { name: /^val substantiv выбор/ }).click();
+  await page.getByRole("option", { name: valNoun }).click();
 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(1);
