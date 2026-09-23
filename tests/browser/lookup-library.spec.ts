@@ -8,6 +8,7 @@ const dictionary = {
     tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
     framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
     ni: [{ word: "10630", partOfSpeech: "pronomen", meaning: "", translation: "вы" }],
+    festival: [{ word: "3001", partOfSpeech: "substantiv", meaning: "", translation: "фестиваль" }],
     jord: [
       { word: "7322", partOfSpeech: "substantiv", meaning: "planeten Tellus", translation: "земля" },
       { word: "7323", partOfSpeech: "substantiv", meaning: "mull, mylla", translation: "земля" },
@@ -71,7 +72,7 @@ const details = {
         { swedish: "kaffepaus", russian: "перерыв на кофе" },
       ],
     }],
-    tack: [{ phonetic: "tak", article: "", inflections: [], examples: [], compounds: [] }],
+    tack: [{ phonetic: "", article: "", inflections: [], examples: [], compounds: [] }],
     jord: [
       { phonetic: "jo:rd", article: "en", inflections: ["jorden"], examples: [], compounds: [] },
       {
@@ -125,6 +126,17 @@ test("an extended card includes compounds associated with the Lexin entry", asyn
   await query.press("Enter");
 
   await expect(page.getByRole("region", { name: "Words containing abborre" }).getByText("abborrpinne")).toBeVisible();
+});
+
+test("an extended card leaves out words that only share its letters", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await query.press("Enter");
+
+  await expect(page.locator(".word-card[open] summary strong")).toHaveText("val");
+  await expect(page.getByRole("region", { name: "Library" }).getByText("festival")).toHaveCount(0);
 });
 
 test("chosen words persist in most-recent order and only one card is extended", async ({ page }) => {
@@ -416,7 +428,23 @@ test("a word removed without motion leaves just the same", async ({ page }) => {
   await expect(cards).toHaveCount(1);
 });
 
-test("a word without examples or related words cannot be extended", async ({ page }) => {
+test("a closed card shows only the word, its type and its Russian", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fika");
+  await query.press("Enter");
+  await query.fill("framgår");
+  await query.press("Enter");
+  await expect(page.locator(".word-card[open] summary strong")).toHaveText("framgår");
+
+  const fika = page.locator(".word-card-list > li").filter({ hasText: "fika" });
+  await expect(fika.locator("summary")).toHaveText("fika substantiv перерыв на кофе");
+  await expect(fika.getByText("[²fi:ka]", { exact: true })).toBeHidden();
+  await expect(fika.getByText("en fika, fikan, fikor, fikorna", { exact: true })).toBeHidden();
+});
+
+test("a word with nothing beyond its closed line cannot be extended", async ({ page }) => {
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");

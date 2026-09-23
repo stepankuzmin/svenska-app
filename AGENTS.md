@@ -2,6 +2,10 @@
 
 Read `CONTEXT.md` before exploring the codebase, and name domain concepts the way its glossary does.
 
+## Design system
+
+Read `DESIGN_SYSTEM.md` before changing styles, and take colours and type sizes from its tokens.
+
 ## Public GitHub actions
 
 Act publicly only through an identity that GitHub visibly attributes to Codex or the Codex bot. This includes comments, reviews, replies, reactions, review-thread resolution, review requests, and PR or issue metadata changes.
