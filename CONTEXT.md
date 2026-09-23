@@ -56,7 +56,7 @@ A word leaves the lookup library by a swipe to the left across its card, which u
 _Avoid_: Delete, swipe action, undo
 
 **Lookup autocomplete**:
-The transient listbox of matching indexed words attached directly to the search field while the user types. Each suggestion names one word, so a spelling that holds two words — `fast` the adjective and `fast` the conjunction — is offered twice, and suggestions that read alike carry the word type and translation, or for a Russian suggestion the Swedish word, that tell them apart. Selecting a suggestion closes the listbox, opens the word card for that word, and adds that word alone to the lookup library.
+The transient listbox of matching indexed words attached directly to the search field while the user types. Each suggestion names one word, so a spelling that holds two words — `fast` the adjective and `fast` the conjunction — is offered twice, and suggestions that read alike carry what tells them apart: the headword a form inflects, the word type and translation, or for a Russian suggestion the Swedish word, and the Swedish meaning where two words still read alike, as `jord` the planet and `jord` the soil. Selecting a suggestion closes the listbox, opens the word card for that word, and adds that word alone to the lookup library.
 _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction

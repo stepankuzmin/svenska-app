@@ -186,7 +186,10 @@ function LookupApp() {
     addWordsToLibrary(wordsOfHeadwords(headwords));
   }
 
-  function addWordsToLibrary(openedWords: readonly LibraryWord[]) {
+  // Two index entries can lead to one word, as `вы` and `Вы` both lead to
+  // `ni`, and the word joins the library once.
+  function addWordsToLibrary(words: readonly LibraryWord[]) {
+    const openedWords = [...new Map(words.map((word) => [wordKey(word), word])).values()];
     const openedKeys = openedWords.map(wordKey);
     const apply = () => {
       setLibraryWords((currentWords) => {

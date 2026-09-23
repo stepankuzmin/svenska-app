@@ -89,20 +89,45 @@ function suggestionKey({ language, displayWord }: LookupChoice): string {
   return `${language}:${displayWord}`;
 }
 
+function optionKey(item: LookupChoice): string {
+  return `${suggestionKey(item)}:${wordKey(item.word)}`;
+}
+
 // Suggestions that read alike open different words, so each names the word it
-// opens: its word type and translation, or for a Russian suggestion the
-// Swedish word itself.
-function suggestionHint(
-  item: LookupChoice,
+// opens: the headword a form inflects, its word type and translation, or for a
+// Russian suggestion the Swedish word itself. Two words that still read alike,
+// as `jord` the planet and `jord` the soil, add their Swedish meaning.
+function suggestionHints(
+  suggestions: readonly LookupChoice[],
   entries: DictionaryAsset["entries"] | null,
-): string {
-  const { headword, word } = item.word;
-  const senses = (entries?.[headword] ?? []).filter((sense) => sense.word === word);
-  const partsOfSpeech = uniqueNonEmpty(senses.map((sense) => sense.partOfSpeech));
-  const hint = item.language === "sv"
-    ? [...partsOfSpeech, translationFor(senses)]
-    : [cleanLexinText(headword), ...partsOfSpeech];
-  return uniqueNonEmpty(hint).join(" · ");
+): ReadonlyMap<string, string> {
+  const groups = new Map<string, LookupChoice[]>();
+  for (const item of suggestions) {
+    groups.set(suggestionKey(item), [...(groups.get(suggestionKey(item)) ?? []), item]);
+  }
+
+  const hints = new Map<string, string>();
+  for (const group of groups.values()) {
+    if (group.length < 2) {
+      continue;
+    }
+
+    const described = group.map((item) => {
+      const { headword, word } = item.word;
+      const senses = (entries?.[headword] ?? []).filter((sense) => sense.word === word);
+      const partsOfSpeech = uniqueNonEmpty(senses.map((sense) => sense.partOfSpeech));
+      const cleanHeadword = cleanLexinText(headword);
+      const hint = uniqueNonEmpty(item.language === "sv"
+        ? [cleanHeadword === item.displayWord ? "" : cleanHeadword, ...partsOfSpeech, translationFor(senses)]
+        : [cleanHeadword, ...partsOfSpeech]).join(" · ");
+      return { item, hint, meaning: senses[0]?.meaning ?? "" };
+    });
+    for (const { item, hint, meaning } of described) {
+      const alike = described.filter((other) => other.hint === hint).length > 1;
+      hints.set(optionKey(item), alike && meaning.length > 0 ? `${hint} · ${meaning}` : hint);
+    }
+  }
+  return hints;
 }
 
 function getHeadwordIndex(entries: DictionaryAsset["entries"] | null): readonly IndexedHeadword[] {
@@ -325,15 +350,10 @@ export function LookupExperience(props: LookupExperienceProps) {
     ? suggestions.slice(0, renderedSuggestionCount)
     : [];
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
-  const repeatedSuggestions = useMemo(() => {
-    const seen = new Set<string>();
-    const repeated = new Set<string>();
-    for (const item of suggestions) {
-      const key = suggestionKey(item);
-      (seen.has(key) ? repeated : seen).add(key);
-    }
-    return repeated;
-  }, [suggestions]);
+  const hints = useMemo(
+    () => suggestionHints(suggestions, props.entries),
+    [suggestions, props.entries],
+  );
   const queryInput = useRef<HTMLInputElement>(null);
   // A touch device focuses the field on the first tap instead, so the caret
   // never sits in a field that cannot raise a keyboard yet.
@@ -512,7 +532,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             {visibleSuggestions.map((item, index) => (
               <li
                 id={`${listId}-${index}`}
-                key={`${suggestionKey(item)}:${wordKey(item.word)}`}
+                key={optionKey(item)}
                 role="option"
                 aria-selected={index === activeSuggestionIndex}
                 aria-posinset={index + 1}
@@ -522,11 +542,9 @@ export function LookupExperience(props: LookupExperienceProps) {
                 <strong lang={item.language}>
                   {item.displayWord}
                 </strong>
-                {repeatedSuggestions.has(suggestionKey(item)) ? " " : null}
-                {repeatedSuggestions.has(suggestionKey(item)) ? (
-                  <span className="suggestion-hint">
-                    {suggestionHint(item, props.entries)}
-                  </span>
+                {hints.has(optionKey(item)) ? " " : null}
+                {hints.has(optionKey(item)) ? (
+                  <span className="suggestion-hint">{hints.get(optionKey(item))}</span>
                 ) : null}
               </li>
             ))}

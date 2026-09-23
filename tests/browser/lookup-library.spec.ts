@@ -7,6 +7,11 @@ const dictionary = {
     fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
     tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
     framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
+    ni: [{ word: "10630", partOfSpeech: "pronomen", meaning: "", translation: "вы" }],
+    jord: [
+      { word: "7322", partOfSpeech: "substantiv", meaning: "planeten Tellus", translation: "земля" },
+      { word: "7323", partOfSpeech: "substantiv", meaning: "mull, mylla", translation: "земля" },
+    ],
     val: [
       { word: "18439", partOfSpeech: "substantiv", meaning: "stort havsdjur", translation: "кит" },
       { word: "18440", partOfSpeech: "substantiv", meaning: "det att välja", translation: "выбор" },
@@ -26,6 +31,8 @@ const dictionary = {
     framgick: ["104"],
     framgått: ["104"],
     framgå: ["104"],
+    ni: ["10630"],
+    jord: ["7322", "7323"],
     val: ["18439", "18440"],
     valen: ["18439", "18440"],
     valar: ["18439"],
@@ -36,6 +43,9 @@ const dictionary = {
     "перерыв на кофе": ["102"],
     "спасибо": ["103"],
     "вытекать": ["104"],
+    "вы": ["10630"],
+    "Вы": ["10630"],
+    "земля": ["7322", "7323"],
     "кит": ["18439"],
     "выбор": ["18440"],
   },
@@ -144,6 +154,14 @@ test("a q link opens its exact match rather than previewing it", async ({ page }
   await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("fika");
 });
 
+test("a q link opens a word two index entries lead to once", async ({ page }) => {
+  await page.goto("./?q=вы");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(1);
+  await expect(cards.nth(0)).toContainText("ni");
+});
+
 test("a q link with no exact match still previews suggestions", async ({ page }) => {
   await page.goto("./?q=fik");
 
@@ -221,8 +239,8 @@ test("a suggestion opens the one word it names", async ({ page }) => {
     "val substantiv · кит",
     "val substantiv · выбор",
     "valar",
-    "valen substantiv · кит",
-    "valen substantiv · выбор",
+    "valen val · substantiv · кит",
+    "valen val · substantiv · выбор",
     "valet",
     "valarna",
   ]);
@@ -233,6 +251,16 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   await expect(cards.nth(0)).toContainText("выбор");
   expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18440" },
+  ]);
+});
+
+test("suggestions that still read alike add the Swedish meaning", async ({ page }) => {
+  await page.goto(".");
+
+  await page.getByLabel("Swedish or Russian word").fill("земля");
+  await expect(page.getByRole("option")).toHaveText([
+    "земля jord · substantiv · planeten Tellus",
+    "земля jord · substantiv · mull, mylla",
   ]);
 });
 

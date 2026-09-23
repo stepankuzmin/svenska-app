@@ -123,7 +123,7 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
   await expect(page.getByRole("option")).toHaveText([
     "ange",
     "anger",
-    "angett verb · сообщать",
+    "angett anger · verb · сообщать",
     "angett adjektiv · указанный",
   ]);
   await page.getByRole("option", { name: "angett adjektiv · указанный" }).click();
