@@ -61,6 +61,7 @@ body {
 }
 
 .lookup-autocomplete {
+  --suggestion-row: 3.75rem;
   margin-block-end: 1.4rem;
   position: relative;
   z-index: 2;
@@ -130,7 +131,8 @@ body {
 
 .lookup-clear:active span { background: color-mix(in srgb, var(--lookup-control) 80%, var(--lookup-ink)); scale: .92; }
 
-.minimal-lookup input[aria-expanded="true"] {
+.minimal-lookup input[aria-expanded="true"],
+.lookup-autocomplete:has(.suggestion-empty) input {
   border-color: var(--lookup-blue);
   outline: none;
   border-end-end-radius: 0;
@@ -144,15 +146,15 @@ body {
   outline-offset: 2px;
 }
 
-.minimal-lookup input:focus-visible:not([aria-expanded="true"]) {
+.lookup-autocomplete:not(:has(.suggestion-empty)) input:focus-visible:not([aria-expanded="true"]) {
   outline: 2px solid var(--lookup-blue);
   outline-offset: 0;
 }
 
+.minimal-lookup .suggestion-empty,
 .minimal-lookup .suggestion-menu { border-color: var(--lookup-blue); }
 
 .suggestion-menu {
-  --suggestion-row: 3.75rem;
   background: var(--lookup-card);
   border: 1px solid var(--lookup-field-line);
   border-block-start: 0;
@@ -167,6 +169,33 @@ body {
   overscroll-behavior: contain;
   padding: 0;
   position: absolute;
+  transition: opacity 120ms ease;
+}
+
+/* The list keeps the last answer on screen while the next one renders. */
+.suggestion-menu.is-stale { opacity: .6; }
+
+/* A row off screen costs no layout: every row is exactly one row tall. */
+.suggestion-menu li {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--suggestion-row);
+}
+
+.suggestion-empty {
+  background: var(--lookup-card);
+  border: 1px solid var(--lookup-field-line);
+  border-block-start: 0;
+  border-end-end-radius: .65rem;
+  border-end-start-radius: .65rem;
+  box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 14%);
+  color: var(--lookup-muted);
+  font-size: var(--text-secondary);
+  inset: calc(100% - 1px) 0 auto;
+  margin: 0;
+  padding: 0 .8rem;
+  position: absolute;
+  align-content: center;
+  block-size: var(--suggestion-row);
 }
 
 .suggestion-menu li {
@@ -442,12 +471,12 @@ body {
   }
 
   .lookup-clear span { color: var(--lookup-ink); }
+  .suggestion-empty,
   .suggestion-menu { box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 45%); }
 }
 
 /* A list row has no press state: the card expands and the menu closes on its own. */
 @media (hover: hover) and (pointer: fine) {
-  .suggestion-menu li:hover { background: var(--lookup-selected); }
   .word-card summary { transition: background-color 150ms ease; }
   .word-card summary:hover { background: var(--lookup-hover); }
   .word-card-remove:hover { background: color-mix(in srgb, var(--lookup-destructive) 88%, #000); }
@@ -456,6 +485,7 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .word-card-disclosure,
   .word-card-remove,
+  .suggestion-menu,
   .word-card-swipe,
   .word-card::details-content,
   .lookup-clear span { transition-duration: 0ms; }
@@ -465,6 +495,7 @@ body {
 
 @media (prefers-contrast: more) {
   .minimal-lookup input,
+  .suggestion-empty,
   .suggestion-menu,
   .word-card-list { border-color: currentColor; }
 }

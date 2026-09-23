@@ -210,9 +210,10 @@ function LookupApp() {
     }
   }
 
-  // A suggestion names one word, and that word alone joins the library.
-  function selectChoice({ word, displayQuery }: { word: LibraryWord; displayQuery: string }) {
-    setQuery(displayQuery);
+  // A suggestion names one word, and that word alone joins the library. The
+  // field empties so the next lookup starts from nothing.
+  function selectChoice(word: LibraryWord) {
+    setQuery("");
     addWordsToLibrary([word]);
   }
 

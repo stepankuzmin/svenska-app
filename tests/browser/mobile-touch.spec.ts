@@ -24,7 +24,7 @@ test("a tap opens a suggested word without the field grabbing focus first", asyn
   await query.fill("fik");
   await page.getByRole("option", { name: /^fika substantiv/ }).tap();
 
-  await expect(query).toHaveValue("fika");
+  await expect(query).toHaveValue("");
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Library" })).toBeVisible();
   await expect(page.locator(".word-card[open] summary strong")).toHaveText("fika");

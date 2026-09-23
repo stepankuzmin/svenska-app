@@ -1,6 +1,7 @@
 import {
   memo,
   useCallback,
+  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -32,7 +33,7 @@ type LookupExperienceProps = {
   deepLinkHeadword: string | null;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (selection: { word: LibraryWord; displayQuery: string }) => void;
+  onSelectSuggestion: (word: LibraryWord) => void;
   onRemoveWord: (card: string) => void;
 };
 
@@ -306,8 +307,88 @@ const WordCard = memo(function WordCard({
   );
 });
 
+const noSuggestions: readonly LookupChoice[] = [];
+
+// The menu renders behind the field: while the deferred list is unchanged, a
+// keystroke re-renders the input and stops at this boundary.
+const SuggestionMenu = memo(function SuggestionMenu({
+  listId,
+  items,
+  totalCount,
+  activeIndex,
+  stale,
+  entries,
+  details,
+  onSelect,
+  onActivate,
+  onScroll,
+}: {
+  listId: string;
+  items: readonly LookupChoice[];
+  totalCount: number;
+  activeIndex: number;
+  stale: boolean;
+  entries: DictionaryAsset["entries"] | null;
+  details: DictionaryDetailsAsset["entries"] | null;
+  onSelect: (item: LookupChoice) => void;
+  onActivate: (index: number) => void;
+  onScroll: (event: UIEvent<HTMLUListElement>) => void;
+}) {
+  const rows = useMemo(
+    () => items.map((item) => suggestionRow(item.word, entries, details)),
+    [items, entries, details],
+  );
+
+  return (
+    <ul
+      id={listId}
+      className={stale ? "suggestion-menu is-stale" : "suggestion-menu"}
+      role="listbox"
+      aria-label="Suggestions"
+      onScroll={onScroll}
+    >
+      {items.map((item, index) => {
+        const row = rows[index];
+        return (
+          <li
+            id={`${listId}-${index}`}
+            key={wordKey(item.word)}
+            role="option"
+            aria-selected={index === activeIndex}
+            aria-posinset={index + 1}
+            aria-setsize={totalCount}
+            onClick={() => onSelect(item)}
+            onPointerEnter={(event) => {
+              if (event.pointerType === "mouse") {
+                onActivate(index);
+              }
+            }}
+          >
+            <span className="suggestion-word">
+              <strong lang="sv">{row.headword}</strong>
+              {row.partsOfSpeech.length > 0 ? " " : null}
+              {row.partsOfSpeech.length > 0
+                ? <span className="suggestion-type">{row.partsOfSpeech}</span>
+                : null}
+              {row.translation.length > 0 ? " " : null}
+              {row.translation.length > 0
+                ? <span className="suggestion-translation" lang="ru">{row.translation}</span>
+                : null}
+            </span>
+            {" "}
+            <span className="suggestion-forms" lang="sv">{row.forms}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+});
+
 export function LookupExperience(props: LookupExperienceProps) {
-  const suggestions = getSuggestionItems(props.outcome);
+  // The field owns the urgent update; a hundred suggestion rows render behind
+  // it, so a keystroke never waits on the list it will replace.
+  const matches = useMemo(() => getSuggestionItems(props.outcome), [props.outcome]);
+  const suggestions = useDeferredValue(matches);
   const library = useMemo(
     () => getLibraryItems(props.libraryWords, props.entries, props.details),
     [props.libraryWords, props.entries, props.details],
@@ -320,11 +401,29 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const transitionNames = useRef(new Map<string, string>());
-  const visibleSuggestions = autocompleteOpen
-    ? suggestions.slice(0, renderedSuggestionCount)
-    : [];
+  const visibleSuggestions = useMemo(
+    () => (autocompleteOpen ? suggestions.slice(0, renderedSuggestionCount) : noSuggestions),
+    [autocompleteOpen, suggestions, renderedSuggestionCount],
+  );
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
+  const suggestionsStale = matches !== suggestions;
+  // A query the dictionary cannot place says so, rather than leaving the field
+  // to answer with nothing.
+  const showNoMatches = autocompleteOpen &&
+    props.status === "ready" &&
+    props.query.trim().length > 0 &&
+    matches.length === 0;
   const queryInput = useRef<HTMLInputElement>(null);
+  // The menu's handlers read what the last render saw, so they keep one
+  // identity and the menu keeps its place across a keystroke.
+  const latest = useRef({
+    onSelectSuggestion: props.onSelectSuggestion,
+    suggestionCount: suggestions.length,
+  });
+  latest.current = {
+    onSelectSuggestion: props.onSelectSuggestion,
+    suggestionCount: suggestions.length,
+  };
   // A touch device focuses the field on the first tap instead, so the caret
   // never sits in a field that cannot raise a keyboard yet.
   const [autoFocusField] = useState(() => !window.matchMedia("(pointer: coarse)").matches);
@@ -345,23 +444,23 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
-  function selectSuggestion(item: LookupChoice) {
+  const selectSuggestion = useCallback((item: LookupChoice) => {
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
     setExpandedCard(wordKey(item.word));
-    props.onSelectSuggestion({ word: item.word, displayQuery: item.displayWord });
-  }
+    latest.current.onSelectSuggestion(item.word);
+  }, []);
 
-  function revealMoreSuggestions(event: UIEvent<HTMLUListElement>) {
+  const revealMoreSuggestions = useCallback((event: UIEvent<HTMLUListElement>) => {
     const list = event.currentTarget;
     if (list.scrollTop + list.clientHeight < list.scrollHeight - 1) {
       return;
     }
 
     setRenderedSuggestionCount((current) =>
-      Math.min(suggestions.length, current + suggestionBatchSize),
+      Math.min(latest.current.suggestionCount, current + suggestionBatchSize),
     );
-  }
+  }, []);
 
   // A spelling that holds more than one word opens a card each, and the lookup
   // extends the first of them.
@@ -394,6 +493,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       setAutocompleteOpen(false);
       setActiveSuggestionIndex(-1);
       setExpandedCard(firstCardOf(props.outcome.headword));
+      props.onQueryChange("");
     }
   }
 
@@ -433,7 +533,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             setRenderedSuggestionCount(suggestionBatchSize);
             setExpandedCard(null);
           }}
-          onFocus={() => setAutocompleteOpen(props.query.trim().length > 0)}
+          onPointerDown={() => setAutocompleteOpen(props.query.trim().length > 0)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -448,13 +548,13 @@ export function LookupExperience(props: LookupExperienceProps) {
             } else if (event.key === "ArrowUp" && suggestions.length > 0) {
               event.preventDefault();
               setAutocompleteOpen(true);
-              const lastVisibleIndex = Math.min(renderedSuggestionCount, suggestions.length) - 1;
-              setActiveSuggestionIndex(
-                activeSuggestionIndex <= 0 ? lastVisibleIndex : activeSuggestionIndex - 1,
-              );
+              setActiveSuggestionIndex(Math.max(activeSuggestionIndex - 1, -1));
             } else if (event.key === "Enter" && activeSuggestion !== undefined) {
               event.preventDefault();
               selectSuggestion(activeSuggestion);
+            } else if (event.key === "Tab") {
+              setAutocompleteOpen(false);
+              setActiveSuggestionIndex(-1);
             } else if (event.key === "Escape") {
               setAutocompleteOpen(false);
               setActiveSuggestionIndex(-1);
@@ -492,42 +592,21 @@ export function LookupExperience(props: LookupExperienceProps) {
           </button>
         ) : null}
         {visibleSuggestions.length > 0 ? (
-          <ul
-            id={listId}
-            className="suggestion-menu"
-            role="listbox"
-            aria-label="Suggestions"
+          <SuggestionMenu
+            listId={listId}
+            items={visibleSuggestions}
+            totalCount={suggestions.length}
+            activeIndex={activeSuggestionIndex}
+            stale={suggestionsStale}
+            entries={props.entries}
+            details={props.details}
+            onSelect={selectSuggestion}
+            onActivate={setActiveSuggestionIndex}
             onScroll={revealMoreSuggestions}
-          >
-            {visibleSuggestions.map((item, index) => {
-              const row = suggestionRow(item.word, props.entries, props.details);
-              return (
-                <li
-                  id={`${listId}-${index}`}
-                  key={wordKey(item.word)}
-                  role="option"
-                  aria-selected={index === activeSuggestionIndex}
-                  aria-posinset={index + 1}
-                  aria-setsize={suggestions.length}
-                  onClick={() => selectSuggestion(item)}
-                >
-                  <span className="suggestion-word">
-                    <strong lang="sv">{row.headword}</strong>
-                    {row.partsOfSpeech.length > 0 ? " " : null}
-                    {row.partsOfSpeech.length > 0
-                      ? <span className="suggestion-type">{row.partsOfSpeech}</span>
-                      : null}
-                    {row.translation.length > 0 ? " " : null}
-                    {row.translation.length > 0
-                      ? <span className="suggestion-translation" lang="ru">{row.translation}</span>
-                      : null}
-                  </span>
-                  {" "}
-                  <span className="suggestion-forms" lang="sv">{row.forms}</span>
-                </li>
-              );
-            })}
-          </ul>
+          />
+        ) : null}
+        {showNoMatches ? (
+          <p className="suggestion-empty" role="status">No matches</p>
         ) : null}
       </form>
 
