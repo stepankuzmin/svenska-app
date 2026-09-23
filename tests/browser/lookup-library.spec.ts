@@ -238,11 +238,6 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   await expect(page.getByRole("option")).toHaveText([
     "val substantiv · кит",
     "val substantiv · выбор",
-    "valar val · substantiv · кит",
-    "valen val · substantiv · кит",
-    "valen val · substantiv · выбор",
-    "valet val · substantiv · выбор",
-    "valarna val · substantiv · кит",
   ]);
   await page.getByRole("option", { name: "val substantiv · выбор" }).click();
 

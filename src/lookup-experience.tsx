@@ -93,9 +93,8 @@ function optionKey(item: LookupChoice): string {
   return `${suggestionKey(item)}:${wordKey(item.word)}`;
 }
 
-// Every suggestion names the word it opens: the headword a form inflects, its
-// word type and translation, or for a Russian suggestion the Swedish word and
-// its type. Two words that still read alike, as `jord` the planet and `jord`
+// Every suggestion names the word it opens: its word type and translation, or
+// for a Russian suggestion the Swedish word and its type. Two words that still read alike, as `jord` the planet and `jord`
 // the soil, add their Swedish meaning.
 function suggestionHints(
   suggestions: readonly LookupChoice[],
@@ -114,7 +113,7 @@ function suggestionHints(
       const partsOfSpeech = uniqueNonEmpty(senses.map((sense) => sense.partOfSpeech));
       const cleanHeadword = cleanLexinText(headword);
       const hint = uniqueNonEmpty(item.language === "sv"
-        ? [cleanHeadword === item.displayWord ? "" : cleanHeadword, ...partsOfSpeech, translationFor(senses)]
+        ? [...partsOfSpeech, translationFor(senses)]
         : [cleanHeadword, ...partsOfSpeech]).join(" · ");
       return { item, hint, meaning: senses[0]?.meaning ?? "" };
     });

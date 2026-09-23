@@ -13,12 +13,16 @@ type LookupResult = {
   suggestions: readonly LookupChoice[];
 };
 
-// A suggestion opens one word, so a spelling that holds two words — `fast` the
-// adjective and `fast` the conjunction — offers each as a suggestion of its own.
+// A suggestion opens one word, and a word — one meaning of one word type, as
+// Lexin numbers it — is offered once however many of its forms match: `fast`
+// the adjective stands for `fasta` too, beside `fast` the conjunction. A Swedish
+// suggestion reads as its headword, a Russian one as its best matching
+// translation, and `exact` tells whether the query spells a form in full.
 export type LookupChoice = {
   displayWord: string;
   word: LibraryWord;
   language: "ru" | "sv";
+  exact: boolean;
 };
 
 export type LookupOutcome =
@@ -158,7 +162,16 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       return entry === undefined ? [] : [entry];
     });
 
-    const rankedChoices: Array<{ choice: LookupChoice; rank: number }> = [];
+    const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
+    function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
+      const key = `${choice.language}:${wordKey(choice.word)}`;
+      const offered = rankedChoices.get(key);
+      if (offered === undefined || rank < offered.rank ||
+        (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {
+        rankedChoices.set(key, { choice: { ...choice, exact: rank === 0 }, rank });
+      }
+    }
+
     for (const { displayWord, normalizedDisplayWord, words } of russianIndexEntries) {
       const rank = russianMatchRank({ text: normalizedDisplayWord, query: normalizedQuery });
       if (rank === null) {
@@ -166,11 +179,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
 
       for (const word of words) {
-        rankedChoices.push({ choice: { displayWord, word, language: "ru" }, rank });
+        offer({ displayWord, word, language: "ru" }, rank);
       }
     }
 
-    for (const { displayWord, normalizedDisplayWord, words } of swedishIndexEntries) {
+    for (const { normalizedDisplayWord, words } of swedishIndexEntries) {
       if (
         normalizedSwedishQuery.length === 0 ||
         !normalizedDisplayWord.includes(normalizedSwedishQuery)
@@ -184,11 +197,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
           ? 1
           : 2;
       for (const word of words) {
-        rankedChoices.push({ choice: { displayWord, word, language: "sv" }, rank });
+        offer({ displayWord: word.headword.replaceAll("|", ""), word, language: "sv" }, rank);
       }
     }
 
-    rankedChoices.sort((left, right) => {
+    const sortedChoices = [...rankedChoices.values()].sort((left, right) => {
       const rankDifference = left.rank - right.rank;
       if (rankDifference !== 0) {
         return rankDifference;
@@ -202,7 +215,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
             left.choice.language,
           );
     });
-    const choices = rankedChoices.map(({ choice }) => choice);
+    const choices = sortedChoices.map(({ choice }) => choice);
 
     const resultEntry = exactSwedishEntries.length === 1 ? exactSwedishEntries[0] : undefined;
     if (resultEntry !== undefined) {

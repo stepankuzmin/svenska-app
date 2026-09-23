@@ -118,17 +118,15 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
   ]);
 });
 
-test("an inflected Swedish query lists every matching indexed word", async ({ page }) => {
+test("an inflected Swedish query lists each matching word once, under its headword", async ({ page }) => {
   await openReadyApp(page);
 
   await page.getByLabel("Swedish or Russian word").fill("ange");
 
-  // `angett` inflects `anger` and is a word of its own, so it is offered twice,
-  // each naming the word it opens, and a choice opens that word alone.
+  // `ange` and `angett` inflect `anger`, which is offered once, and `angett` is
+  // also a word of its own; a choice opens that word alone.
   await expect(page.getByRole("option")).toHaveText([
-    "ange anger · verb · сообщать",
     "anger verb · сообщать",
-    "angett anger · verb · сообщать",
     "angett adjektiv · указанный",
   ]);
   await page.getByRole("option", { name: "angett adjektiv · указанный" }).click();

@@ -11,7 +11,6 @@ import {
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
-import { normalizeLookupText } from "./normalize-lookup-text";
 import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
 import "./lookup-experience.css";
 
@@ -137,8 +136,7 @@ function LookupApp() {
     // A word like "fika" indexes several words, so an exact link opens all of
     // them rather than the one a suggestion would.
     const exactChoices = deepLinkOutcome.kind === "choices"
-      ? deepLinkOutcome.choices.filter((choice) =>
-          normalizeLookupText(choice.displayWord) === normalizeLookupText(lookupQuery))
+      ? deepLinkOutcome.choices.filter((choice) => choice.exact)
       : [];
     const [closestChoice] = exactChoices;
     if (closestChoice === undefined) {

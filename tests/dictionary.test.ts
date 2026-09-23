@@ -90,18 +90,23 @@ describe("dictionary lookup", () => {
     });
   });
 
-  it("returns every indexed Swedish word containing the query in relevance order", () => {
+  it("returns every word with a form containing the query, once, in relevance order", () => {
+    // `ange`, `anger` and `angett` all spell forms of one word, which reads as
+    // its headword and ranks by its best matching form.
     expect(search("ange")).toEqual({
       kind: "result",
       headword: "anger",
       senses: dictionary.entries.anger,
       suggestions: [
-        { displayWord: "ange", word: { headword: "anger", word: "113" }, language: "sv" },
-        { displayWord: "anger", word: { headword: "anger", word: "113" }, language: "sv" },
-        { displayWord: "angett", word: { headword: "anger", word: "113" }, language: "sv" },
-        { displayWord: "angett", word: { headword: "angett", word: "115" }, language: "sv" },
-        { displayWord: "angelägen", word: { headword: "angelägen", word: "114" }, language: "sv" },
-        { displayWord: "arrangemang", word: { headword: "arrangemang", word: "116" }, language: "sv" },
+        { displayWord: "anger", word: { headword: "anger", word: "113" }, language: "sv", exact: true },
+        { displayWord: "angett", word: { headword: "angett", word: "115" }, language: "sv", exact: false },
+        { displayWord: "angelägen", word: { headword: "angelägen", word: "114" }, language: "sv", exact: false },
+        {
+          displayWord: "arrangemang",
+          word: { headword: "arrangemang", word: "116" },
+          language: "sv",
+          exact: false,
+        },
       ],
     });
   });
@@ -126,9 +131,8 @@ describe("dictionary lookup", () => {
     expect(search("доноси")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "доносить", word: { headword: "anger", word: "113" }, language: "ru" },
-        { displayWord: "доносительство", word: { headword: "anger", word: "113" }, language: "ru" },
-        { displayWord: "недоносить", word: { headword: "anger", word: "113" }, language: "ru" },
+        // Three translations of one word offer it once, as the best match.
+        { displayWord: "доносить", word: { headword: "anger", word: "113" }, language: "ru", exact: false },
       ],
     });
     // A translation many words share offers each of them on its own.
@@ -137,7 +141,12 @@ describe("dictionary lookup", () => {
       choices: ([
         ["hus", "102"], ["hem", "103"], ["koja", "104"], ["torp", "105"], ["villa", "106"],
         ["stuga", "107"], ["residens", "108"], ["hemvist", "109"], ["byggnad", "110"],
-      ] as const).map(([headword, word]) => ({ displayWord: "дом", word: { headword, word }, language: "ru" })),
+      ] as const).map(([headword, word]) => ({
+        displayWord: "дом",
+        word: { headword, word },
+        language: "ru",
+        exact: true,
+      })),
     });
   });
 
@@ -145,8 +154,7 @@ describe("dictionary lookup", () => {
     expect(search("ok")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "bok", word: { headword: "bok", word: "101" }, language: "sv" },
-        { displayWord: "boken", word: { headword: "bok", word: "101" }, language: "sv" },
+        { displayWord: "bok", word: { headword: "bok", word: "101" }, language: "sv", exact: false },
       ],
     });
     expect(search("ниров")).toMatchObject({
@@ -159,20 +167,25 @@ describe("dictionary lookup", () => {
     });
   });
 
-  it("offers each word a spelling holds as a suggestion of its own", () => {
+  it("offers each word a spelling holds as a suggestion of its own, and each word once", () => {
     const adjective = { headword: "fast", word: "3917" };
     const conjunction = { headword: "fast", word: "3918" };
     expect(search("fas")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "fast", word: adjective, language: "sv" },
-        { displayWord: "fast", word: conjunction, language: "sv" },
-        { displayWord: "fastare", word: adjective, language: "sv" },
+        { displayWord: "fast", word: adjective, language: "sv", exact: false },
+        { displayWord: "fast", word: conjunction, language: "sv", exact: false },
       ],
+    });
+    // `fastare` is a form of the adjective, which it offers under its headword.
+    expect(search("fastare")).toMatchObject({
+      kind: "result",
+      headword: "fast",
+      suggestions: [{ displayWord: "fast", word: adjective, language: "sv", exact: true }],
     });
     expect(search("хот")).toEqual({
       kind: "choices",
-      choices: [{ displayWord: "хотя", word: conjunction, language: "ru" }],
+      choices: [{ displayWord: "хотя", word: conjunction, language: "ru", exact: false }],
     });
   });
 

@@ -56,14 +56,14 @@ A word leaves the lookup library by a swipe to the left across its card, which u
 _Avoid_: Delete, swipe action, undo
 
 **Lookup autocomplete**:
-The transient listbox of matching indexed words attached directly to the search field while the user types. Each suggestion names one word, so a spelling that holds two words — `fast` the adjective and `fast` the conjunction — is offered twice. Every suggestion carries the word it opens: a Swedish suggestion its word type and Russian translation, and the headword when it is an inflected form; a Russian suggestion the Swedish word and its type. Where two suggestions would still read alike, as `jord` the planet and `jord` the soil, each adds its Swedish meaning. Selecting a suggestion closes the listbox, opens the word card for that word, and adds that word alone to the lookup library.
+The transient listbox of matching indexed words attached directly to the search field while the user types. Each suggestion names one word, and each word is offered once however many of its forms match, so a spelling that holds two words — `fast` the adjective and `fast` the conjunction — is offered twice, and `fasta` offers the adjective under `fast`. Every suggestion carries the word it opens: a Swedish suggestion its word type and Russian translation, a Russian suggestion the Swedish word and its type. Where two suggestions would still read alike, as `jord` the planet and `jord` the soil, each adds its Swedish meaning. Selecting a suggestion closes the listbox, opens the word card for that word, and adds that word alone to the lookup library.
 _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It shows every indexed Swedish word containing the query, once for each word it leads to. An inflected form leads only to the word it inflects. Exact matches come first, followed by prefix matches and then other substring matches. Selecting an inflected form opens its canonical headword. No visible message replaces the library when there is no match.
+The lookup area responds to every non-blank change in the search field. It shows every word with an indexed Swedish form containing the query, once, under its headword: a word is one meaning of one word type, so `fast` the adjective stands for `fasta` too and appears once beside `fast` the conjunction. A word ranks by its best matching form: exact matches come first, followed by prefix matches and then other substring matches. No visible message replaces the library when there is no match.
 
-A Russian query shows every Russian index entry containing the entered text, once for each Swedish word that carries the translation. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens that Swedish word.
+A Russian query shows every Swedish word with a translation containing the entered text, once, under its best matching translation. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens that Swedish word.
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word opens that lookup and adds every word its spelling holds to the library; choosing a suggestion adds the one word it names.
 
