@@ -6,6 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { normalizeLookupText } from "../src/normalize-lookup-text.ts";
+import { wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
 
@@ -230,21 +231,22 @@ function wordsOfEntry({
   return senses.map((sense) => words.includes(sense.word) ? sense.word : firstWord);
 }
 
-// The indexes name words by their Lexin number alone, which holds only while a
-// number names one word. Lexin reuses a number just for a word it spells both
-// with and without a segment marker, as `binde|streck` and `bindestreck`.
-function assertWordNumbersAreUnique(entries: DictionaryAsset["entries"]): void {
-  const spellings = new Map<string, string>();
+// Lexin gives a number to one word, bar the odd pair it spells with and
+// without a segment marker and gives one number although they mean different
+// things: `hård|kokt` of an egg and `hårdkokt` of a novel.
+function sharedWordNumbers(entries: DictionaryAsset["entries"]): Set<string> {
+  const headwordsByNumber = new Map<string, string>();
+  const shared = new Set<string>();
   for (const [headword, senses] of Object.entries(entries)) {
-    const spelling = headword.replaceAll("|", "");
     for (const { word } of senses) {
-      const known = spellings.get(word) ?? spelling;
-      if (known !== spelling) {
-        throw new Error(`Lexin number ${word} names both ${known} and ${spelling}.`);
+      const known = headwordsByNumber.get(word) ?? headword;
+      if (known !== headword) {
+        shared.add(word);
       }
-      spellings.set(word, spelling);
+      headwordsByNumber.set(word, known);
     }
   }
+  return shared;
 }
 
 // An index names the sense a form or translation came from until the build
@@ -272,18 +274,22 @@ function addToIndex({
 
 // A form or translation leads to the Lexin numbers of the words whose senses
 // carry it, so choosing it opens that word rather than every word its spelling
-// holds.
+// holds. A number Lexin gives two spellings names its spelling as well.
 function wordIndex({
   index,
   entries,
+  shared,
 }: {
   index: ReadonlyMap<string, readonly IndexedSense[]>;
   entries: DictionaryAsset["entries"];
+  shared: ReadonlySet<string>;
 }): Record<string, string[]> {
   const words: Record<string, string[]> = {};
   for (const [form, indexedSenses] of index) {
-    words[form] = [...new Set(indexedSenses.map(({ headword, senseIndex }) =>
-      entries[headword][senseIndex].word))];
+    words[form] = [...new Set(indexedSenses.map(({ headword, senseIndex }) => {
+      const { word } = entries[headword][senseIndex];
+      return shared.has(word) ? wordKey({ headword, word }) : word;
+    }))];
   }
   return words;
 }
@@ -400,7 +406,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
       sense.word = words[index];
     });
   }
-  assertWordNumbersAreUnique(entries);
+  const shared = sharedWordNumbers(entries);
 
   return {
     dictionary: {
@@ -410,8 +416,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): DictionaryAsset
         license: "CC BY 4.0",
       },
       entries,
-      swedishIndex: wordIndex({ index: swedishIndex, entries }),
-      russianIndex: wordIndex({ index: russianIndex, entries }),
+      swedishIndex: wordIndex({ index: swedishIndex, entries, shared }),
+      russianIndex: wordIndex({ index: russianIndex, entries, shared }),
     },
     details: {
       sourceEditionDate: sourceDictionary["@_Version"],

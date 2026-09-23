@@ -83,6 +83,18 @@ describe("Lexin source edition import", () => {
       "хуже": ["12"],
       "экшн": ["11"],
       "АО": ["15"],
+      "вкрутую": ["hård|kokt#16"],
+      "крутой": ["hårdkokt#16"],
+    });
+  });
+
+  it("names the spelling beside a number Lexin gives two spellings", () => {
+    expect(assets.dictionary.swedishIndex["hårdkokt"]).toEqual(["hård|kokt#16", "hårdkokt#16"]);
+    expect(search("вкрутую")).toMatchObject({ kind: "result", headword: "hård|kokt" });
+    expect(closestSuggestion("вкрутую")).toEqual({
+      displayWord: "вкрутую",
+      word: { headword: "hård|kokt", word: "16" },
+      language: "ru",
     });
   });
 

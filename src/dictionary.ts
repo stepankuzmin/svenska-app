@@ -66,26 +66,26 @@ type IndexEntry = {
   words: readonly LibraryWord[];
 };
 
-// Lexin numbers every word, and a number names one word bar the odd word
-// Lexin spells two ways, which opens under both spellings.
-function wordsByNumber(entries: DictionaryAsset["entries"]): Map<string, LibraryWord[]> {
-  const byNumber = new Map<string, LibraryWord[]>();
+// An index names a word by its Lexin number, or by its spelling and number
+// where Lexin gives one number to two spellings.
+function wordsByIndexKey(entries: DictionaryAsset["entries"]): Map<string, LibraryWord[]> {
+  const byKey = new Map<string, LibraryWord[]>();
   for (const [headword, senses] of Object.entries(entries)) {
     for (const { word } of wordsOf({ headword, senses })) {
-      const words = byNumber.get(word) ?? [];
-      words.push({ headword, word });
-      byNumber.set(word, words);
+      const libraryWord = { headword, word };
+      byKey.set(word, [...(byKey.get(word) ?? []), libraryWord]);
+      byKey.set(wordKey(libraryWord), [libraryWord]);
     }
   }
-  return byNumber;
+  return byKey;
 }
 
 function indexedWords(
-  numbers: readonly string[],
-  byNumber: ReadonlyMap<string, readonly LibraryWord[]>,
+  keys: readonly string[],
+  byKey: ReadonlyMap<string, readonly LibraryWord[]>,
 ): LibraryWord[] {
   const words = new Map<string, LibraryWord>();
-  for (const libraryWord of numbers.flatMap((number) => byNumber.get(number) ?? [])) {
+  for (const libraryWord of keys.flatMap((key) => byKey.get(key) ?? [])) {
     words.set(wordKey(libraryWord), libraryWord);
   }
   return [...words.values()];
@@ -93,13 +93,13 @@ function indexedWords(
 
 function indexEntries(
   index: Record<string, string[]>,
-  byNumber: ReadonlyMap<string, readonly LibraryWord[]>,
+  byKey: ReadonlyMap<string, readonly LibraryWord[]>,
   normalize: (value: string) => string,
 ): IndexEntry[] {
-  return Object.entries(index).map(([displayWord, numbers]) => ({
+  return Object.entries(index).map(([displayWord, keys]) => ({
     displayWord,
     normalizedDisplayWord: normalize(displayWord),
-    words: indexedWords(numbers, byNumber),
+    words: indexedWords(keys, byKey),
   }));
 }
 
@@ -126,10 +126,10 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     senses,
   }));
   const entriesByHeadword = new Map(entries.map((entry) => [entry.headword, entry]));
-  const byNumber = wordsByNumber(dictionary.entries);
-  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, byNumber, normalizeSwedishLookupText);
+  const byKey = wordsByIndexKey(dictionary.entries);
+  const swedishIndexEntries = indexEntries(dictionary.swedishIndex, byKey, normalizeSwedishLookupText);
   const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
-  const russianIndexEntries = indexEntries(dictionary.russianIndex, byNumber, normalizeLookupText);
+  const russianIndexEntries = indexEntries(dictionary.russianIndex, byKey, normalizeLookupText);
   const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {

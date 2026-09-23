@@ -114,4 +114,12 @@
     <BaseLang><Meaning>aktiebolag</Meaning></BaseLang>
     <TargetLang><Translation>АО</Translation></TargetLang>
   </Word>
+  <Word ID="16" MatchingID="115" Type="adj." Value="hård|kokt">
+    <BaseLang><Meaning>kokt till dess gulan stelnat</Meaning></BaseLang>
+    <TargetLang><Translation>вкрутую</Translation></TargetLang>
+  </Word>
+  <Word ID="16" MatchingID="116" Type="adj." Value="hårdkokt">
+    <BaseLang><Meaning>om berättarteknik</Meaning></BaseLang>
+    <TargetLang><Translation>крутой</Translation></TargetLang>
+  </Word>
 </Dictionary>
