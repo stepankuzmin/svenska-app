@@ -98,15 +98,95 @@ test("autocomplete shows each word's type and translation and supports keyboard 
   await expect(query).toBeFocused();
 });
 
-test("autocomplete selection keeps Lexin segment markers out of the input", async ({ page }) => {
+test("a selection empties the field and keeps Lexin segment markers out of the card", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("abort");
   await page.getByRole("option", { name: "abortrådgivning" }).click();
 
-  await expect(query).toHaveValue("abortrådgivning");
+  await expect(query).toHaveValue("");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(page.getByRole("region", { name: "Library" }).getByText("abortrådgivning", { exact: true })).toBeVisible();
+});
+
+test("submitting the field empties it the way a selection does", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fika");
+  await query.press("Enter");
+
+  await expect(query).toHaveValue("");
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["fika"]);
+});
+
+test("a query the dictionary cannot place says so", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("zzzz");
+
+  await expect(page.getByText("No matches")).toBeVisible();
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  // The panel stands one suggestion row tall, as a row of the list it replaces.
+  const panel = await page.getByText("No matches").boundingBox();
+  expect(panel?.height).toBeCloseTo(60, 0);
+  // The field and the panel read as one outlined unit, as they do when the
+  // suggestion list is open.
+  const blue = "rgb(7, 94, 184)";
+  await expect(query).toHaveCSS("border-top-color", blue);
+  await expect(page.getByText("No matches")).toHaveCSS("border-top-color", blue);
+
+  await query.fill("fik");
+  await expect(page.getByText("No matches")).toHaveCount(0);
+  await expect(page.getByRole("option")).toHaveCount(2);
+});
+
+test("tabbing out of the field closes the suggestions", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fik");
+  await expect(page.getByRole("option")).toHaveCount(2);
+
+  await query.press("Tab");
+
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
+test("the pointer and the keyboard agree on which row is active", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fik");
+  await query.press("ArrowDown");
+  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-0/);
+
+  await page.getByRole("option", { name: /^fikapaus / }).hover();
+  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-1/);
+  await expect(page.getByRole("option", { name: /^fikapaus / })).toHaveAttribute("aria-selected", "true");
+
+  // ArrowUp from the first row hands the caret back to the field rather than
+  // wrapping to a row that moves as the list grows.
+  await query.press("ArrowUp");
+  await query.press("ArrowUp");
+  await expect(query).not.toHaveAttribute("aria-activedescendant", /lookup-suggestions/);
+  await expect(page.getByRole("option", { name: /^fika / })).toHaveAttribute("aria-selected", "false");
+});
+
+test("tapping the page closes the suggestions and leaves them closed", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fik");
+  await expect(page.getByRole("option")).toHaveCount(2);
+
+  await page.locator("main.minimal-lookup").click({ position: { x: 2, y: 2 } });
+
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(query).toHaveValue("fik");
 });
 
 test("an exact Swedish match does not hide longer autocomplete matches", async ({ page }) => {
