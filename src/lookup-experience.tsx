@@ -93,10 +93,10 @@ function optionKey(item: LookupChoice): string {
   return `${suggestionKey(item)}:${wordKey(item.word)}`;
 }
 
-// Suggestions that read alike open different words, so each names the word it
-// opens: the headword a form inflects, its word type and translation, or for a
-// Russian suggestion the Swedish word itself. Two words that still read alike,
-// as `jord` the planet and `jord` the soil, add their Swedish meaning.
+// Every suggestion names the word it opens: the headword a form inflects, its
+// word type and translation, or for a Russian suggestion the Swedish word and
+// its type. Two words that still read alike, as `jord` the planet and `jord`
+// the soil, add their Swedish meaning.
 function suggestionHints(
   suggestions: readonly LookupChoice[],
   entries: DictionaryAsset["entries"] | null,
@@ -108,10 +108,6 @@ function suggestionHints(
 
   const hints = new Map<string, string>();
   for (const group of groups.values()) {
-    if (group.length < 2) {
-      continue;
-    }
-
     const described = group.map((item) => {
       const { headword, word } = item.word;
       const senses = (entries?.[headword] ?? []).filter((sense) => sense.word === word);
@@ -124,7 +120,10 @@ function suggestionHints(
     });
     for (const { item, hint, meaning } of described) {
       const alike = described.filter((other) => other.hint === hint).length > 1;
-      hints.set(optionKey(item), alike && meaning.length > 0 ? `${hint} · ${meaning}` : hint);
+      const full = alike && meaning.length > 0 ? uniqueNonEmpty([hint, meaning]).join(" · ") : hint;
+      if (full.length > 0) {
+        hints.set(optionKey(item), full);
+      }
     }
   }
   return hints;

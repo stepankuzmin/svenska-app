@@ -77,14 +77,16 @@ test("the search input accepts typing as soon as the app starts", async ({ page 
   await expect(query).toHaveValue("fika");
 });
 
-test("autocomplete hides translations and supports keyboard selection", async ({ page }) => {
+test("autocomplete shows each word's type and translation and supports keyboard selection", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
   const options = page.getByRole("option");
-  await expect(options).toHaveText(["fika", "fikapaus"]);
-  await expect(page.getByText("перерыв на кофе")).toHaveCount(0);
+  await expect(options).toHaveText([
+    "fika substantiv · перерыв на кофе",
+    "fikapaus substantiv · перерыв на кофе",
+  ]);
 
   await query.press("ArrowDown");
   await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-0/);
@@ -110,7 +112,10 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
 
   await page.getByLabel("Swedish or Russian word").fill("abort");
 
-  await expect(page.getByRole("option")).toHaveText(["abort", "abortrådgivning"]);
+  await expect(page.getByRole("option")).toHaveText([
+    "abort substantiv · аборт",
+    "abortrådgivning substantiv · консультация по аборту",
+  ]);
 });
 
 test("an inflected Swedish query lists every matching indexed word", async ({ page }) => {
@@ -121,8 +126,8 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
   // `angett` inflects `anger` and is a word of its own, so it is offered twice,
   // each naming the word it opens, and a choice opens that word alone.
   await expect(page.getByRole("option")).toHaveText([
-    "ange",
-    "anger",
+    "ange anger · verb · сообщать",
+    "anger verb · сообщать",
     "angett anger · verb · сообщать",
     "angett adjektiv · указанный",
   ]);
@@ -130,7 +135,7 @@ test("an inflected Swedish query lists every matching indexed word", async ({ pa
   await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["angett"]);
 
   await page.getByLabel("Swedish or Russian word").fill("ab");
-  await expect(page.getByRole("option").first()).toHaveText("AB");
+  await expect(page.getByRole("option").first()).toHaveText("AB substantiv · АО");
 });
 
 test("a Russian word shows every matching Russian index entry", async ({ page }) => {
@@ -138,14 +143,14 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("ао");
-  await expect(page.getByRole("option")).toHaveText(["АО"]);
+  await expect(page.getByRole("option")).toHaveText(["АО AB · substantiv"]);
   await expect(page.getByRole("option").locator("strong")).toHaveAttribute("lang", "ru");
 
   await query.fill("100");
   await expect(page.getByRole("option")).toHaveText([
-    "100 граммов",
-    "яц-result-100",
-    "result-100",
+    "100 граммов hus · substantiv",
+    "яц-result-100 result-100 · substantiv",
+    "result-100 substantiv · яц-result-100",
   ]);
 
   await query.fill("дом");
@@ -158,8 +163,8 @@ test("a Russian word shows every matching Russian index entry", async ({ page })
     "дом stuga · substantiv",
     "дом koja · substantiv",
     "дом residens · substantiv",
-    "жилой дом",
-    "доминирующий",
+    "жилой дом bostad · substantiv",
+    "доминирующий dominant · adjektiv",
   ]);
   await expect(page.getByRole("option").first().locator("strong")).toHaveAttribute("lang", "ru");
 

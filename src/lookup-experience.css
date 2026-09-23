@@ -176,6 +176,7 @@ body {
 
 .suggestion-hint {
   color: var(--lookup-muted);
+  flex: 1 1 0;
   font-size: .875rem;
   margin-inline-start: .5rem;
   min-inline-size: 0;
