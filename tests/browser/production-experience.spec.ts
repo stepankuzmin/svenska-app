@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 
+const firstSuggestion = /lookup-suggestions-0/;
+const secondSuggestion = /lookup-suggestions-1/;
+const anySuggestion = /lookup-suggestions/;
+const fikaHeadword = /^fika$/;
+const fikapausOption = /^fikapaus /;
+const fikaOption = /^fika /;
+const angettAdjective = /^angett adjektiv/;
+const dominantOption = /^dominant /;
+const husOption = /^hus /;
+const angerThenAngett = [/anger/, /angett/];
+
 const manyRussianHeadwords = Array.from(
   { length: 120 },
   (_, index) => `result-${String(index).padStart(3, "0")}`,
@@ -91,10 +102,10 @@ test("autocomplete shows each word's type and translation and supports keyboard 
   ]);
 
   await query.press("ArrowDown");
-  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-0/);
+  await expect(query).toHaveAttribute("aria-activedescendant", firstSuggestion);
   await query.press("Enter");
   await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: /^fika$/ })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: fikaHeadword })).toBeVisible();
   await expect(query).toBeFocused();
 });
 
@@ -162,18 +173,18 @@ test("the pointer and the keyboard agree on which row is active", async ({ page 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
   await query.press("ArrowDown");
-  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-0/);
+  await expect(query).toHaveAttribute("aria-activedescendant", firstSuggestion);
 
-  await page.getByRole("option", { name: /^fikapaus / }).hover();
-  await expect(query).toHaveAttribute("aria-activedescendant", /lookup-suggestions-1/);
-  await expect(page.getByRole("option", { name: /^fikapaus / })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("option", { name: fikapausOption }).hover();
+  await expect(query).toHaveAttribute("aria-activedescendant", secondSuggestion);
+  await expect(page.getByRole("option", { name: fikapausOption })).toHaveAttribute("aria-selected", "true");
 
   // ArrowUp from the first row hands the caret back to the field rather than
   // wrapping to a row that moves as the list grows.
   await query.press("ArrowUp");
   await query.press("ArrowUp");
-  await expect(query).not.toHaveAttribute("aria-activedescendant", /lookup-suggestions/);
-  await expect(page.getByRole("option", { name: /^fika / })).toHaveAttribute("aria-selected", "false");
+  await expect(query).not.toHaveAttribute("aria-activedescendant", anySuggestion);
+  await expect(page.getByRole("option", { name: fikaOption })).toHaveAttribute("aria-selected", "false");
 });
 
 test("tapping the page closes the suggestions and leaves them closed", async ({ page }) => {
@@ -208,7 +219,7 @@ test("an inflected Swedish query lists each matching word once, under its headwo
     "anger verb сообщать att ange, anger, angav, har angett",
     "angett adjektiv указанный angett",
   ]);
-  await page.getByRole("option", { name: /^angett adjektiv/ }).click();
+  await page.getByRole("option", { name: angettAdjective }).click();
   await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["angett"]);
 
   await page.getByLabel("Swedish or Russian word").fill("ab");
@@ -247,10 +258,10 @@ test("a Russian query offers the Swedish words its translations belong to", asyn
   for (let index = 0; index < 8; index += 1) {
     await page.getByLabel("Swedish or Russian word").press("ArrowDown");
   }
-  await expect(page.getByRole("option", { name: /^dominant / })).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("option", { name: /^dominant / })).toBeInViewport();
+  await expect(page.getByRole("option", { name: dominantOption })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("option", { name: dominantOption })).toBeInViewport();
 
-  await page.getByRole("option", { name: /^hus / }).click();
+  await page.getByRole("option", { name: husOption }).click();
   await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["hus"]);
 });
 
@@ -302,7 +313,7 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
   await page.goto("./?q=angett");
 
   const library = page.getByRole("region", { name: "Library" });
-  await expect(library.getByRole("listitem")).toHaveText([/anger/, /angett/]);
+  await expect(library.getByRole("listitem")).toHaveText(angerThenAngett);
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 

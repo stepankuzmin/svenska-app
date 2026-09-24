@@ -28,7 +28,7 @@ function senseForms({
   }
 
   const [preterite, supine] = inflections;
-  const infinitive = inflections[inflections.length - 1];
+  const infinitive = inflections.at(-1);
   return [`att ${infinitive}`, headword, preterite, `har ${supine}`];
 }
 

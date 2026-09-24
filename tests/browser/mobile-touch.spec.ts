@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+const fikaNoun = /^fika substantiv/;
+
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
@@ -22,7 +24,7 @@ test("a tap opens a suggested word without the field grabbing focus first", asyn
   await expect(query).not.toBeFocused();
 
   await query.fill("fik");
-  await page.getByRole("option", { name: /^fika substantiv/ }).tap();
+  await page.getByRole("option", { name: fikaNoun }).tap();
 
   await expect(query).toHaveValue("");
   await expect(page.getByRole("listbox")).toHaveCount(0);
