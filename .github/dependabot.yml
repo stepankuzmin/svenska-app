@@ -1,19 +1,22 @@
 version: 2
-multi-ecosystem-groups:
-  dependencies:
-    schedule:
-      interval: weekly
-      day: saturday
 updates:
   - package-ecosystem: npm
     directory: /
-    patterns: ["*"]
-    multi-ecosystem-group: dependencies
+    schedule:
+      interval: weekly
+      day: saturday
     cooldown:
       default-days: 1
+    groups:
+      npm:
+        patterns: ["*"]
   - package-ecosystem: github-actions
     directory: /
-    patterns: ["*"]
-    multi-ecosystem-group: dependencies
+    schedule:
+      interval: weekly
+      day: saturday
     cooldown:
       default-days: 1
+    groups:
+      github-actions:
+        patterns: ["*"]
