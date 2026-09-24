@@ -19,7 +19,7 @@ jobs:
           node-version: 26
           cache: npm
       - name: Report compressed size changes
-        uses: preactjs/compressed-size-action@v2
+        uses: preactjs/compressed-size-action@v3
         with:
           compression: brotli
           pattern: "./dist/**/*.{html,css,js,json,webmanifest}"
