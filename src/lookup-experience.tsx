@@ -12,14 +12,10 @@ import {
   type UIEvent,
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
-import type { LookupChoice, LookupOutcome } from "./dictionary";
-import { cleanLexinText, normalizeLookupText } from "./normalize-lookup-text";
-import { wordForms } from "./word-forms";
+import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
-import { wordKey, wordsOf, type LibraryWord } from "./words";
-
-type DictionarySense = DictionaryAsset["entries"][string][number];
-type WordDetails = DictionaryDetailsAsset["entries"][string][number];
+import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
+import { wordKey, type LibraryWord } from "./words";
 
 export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed";
 
@@ -37,148 +33,11 @@ type LookupExperienceProps = {
   onRemoveWord: (card: string) => void;
 };
 
-// One card holds one word: the senses Lexin inflects the same way. A spelling
-// that carries an en-word and an ett-word carries two words, so it fills a card
-// each, and `card` tells them apart wherever a headword alone cannot.
-type WordItem = {
-  card: string;
-  headword: string;
-  forms: readonly string[];
-  senses: readonly DictionarySense[];
-  details: readonly WordDetails[];
-  relatedWords: readonly RelatedWord[];
-};
-
-type RelatedWord = {
-  headword: string;
-  translation: string;
-};
-
 const suggestionBatchSize = 100;
 
 // Every named card costs a snapshot pair, so only the cards a phone can show
 // take part in the move to the top.
 const animatedCardLimit = 12;
-
-function uniqueNonEmpty(values: readonly string[]): string[] {
-  return [...new Set(values.filter((value) => value.length > 0))];
-}
-
-function translationFor(senses: readonly DictionarySense[]): string {
-  return uniqueNonEmpty(senses.map((sense) => sense.translation)).join(" · ");
-}
-
-function getSuggestionItems(outcome: LookupOutcome | null): readonly LookupChoice[] {
-  if (outcome === null || outcome.kind === "no-match") {
-    return [];
-  }
-
-  return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
-}
-
-function formsOf({
-  headword,
-  senses,
-  senseIndexes,
-  wordDetails,
-}: {
-  headword: string;
-  senses: readonly DictionarySense[];
-  senseIndexes: readonly number[];
-  wordDetails: readonly WordDetails[];
-}): readonly string[] {
-  return wordForms({
-    headword: cleanLexinText(headword),
-    senses: senseIndexes.map((senseIndex) => ({
-      partOfSpeech: senses[senseIndex].partOfSpeech,
-      article: wordDetails[senseIndex]?.article ?? "",
-      inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
-    })),
-  });
-}
-
-type SuggestionRow = {
-  headword: string;
-  partsOfSpeech: string;
-  translation: string;
-  forms: string;
-};
-
-function suggestionRow({
-  word: { headword, word },
-  entries,
-  details,
-}: {
-  word: LibraryWord;
-  entries: DictionaryAsset["entries"] | null;
-  details: DictionaryDetailsAsset["entries"] | null;
-}): SuggestionRow {
-  const cleanHeadword = cleanLexinText(headword);
-  const senses = entries?.[headword] ?? [];
-  const found = wordsOf({ headword, senses }).find((item) => item.word === word);
-  const wordSenses = found?.senseIndexes.map((senseIndex) => senses[senseIndex]) ?? [];
-  const forms = found === undefined
-    ? []
-    : formsOf({ headword, senses, senseIndexes: found.senseIndexes, wordDetails: details?.[headword] ?? [] });
-  return {
-    headword: cleanHeadword,
-    partsOfSpeech: uniqueNonEmpty(wordSenses.map((sense) => sense.partOfSpeech)).join(" · "),
-    translation: translationFor(wordSenses),
-    forms: (forms.length > 0 ? forms : [cleanHeadword]).join(", "),
-  };
-}
-
-function getLibraryItems({
-  libraryWords,
-  entries,
-  details,
-}: {
-  libraryWords: readonly LibraryWord[];
-  entries: DictionaryAsset["entries"] | null;
-  details: DictionaryDetailsAsset["entries"] | null;
-}): readonly WordItem[] {
-  if (entries === null) {
-    return [];
-  }
-
-  return libraryWords.flatMap((libraryWord) => {
-    const { headword } = libraryWord;
-    const senses = entries[headword];
-    if (senses === undefined) {
-      return [];
-    }
-
-    const word = wordsOf({ headword, senses }).find((item) => item.word === libraryWord.word);
-    if (word === undefined) {
-      return [];
-    }
-
-    const wordDetails = details?.[headword] ?? [];
-    const item = {
-      card: wordKey(libraryWord),
-      headword,
-      forms: formsOf({ headword, senses, senseIndexes: word.senseIndexes, wordDetails }),
-      senses: word.senseIndexes.map((senseIndex) => senses[senseIndex]),
-      details: word.senseIndexes.flatMap((senseIndex) => wordDetails[senseIndex] ?? []),
-    };
-    return [{ ...item, relatedWords: getRelatedWords(item) }];
-  });
-}
-
-function getRelatedWords(item: Omit<WordItem, "relatedWords">): readonly RelatedWord[] {
-  const related = new Map<string, RelatedWord>();
-  const normalizedHeadword = normalizeLookupText(cleanLexinText(item.headword));
-
-  for (const compound of item.details.flatMap((details) => details.compounds)) {
-    const headword = cleanLexinText(compound.swedish);
-    const normalizedCompound = normalizeLookupText(headword);
-    if (normalizedCompound !== normalizedHeadword) {
-      related.set(normalizedCompound, { headword, translation: compound.russian });
-    }
-  }
-
-  return [...related.values()].slice(0, 8);
-}
 
 const WordCard = memo(function WordCard({
   item,
@@ -187,23 +46,19 @@ const WordCard = memo(function WordCard({
   onToggle,
   onRemove,
 }: {
-  item: WordItem;
+  item: WordCardContent;
   expanded: boolean;
   transitionName: string;
   onToggle: (card: string) => void;
   onRemove: (card: string) => void;
 }) {
   const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
-  const partsOfSpeech = uniqueNonEmpty(item.senses.map((sense) => sense.partOfSpeech));
-  const phonetics = uniqueNonEmpty(item.details.map((details) => details.phonetic));
-  const examples = item.details.flatMap((details) => details.examples);
-  const translation = translationFor(item.senses);
-  const hasMeanings = item.senses.some((sense) => sense.meaning.length > 0);
+  const { partsOfSpeech, phonetics, examples, translation, hasMeanings } = item;
   const copy = (
     <span className="word-card-heading">
-      <strong lang="sv">{cleanLexinText(item.headword)}</strong>
+      <strong lang="sv">{item.headword}</strong>
       {partsOfSpeech.length > 0 ? " " : null}
-      {partsOfSpeech.length > 0 ? <span className="word-card-type">{partsOfSpeech.join(" · ")}</span> : null}
+      {partsOfSpeech.length > 0 ? <span className="word-card-type">{partsOfSpeech}</span> : null}
       {translation.length > 0 ? " " : null}
       {translation.length > 0 ? <span className="word-card-translation" lang="ru">{translation}</span> : null}
     </span>
@@ -223,7 +78,7 @@ const WordCard = memo(function WordCard({
           <button
             type="button"
             className="word-card-remove"
-            aria-label={`Remove ${item.forms[0] ?? cleanLexinText(item.headword)} from the library`}
+            aria-label={`Remove ${item.forms[0] ?? item.headword} from the library`}
             onClick={swipe.remove}
           >
             Remove
@@ -233,13 +88,7 @@ const WordCard = memo(function WordCard({
     );
   }
 
-  if (
-    phonetics.length === 0 &&
-    item.forms.length <= 1 &&
-    !hasMeanings &&
-    examples.length === 0 &&
-    item.relatedWords.length === 0
-  ) {
+  if (!item.extendable) {
     return asRow(<div className="word-card-plain">{copy}</div>);
   }
 
@@ -275,7 +124,7 @@ const WordCard = memo(function WordCard({
             </div>
           ) : null}
           {examples.length > 0 ? (
-            <section aria-label={`Examples for ${cleanLexinText(item.headword)}`}>
+            <section aria-label={`Examples for ${item.headword}`}>
               <h3>Examples</h3>
               <ul role="list">
                 {examples.map((example, index) => (
@@ -288,8 +137,8 @@ const WordCard = memo(function WordCard({
             </section>
           ) : null}
           {item.relatedWords.length > 0 ? (
-            <section aria-label={`Words containing ${cleanLexinText(item.headword)}`}>
-              <h3>More with <span lang="sv">{cleanLexinText(item.headword)}</span></h3>
+            <section aria-label={`Words containing ${item.headword}`}>
+              <h3>More with <span lang="sv">{item.headword}</span></h3>
               <ul role="list">
                 {item.relatedWords.map((relatedWord) => (
                   <li key={relatedWord.headword}>
@@ -386,10 +235,10 @@ const SuggestionMenu = memo(function SuggestionMenu({
 export function LookupExperience(props: LookupExperienceProps) {
   // The field owns the urgent update; a hundred suggestion rows render behind
   // it, so a keystroke never waits on the list it will replace.
-  const matches = useMemo(() => getSuggestionItems(props.outcome), [props.outcome]);
+  const matches = useMemo(() => choicesOf(props.outcome), [props.outcome]);
   const suggestions = useDeferredValue(matches);
   const library = useMemo(
-    () => getLibraryItems({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
+    () => wordCards({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
     [props.libraryWords, props.entries, props.details],
   );
   const inputId = "dictionary-query";
@@ -432,7 +281,7 @@ export function LookupExperience(props: LookupExperienceProps) {
 
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(firstCardOf(props.deepLinkHeadword));
+    setExpandedCard(firstCardOf({ headword: props.deepLinkHeadword, entries: props.entries }));
   }, [props.deepLinkHeadword]);
 
   useEffect(() => {
@@ -459,12 +308,6 @@ export function LookupExperience(props: LookupExperienceProps) {
     );
   }, []);
 
-  function firstCardOf(headword: string): string | null {
-    const senses = props.entries?.[headword];
-    const [firstWord] = senses === undefined ? [] : wordsOf({ headword, senses });
-    return firstWord === undefined ? null : wordKey(firstWord);
-  }
-
   // A card name can hold any character, so cards are named by order of first
   // sight rather than by a sanitised name that could collide.
   function transitionNameFor(card: string): string {
@@ -487,7 +330,7 @@ export function LookupExperience(props: LookupExperienceProps) {
     if (props.outcome?.kind === "result") {
       setAutocompleteOpen(false);
       setActiveSuggestionIndex(-1);
-      setExpandedCard(firstCardOf(props.outcome.headword));
+      setExpandedCard(firstCardOf({ headword: props.outcome.headword, entries: props.entries }));
     }
   }
 

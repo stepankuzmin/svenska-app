@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
-import { createSearch } from "../src/dictionary.ts";
+import { choicesOf, createSearch } from "../src/dictionary.ts";
 
 function sense(word: string, partOfSpeech: string, meaning: string, translation: string) {
   return { word, partOfSpeech, meaning, translation };
@@ -194,5 +194,18 @@ describe("dictionary lookup", () => {
     expect(search("constructor")).toEqual({ kind: "no-match" });
     expect(search("xyz")).toEqual({ kind: "no-match" });
     expect(search("жюри")).toEqual({ kind: "no-match" });
+  });
+
+  it("offers the autocomplete every choice beside or in place of an exact result", () => {
+    const adjective = { headword: "fast", word: "3917" };
+    const conjunction = { headword: "fast", word: "3918" };
+    expect(choicesOf(search("fastare"))).toEqual([
+      { displayWord: "fast", word: adjective, language: "sv", exact: true },
+    ]);
+    expect(choicesOf(search("хот"))).toEqual([
+      { displayWord: "хотя", word: conjunction, language: "ru", exact: false },
+    ]);
+    expect(choicesOf(search("xyz"))).toEqual([]);
+    expect(choicesOf(null)).toEqual([]);
   });
 });
