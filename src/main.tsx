@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
-import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import {
   createSearch,
@@ -11,7 +10,13 @@ import {
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
-import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
+import {
+  addToLookupLibrary,
+  readLookupLibrary,
+  removeFromLookupLibrary,
+  writeLookupLibrary,
+} from "./lookup-library";
+import { resolveLibraryWords, wordsOf, type LibraryWord } from "./words";
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -34,37 +39,13 @@ function readDeepLinkQuery(): string {
   return new URLSearchParams(window.location.search).get("q") ?? "";
 }
 
-const lookupLibraryStorageKey = "svenska.lookup-library";
-// A library written before the app kept words holds bare headwords.
-const lookupLibrarySchema = z.array(z.union([
-  z.object({ headword: z.string(), word: z.string() }),
-  z.string().transform((headword) => ({ headword, word: "" })),
-]));
-
-function readLookupLibrary(): readonly LibraryWord[] {
-  try {
-    const storedLibrary: unknown = JSON.parse(localStorage.getItem(lookupLibraryStorageKey) ?? "[]");
-    return lookupLibrarySchema.safeParse(storedLibrary).data ?? [];
-  } catch {
-    return [];
-  }
-}
-
-function writeLookupLibrary(libraryWords: readonly LibraryWord[]) {
-  try {
-    localStorage.setItem(lookupLibraryStorageKey, JSON.stringify(libraryWords));
-  } catch {
-    // Lookups still work when browser storage is unavailable.
-  }
-}
-
 function LookupApp() {
   const [query, setQuery] = useState(readDeepLinkQuery);
   const [deepLinkHeadword, setDeepLinkHeadword] = useState<string | null>(null);
   const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
-  const [libraryWords, setLibraryWords] = useState(readLookupLibrary);
+  const [libraryWords, setLibraryWords] = useState(() => readLookupLibrary());
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
     [lookupState, query],
@@ -154,35 +135,26 @@ function LookupApp() {
     document.startViewTransition(() => flushSync(apply));
   }
 
-  function removeFromLibrary(card: string) {
+  function updateLibrary(change: (libraryWords: readonly LibraryWord[]) => readonly LibraryWord[]) {
     withLibraryMotion(() => {
       setLibraryWords((currentWords) => {
-        const nextWords = currentWords.filter((libraryWord) => wordKey(libraryWord) !== card);
+        const nextWords = change(currentWords);
         writeLookupLibrary(nextWords);
         return nextWords;
       });
     });
+  }
+
+  function removeFromLibrary(card: string) {
+    updateLibrary((libraryWords) => removeFromLookupLibrary({ libraryWords, card }));
   }
 
   function openResult({ headword, senses }: { headword: string; senses: readonly { word: string }[] }) {
     addWordsToLibrary(wordsOf({ headword, senses }).map(({ word }) => ({ headword, word })));
   }
 
-  // Two index entries can lead to one word, as `вы` and `Вы` both lead to
-  // `ni`, and the word joins the library once.
-  function addWordsToLibrary(words: readonly LibraryWord[]) {
-    const openedWords = [...new Map(words.map((word) => [wordKey(word), word])).values()];
-    const openedKeys = new Set(openedWords.map(wordKey));
-    withLibraryMotion(() => {
-      setLibraryWords((currentWords) => {
-        const nextWords = [
-          ...openedWords,
-          ...currentWords.filter((item) => !openedKeys.has(wordKey(item))),
-        ];
-        writeLookupLibrary(nextWords);
-        return nextWords;
-      });
-    });
+  function addWordsToLibrary(openedWords: readonly LibraryWord[]) {
+    updateLibrary((libraryWords) => addToLookupLibrary({ libraryWords, openedWords }));
   }
 
   function submit(event: FormEvent<HTMLFormElement>) {

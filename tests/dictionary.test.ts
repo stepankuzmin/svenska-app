@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
-import { createSearch } from "../src/dictionary.ts";
+import { choicesOf, createSearch } from "../src/dictionary.ts";
 
 function sense(word: string, partOfSpeech: string, meaning: string, translation: string) {
   return { word, partOfSpeech, meaning, translation };
@@ -194,5 +194,16 @@ describe("dictionary lookup", () => {
     expect(search("constructor")).toEqual({ kind: "no-match" });
     expect(search("xyz")).toEqual({ kind: "no-match" });
     expect(search("жюри")).toEqual({ kind: "no-match" });
+  });
+
+  it("offers the autocomplete every choice beside or in place of an exact result", () => {
+    const result = search("fast");
+    const choices = search("хот");
+
+    expect(result.kind).toBe("result");
+    expect(choicesOf(result)).toEqual(result.kind === "result" ? result.suggestions : []);
+    expect(choicesOf(choices)).toEqual(choices.kind === "choices" ? choices.choices : []);
+    expect(choicesOf(search("xyz"))).toEqual([]);
+    expect(choicesOf(null)).toEqual([]);
   });
 });

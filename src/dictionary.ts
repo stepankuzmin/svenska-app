@@ -31,6 +31,16 @@ export type LookupOutcome =
   | { kind: "choices"; choices: readonly LookupChoice[] }
   | { kind: "no-match" };
 
+// The autocomplete offers every choice an outcome holds, beside an exact
+// result as well as in place of one.
+export function choicesOf(outcome: LookupOutcome | null): readonly LookupChoice[] {
+  if (outcome === null || outcome.kind === "no-match") {
+    return [];
+  }
+
+  return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
+}
+
 const wordCharacter = /[\p{L}\p{N}]/u;
 
 function isWordCharacter(value: string | undefined): boolean {
