@@ -34,13 +34,6 @@ The changed-line coverage rule skips React components, hooks (`src/use-*.ts`) an
 
 `npm run check:task` runs the edit-loop checks, coverage, the build and the size budgets in about 9.5 seconds. Its budget is 15 seconds, about 50% above today. Nothing times the run. `npm run check:full` adds the dictionary release check and the browser journey.
 
-## Measured, not yet enforced
-
-| Metric | Today (2026-09-24) | Direction |
-|--------|--------------------|-----------|
-| Project line coverage | 45.45% | must not fall, enforced by the project coverage thresholds above |
-| Precache size | 9458 KiB uncompressed, 7 entries | must not grow without a new source edition |
-
 ## Exceptions
 
 Each row waives floor-guard findings until its expiry date. A finding matches a row when it has the same rule and its location starts with the row's path. The guard reports new rows for human review and fails on expired ones and on ones that expire more than 90 days from today.
