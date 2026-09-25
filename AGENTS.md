@@ -2,6 +2,10 @@
 
 Read `CONTEXT.md` before exploring the codebase, and name domain concepts the way its glossary does.
 
+## Constraints
+
+Read `CONSTRAINTS.md` before writing code. Do not weaken it to make a change pass. Run `npm run check:fast` after edits and `npm run check:task` before reporting completion.
+
 ## Design system
 
 Read `DESIGN_SYSTEM.md` before changing styles, and take colours and type sizes from its tokens.

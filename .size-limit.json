@@ -1,0 +1,6 @@
+[
+  { "name": "App JS", "path": "dist/assets/index-*.js", "limit": "84.46 kB" },
+  { "name": "App CSS", "path": "dist/assets/index-*.css", "limit": "2.48 kB" },
+  { "name": "Dictionary release: lookup file", "path": "dist/lexin-dictionary.*.json", "limit": "753.7 kB" },
+  { "name": "Dictionary release: word-detail file", "path": "dist/lexin-details.*.json", "limit": "708.7 kB" }
+]
