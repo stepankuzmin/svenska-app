@@ -38,3 +38,4 @@ Each weight has one role: 700 for the headword, 500 for the Russian translation,
 - A closed word card is one line: the headword, its word type in `--lookup-muted`, and the Russian at weight 500. Transcription, forms and meanings appear only when the card is open.
 - A word card has two left edges: the disclosure gutter and the text column. Everything in the card starts on the text column.
 - Corners are `.65rem` on the field, the menu and the card list.
+- A suggestion menu that runs on ends halfway through a row, at most 6½ rows and half the dynamic viewport, and that half row fades into `--lookup-card` until the list is scrolled to its end. A menu that fits shows every row whole.
