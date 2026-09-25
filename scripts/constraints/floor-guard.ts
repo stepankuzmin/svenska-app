@@ -2,11 +2,12 @@
 // the diff against the merge base. Exit 0 clean, 1 violation, 2 could not run.
 // Adapted from the constraint-driven-development floor-guard reference.
 import { existsSync, readFileSync } from "node:fs";
-import { fileAtBase, readDiff } from "./diff.ts";
+import { type DiffLine, fileAtBase, readDiff } from "./diff.ts";
 
 const suppression =
   /@ts-ignore|@ts-nocheck|@ts-expect-error|eslint-disable|oxlint-disable|biome-ignore|istanbul ignore|[cv]8 ignore/;
 const unfinished = /throw new Error\(.*not implemented|catch\s*(\(\s*\w*\s*\))?\s*\{\s*\}|\bTODO\b|\bFIXME\b/i;
+const openCatch = /catch\s*(\(\s*\w*\s*\))?\s*\{\s*$/;
 const easierTest = /\b(it|test|describe)\.(skip|only|todo|fixme)\b|\bx(it|describe)\(/;
 const testFile = /\.(test|spec)\.tsx?$/;
 const assertion = /\b(expect|assert)\b/;
@@ -32,16 +33,23 @@ for (const { file, line, text } of added) {
   const where = `${file}:${line}`;
   if (suppression.test(text)) flag("silenced-checker", where, text);
   if (unfinished.test(text)) flag("unfinished-work", where, text);
+  // An empty catch with its closing brace on the next line; `line` is 1-based, so index `line` is the next one.
+  if (openCatch.test(text) && current(file)?.split("\n")[line]?.trim().startsWith("}")) {
+    flag("unfinished-work", where, `${text.trim()} }`);
+  }
   if (easierTest.test(text)) flag("test-made-easier", where, text);
 }
 
 for (const file of deletedFiles) {
   if (testFile.test(file)) flag("test-deleted", file, "test file removed");
 }
-for (const { file, line, text } of removed) {
-  if (testFile.test(file) && !deletedFiles.includes(file) && assertion.test(text)) {
-    flag("assertion-removed", `${file}:${line}`, text);
-  }
+// An assertion rewritten in place is a removal plus an addition, so count the net loss per test file.
+const assertions = (lines: DiffLine[], file: string) =>
+  lines.filter((diffLine) => diffLine.file === file && assertion.test(diffLine.text)).length;
+for (const file of new Set(removed.map((diffLine) => diffLine.file))) {
+  if (!testFile.test(file) || deletedFiles.includes(file)) continue;
+  const lost = assertions(removed, file) - assertions(added, file);
+  if (lost > 0) flag("assertion-removed", file, `${lost} assertion(s) removed`);
 }
 
 // CONSTRAINTS.md: any line removed from the Floor section.

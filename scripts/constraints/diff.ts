@@ -56,7 +56,8 @@ export function readDiff(): Diff {
   let oldLine = 0;
   let newLine = 0;
   // Working tree against the merge base: committed, staged and unstaged changes.
-  for (const text of gitOrExit(["diff", "--unified=0", mergeBase, "--"]).split("\n")) {
+  // A configured external diff tool or textconv would replace the unified diff this parses.
+  for (const text of gitOrExit(["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--unified=0", mergeBase, "--"]).split("\n")) {
     if (text.startsWith("--- ")) {
       file = text.slice(6);
     } else if (text.startsWith("+++ ")) {
