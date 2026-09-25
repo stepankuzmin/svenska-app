@@ -21,6 +21,8 @@ jobs:
       - name: Report compressed size changes
         uses: preactjs/compressed-size-action@v3
         with:
+          install-script: npm ci
+          build-script: npm run build
           compression: brotli
           pattern: "./dist/**/*.{html,css,js,json,webmanifest}"
           strip-hash: "[-.]([\\w-]{8}|[a-f0-9]{16})\\.[a-z]+$"
