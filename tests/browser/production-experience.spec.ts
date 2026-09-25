@@ -278,6 +278,29 @@ test("a broad Russian lookup renders its suggestions incrementally", async ({ pa
   await expect(options).toHaveCount(120);
 });
 
+test("a suggestion list that runs on ends halfway through a row", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  const listbox = page.getByRole("listbox");
+  const rowsShown = () => listbox.evaluate((list) => list.clientHeight / list.querySelector("li")!.offsetHeight);
+  const fade = () => page.evaluate<number>(
+    'Number(getComputedStyle(document.querySelector("[role=listbox]"), "::after").opacity)',
+  );
+
+  await query.fill("яц");
+  await expect(page.getByRole("option")).toHaveCount(100);
+  expect((await rowsShown()) % 1).toBeCloseTo(0.5, 1);
+  if (await page.evaluate<boolean>('CSS.supports("animation-timeline: scroll()")')) {
+    await expect.poll(fade).toBe(1);
+  }
+
+  await query.fill("fik");
+  await expect(page.getByRole("option")).toHaveCount(2);
+  expect((await rowsShown()) % 1).toBeCloseTo(0, 1);
+  expect(await fade()).toBe(0);
+});
+
 test("the clear button empties the search field", async ({ page }) => {
   await openReadyApp(page);
 
