@@ -62,6 +62,7 @@ body {
 
 .lookup-autocomplete {
   --suggestion-row: 3.75rem;
+  --suggestion-peek: 1.875rem; /* half a row */
   margin-block-end: 1.4rem;
   position: relative;
   z-index: 2;
@@ -154,6 +155,8 @@ body {
 .minimal-lookup .suggestion-empty,
 .minimal-lookup .suggestion-menu { border-color: var(--lookup-blue); }
 
+/* The menu and the no-matches panel hang from the field as one surface. */
+.suggestion-empty,
 .suggestion-menu {
   background: var(--lookup-card);
   border: 1px solid var(--lookup-field-line);
@@ -162,43 +165,54 @@ body {
   border-end-start-radius: .65rem;
   box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 14%);
   inset: calc(100% - 1px) 0 auto;
-  list-style: none;
   margin: 0;
-  max-block-size: min(calc(7 * var(--suggestion-row)), round(down, 50dvb, var(--suggestion-row)));
+  position: absolute;
+}
+
+.suggestion-menu {
+  list-style: none;
+  /* A list that runs on ends halfway through a row, so the cut row shows it scrolls. */
+  max-block-size: min(6.5 * var(--suggestion-row), round(down, 50dvb - var(--suggestion-peek), var(--suggestion-row)) + var(--suggestion-peek));
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0;
-  position: absolute;
+  scroll-padding-block-end: var(--suggestion-peek);
   transition: opacity 120ms ease;
 }
 
+/* The cut row fades into a shadow cast by the list's bottom edge, which no
+   tap can land on, until the list is scrolled to its end. A list that fits
+   has no scroll timeline, and a browser without one plays the fade out at
+   once, so either rests at its opacity of zero. */
+.suggestion-menu::after {
+  animation: suggestion-more both;
+  animation-range: calc(100% - var(--suggestion-peek));
+  animation-timeline: scroll();
+  box-shadow: 0 0 var(--suggestion-peek) .9375rem var(--lookup-card); /* spread: a quarter row */
+  content: "";
+  display: block;
+  inset-block-end: 0;
+  opacity: 0;
+  position: sticky;
+}
+
+@keyframes suggestion-more { from { opacity: 1; } }
+
 /* The list keeps the last answer on screen while the next one renders. */
 .suggestion-menu.is-stale { opacity: .6; }
+
+.suggestion-empty {
+  color: var(--lookup-muted);
+  font-size: var(--text-secondary);
+  padding: 0 .8rem;
+  align-content: center;
+  block-size: var(--suggestion-row);
+}
 
 /* A row off screen costs no layout: every row is exactly one row tall. */
 .suggestion-menu li {
   content-visibility: auto;
   contain-intrinsic-size: auto var(--suggestion-row);
-}
-
-.suggestion-empty {
-  background: var(--lookup-card);
-  border: 1px solid var(--lookup-field-line);
-  border-block-start: 0;
-  border-end-end-radius: .65rem;
-  border-end-start-radius: .65rem;
-  box-shadow: 0 .5rem 1.25rem rgb(0 0 0 / 14%);
-  color: var(--lookup-muted);
-  font-size: var(--text-secondary);
-  inset: calc(100% - 1px) 0 auto;
-  margin: 0;
-  padding: 0 .8rem;
-  position: absolute;
-  align-content: center;
-  block-size: var(--suggestion-row);
-}
-
-.suggestion-menu li {
   cursor: default;
   align-content: center;
   block-size: var(--suggestion-row);
