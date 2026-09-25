@@ -24,6 +24,16 @@ function git(args: string[]): string | null {
   }
 }
 
+// Exits 2 on failure, so a diff that could not be read never reads as no changes.
+function gitOrExit(args: string[]): string {
+  const output = git(args);
+  if (output === null) {
+    console.error(`constraints: git ${args.join(" ")} failed`);
+    process.exit(2);
+  }
+  return output;
+}
+
 // Base ref: `--base <ref>`, then CONSTRAINTS_BASE, then origin/main.
 function baseRef(): string {
   const flag = process.argv.indexOf("--base");
@@ -46,7 +56,7 @@ export function readDiff(): Diff {
   let oldLine = 0;
   let newLine = 0;
   // Working tree against the merge base: committed, staged and unstaged changes.
-  for (const text of (git(["diff", "--unified=0", mergeBase, "--"]) ?? "").split("\n")) {
+  for (const text of gitOrExit(["diff", "--unified=0", mergeBase, "--"]).split("\n")) {
     if (text.startsWith("--- ")) {
       file = text.slice(6);
     } else if (text.startsWith("+++ ")) {
@@ -63,14 +73,14 @@ export function readDiff(): Diff {
   }
 
   // `git diff` cannot see files that were never added.
-  const untracked = (git(["ls-files", "--others", "--exclude-standard"]) ?? "").split("\n").filter(Boolean);
+  const untracked = gitOrExit(["ls-files", "--others", "--exclude-standard"]).split("\n").filter(Boolean);
   for (const path of untracked) {
     readFileSync(path, "utf8")
       .split("\n")
       .forEach((text, index) => added.push({ file: path, line: index + 1, text }));
   }
 
-  const deletedFiles = (git(["diff", "--name-only", "--diff-filter=D", mergeBase, "--"]) ?? "")
+  const deletedFiles = gitOrExit(["diff", "--name-only", "--diff-filter=D", mergeBase, "--"])
     .split("\n")
     .filter(Boolean);
 

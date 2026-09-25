@@ -113,20 +113,26 @@ compare(
 );
 
 // Exceptions: `| E1 | rule | path prefix | reason | owner | YYYY-MM-DD |`.
-// A live row waives matching findings; an expired row is itself a violation.
+// A live row waives matching findings; an expired, malformed or over-90-day row is itself a violation.
 // A row this change adds is reported for review rather than failing the run.
-const today = new Date().toISOString().slice(0, 10);
+const isoDate = (date: Date) => date.toISOString().slice(0, 10);
+const today = isoDate(new Date());
+const latestExpiry = isoDate(new Date(Date.now() + 90 * 24 * 60 * 60 * 1000));
+const expiryDate = /^\d{4}-\d{2}-\d{2}$/;
+const live = (expires: string) => expiryDate.test(expires) && expires >= today && expires <= latestExpiry;
 const exceptions = (current("CONSTRAINTS.md") ?? "")
   .split("\n")
   .filter((text) => exceptionRow.test(text))
   .map((text) => text.split("|").map((cell) => cell.trim().replaceAll("`", "")))
   .map(([, id, rule, path, , , expires]) => ({ id, rule, path, expires }));
 for (const { id, rule, expires } of exceptions) {
-  if (!(expires >= today)) flag("exception-expired", "CONSTRAINTS.md", `${id} ${rule} expired ${expires}`);
+  if (!expiryDate.test(expires)) flag("exception-invalid", "CONSTRAINTS.md", `${id} ${rule} expiry ${expires} is not YYYY-MM-DD`);
+  else if (expires < today) flag("exception-expired", "CONSTRAINTS.md", `${id} ${rule} expired ${expires}`);
+  else if (expires > latestExpiry) flag("exception-too-long", "CONSTRAINTS.md", `${id} ${rule} expires ${expires}, after ${latestExpiry}`);
 }
 const waived = (finding: Finding) =>
   exceptions.some(
-    ({ rule, path, expires }) => expires >= today && rule === finding.rule && finding.where.startsWith(path),
+    ({ rule, path, expires }) => live(expires) && rule === finding.rule && finding.where.startsWith(path),
   );
 const violations = findings.filter((finding) => !waived(finding));
 

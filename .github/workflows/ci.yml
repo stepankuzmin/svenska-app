@@ -35,11 +35,11 @@ jobs:
       - name: Check the constraints floor
         run: npm run check:floor
         env:
-          CONSTRAINTS_BASE: origin/${{ github.base_ref || 'main' }}
+          CONSTRAINTS_BASE: ${{ github.event_name == 'push' && github.event.before || format('origin/{0}', github.base_ref || 'main') }}
       - name: Run unit tests with coverage
         run: npm run check:coverage
         env:
-          CONSTRAINTS_BASE: origin/${{ github.base_ref || 'main' }}
+          CONSTRAINTS_BASE: ${{ github.event_name == 'push' && github.event.before || format('origin/{0}', github.base_ref || 'main') }}
 
   build:
     runs-on: ubuntu-latest

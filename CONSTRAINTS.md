@@ -43,7 +43,7 @@ The changed-line coverage rule skips React components, hooks (`src/use-*.ts`) an
 
 ## Exceptions
 
-Each row waives floor-guard findings until its expiry date. A finding matches a row when it has the same rule and its location starts with the row's path. The guard reports new rows for human review and fails on expired ones.
+Each row waives floor-guard findings until its expiry date. A finding matches a row when it has the same rule and its location starts with the row's path. The guard reports new rows for human review and fails on expired ones and on ones that expire more than 90 days from today.
 
 An exception lasts at most 90 days. That is long enough to plan the fix and short enough to remember it.
 
