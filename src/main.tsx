@@ -45,7 +45,7 @@ function LookupApp() {
   const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
-  const [libraryWords, setLibraryWords] = useState(() => readLookupLibrary());
+  const [libraryWords, setLibraryWords] = useState(readLookupLibrary);
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
     [lookupState, query],

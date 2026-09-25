@@ -53,8 +53,7 @@ const WordCard = memo(function WordCard({
   onRemove: (card: string) => void;
 }) {
   const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
-  const { partsOfSpeech, phonetics, examples, translation } = item;
-  const hasMeanings = item.senses.some((sense) => sense.meaning.length > 0);
+  const { partsOfSpeech, phonetics, examples, translation, hasMeanings } = item;
   const copy = (
     <span className="word-card-heading">
       <strong lang="sv">{item.headword}</strong>

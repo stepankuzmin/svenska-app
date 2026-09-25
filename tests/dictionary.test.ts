@@ -197,12 +197,14 @@ describe("dictionary lookup", () => {
   });
 
   it("offers the autocomplete every choice beside or in place of an exact result", () => {
-    const result = search("fast");
-    const choices = search("хот");
-
-    expect(result.kind).toBe("result");
-    expect(choicesOf(result)).toEqual(result.kind === "result" ? result.suggestions : []);
-    expect(choicesOf(choices)).toEqual(choices.kind === "choices" ? choices.choices : []);
+    const adjective = { headword: "fast", word: "3917" };
+    const conjunction = { headword: "fast", word: "3918" };
+    expect(choicesOf(search("fastare"))).toEqual([
+      { displayWord: "fast", word: adjective, language: "sv", exact: true },
+    ]);
+    expect(choicesOf(search("хот"))).toEqual([
+      { displayWord: "хотя", word: conjunction, language: "ru", exact: false },
+    ]);
     expect(choicesOf(search("xyz"))).toEqual([]);
     expect(choicesOf(null)).toEqual([]);
   });

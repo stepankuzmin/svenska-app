@@ -25,6 +25,7 @@ export type WordCardContent = {
   phonetics: readonly string[];
   forms: readonly string[];
   senses: readonly DictionarySense[];
+  hasMeanings: boolean;
   examples: readonly BilingualText[];
   relatedWords: readonly RelatedWord[];
   // A word with nothing beyond its closed line has no extended state.
@@ -106,8 +107,7 @@ function relatedWordsOf({
   return [...related.values()].slice(0, relatedWordLimit);
 }
 
-// The library keeps a word the dictionary no longer carries until a lookup
-// resolves it, and shows no card for it meanwhile.
+// A library word this dictionary does not carry fills no card.
 export function wordCards({
   libraryWords,
   entries,
@@ -137,6 +137,7 @@ export function wordCards({
     const phonetics = uniqueNonEmpty(wordDetails.map(({ phonetic }) => phonetic));
     const examples = wordDetails.flatMap((item) => item.examples);
     const relatedWords = relatedWordsOf({ headword: cleanHeadword, details: wordDetails });
+    const hasMeanings = senses.some((sense) => sense.meaning.length > 0);
     return [{
       card: wordKey(libraryWord),
       headword: cleanHeadword,
@@ -145,11 +146,12 @@ export function wordCards({
       phonetics,
       forms,
       senses,
+      hasMeanings,
       examples,
       relatedWords,
       extendable: phonetics.length > 0 ||
         forms.length > 1 ||
-        senses.some((sense) => sense.meaning.length > 0) ||
+        hasMeanings ||
         examples.length > 0 ||
         relatedWords.length > 0,
     }];
@@ -167,16 +169,11 @@ export function suggestionRow({
 }): SuggestionRow {
   const cleanHeadword = cleanLexinText(word.headword);
   const match = entries === null ? null : findWord({ libraryWord: word, entries });
-  if (match === null) {
-    return { headword: cleanHeadword, partsOfSpeech: "", translation: "", forms: cleanHeadword };
-  }
-
-  const { senseIndexes } = match.found;
-  const senses = senseIndexes.map((senseIndex) => match.senses[senseIndex]);
-  const forms = formsOf({
+  const senses = match === null ? [] : match.found.senseIndexes.map((senseIndex) => match.senses[senseIndex]);
+  const forms = match === null ? [] : formsOf({
     headword: word.headword,
     senses: match.senses,
-    senseIndexes,
+    senseIndexes: match.found.senseIndexes,
     wordDetails: details?.[word.headword] ?? [],
   });
   return {

@@ -70,6 +70,21 @@ describe("word cards", () => {
     expect(whale.senses).toEqual([entries.val[0]]);
   });
 
+  it("keeps each word's details off the other words of its spelling", () => {
+    const [election] = wordCards({
+      libraryWords: [{ headword: "val", word: "18440" }],
+      entries,
+      details: detailEntries,
+    });
+
+    expect(election).toMatchObject({
+      forms: ["ett val", "valet", "val"],
+      examples: [],
+      relatedWords: [],
+      hasMeanings: false,
+    });
+  });
+
   it("gives a word with nothing beyond its closed line no extended state", () => {
     const [conjunction] = wordCards({
       libraryWords: [{ headword: "och", word: "300" }],
@@ -98,6 +113,68 @@ describe("word cards", () => {
     });
 
     expect(boiled.headword).toBe("hårdkokt");
+    // The library, the list and removal still name the word by Lexin's spelling.
+    expect(boiled.card).toBe("hård|kokt#200");
+  });
+});
+
+describe("an extended word card", () => {
+  const bare = { och: [sense("300", "konj.", "", "и")] };
+
+  function extendable(
+    wordDetails: ReturnType<typeof details> | null,
+    senses: DictionaryAsset["entries"] = bare,
+  ) {
+    const [card] = wordCards({
+      libraryWords: [{ headword: "och", word: "300" }],
+      entries: senses,
+      details: wordDetails === null ? null : { och: [wordDetails] },
+    });
+    return card.extendable;
+  }
+
+  it("has nothing to extend to for a bare word", () => {
+    expect(extendable(null)).toBe(false);
+    expect(extendable(details({ inflections: [] }))).toBe(false);
+  });
+
+  it.each([
+    ["a transcription", details({ phonetic: "åk:" })],
+    ["more than one form", details({ inflections: ["ochar"] })],
+    ["an example", details({ examples: [{ swedish: "du och jag", russian: "ты и я" }] })],
+    ["a compound", details({ compounds: [{ swedish: "och|så", russian: "также" }] })],
+  ])("opens for %s alone", (_reason, wordDetails) => {
+    expect(extendable(wordDetails)).toBe(true);
+  });
+
+  it("opens for a meaning alone", () => {
+    expect(extendable(null, { och: [sense("300", "konj.", "binder ihop ord", "и")] })).toBe(true);
+  });
+});
+
+describe("the compounds a card lists", () => {
+  function relatedWords(compounds: { swedish: string; russian: string }[]) {
+    const [card] = wordCards({
+      libraryWords: [{ headword: "och", word: "300" }],
+      entries,
+      details: { och: [details({ compounds })] },
+    });
+    return card.relatedWords;
+  }
+
+  it("lists at most eight", () => {
+    const compounds = Array.from({ length: 10 }, (_, index) => ({ swedish: `och${index}`, russian: `${index}` }));
+
+    expect(relatedWords(compounds).map(({ headword }) => headword)).toEqual(
+      compounds.slice(0, 8).map(({ swedish }) => swedish),
+    );
+  });
+
+  it("lists spellings that read alike once, with the translation Lexin gives last", () => {
+    expect(relatedWords([
+      { swedish: "Ock|så", russian: "также" },
+      { swedish: "också", russian: "тоже" },
+    ])).toEqual([{ headword: "också", translation: "тоже" }]);
   });
 });
 

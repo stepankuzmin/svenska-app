@@ -8,22 +8,20 @@ const lookupLibrarySchema = z.array(z.union([
   z.string().transform((headword) => ({ headword, word: "" })),
 ]));
 
-type LibraryStorage = Pick<Storage, "getItem" | "setItem">;
-
-// Reading `localStorage` itself throws where site data is blocked, so the
-// default resolves inside the guard.
-export function readLookupLibrary(storage?: LibraryStorage): readonly LibraryWord[] {
+// Reading `localStorage` itself throws where site data is blocked, so it is
+// only touched inside the guard.
+export function readLookupLibrary(): readonly LibraryWord[] {
   try {
-    const storedLibrary: unknown = JSON.parse((storage ?? localStorage).getItem(lookupLibraryStorageKey) ?? "[]");
+    const storedLibrary: unknown = JSON.parse(localStorage.getItem(lookupLibraryStorageKey) ?? "[]");
     return lookupLibrarySchema.safeParse(storedLibrary).data ?? [];
   } catch {
     return [];
   }
 }
 
-export function writeLookupLibrary(libraryWords: readonly LibraryWord[], storage?: LibraryStorage) {
+export function writeLookupLibrary(libraryWords: readonly LibraryWord[]) {
   try {
-    (storage ?? localStorage).setItem(lookupLibraryStorageKey, JSON.stringify(libraryWords));
+    localStorage.setItem(lookupLibraryStorageKey, JSON.stringify(libraryWords));
   } catch {
     // Lookups still work when browser storage is unavailable.
   }
