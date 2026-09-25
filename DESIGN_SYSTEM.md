@@ -37,5 +37,6 @@ Each weight has one role: 700 for the headword, 500 for the Russian translation,
 - The column is `38rem` wide, centred, with a `1rem` gutter plus safe-area insets. From `48rem` up, the top gutter is `3rem`.
 - A closed word card is one line: the headword, its word type in `--lookup-muted`, and the Russian at weight 500. Transcription, forms and meanings appear only when the card is open.
 - A word card has two left edges: the disclosure gutter and the text column. Everything in the card starts on the text column.
+- A line that closes a full-width region spans the card: the list dividers and the line under an open card's heading, whose hover fills the card. Dividers inside the details start on the text column.
 - Corners are `.65rem` on the field, the menu and the card list.
 - A suggestion menu that runs on ends halfway through a row, at most 6½ rows and half the dynamic viewport, and that half row fades into `--lookup-card` until the list is scrolled to its end. A menu that fits shows every row whole.

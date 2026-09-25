@@ -132,6 +132,24 @@ test("an extended card includes compounds associated with the Lexin entry", asyn
   await expect(page.getByRole("region", { name: "Words containing abborre" }).getByText("abborrpinne")).toBeVisible();
 });
 
+test("an extended card closes its heading across the card and keeps its details on the text column", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("fika");
+  await query.press("Enter");
+
+  const card = page.locator(".word-card[open]");
+  const heading = (await card.locator("summary").boundingBox())!;
+  const details = (await card.locator(".word-card-details").boundingBox())!;
+  const headword = (await card.locator("summary strong").boundingBox())!;
+  const transcription = (await card.getByText("[²fi:ka]", { exact: true }).boundingBox())!;
+
+  expect(details.x).toBeCloseTo(heading.x, 0);
+  expect(details.width).toBeCloseTo(heading.width, 0);
+  expect(transcription.x).toBeCloseTo(headword.x, 0);
+});
+
 test("an extended card leaves out words that only share its letters", async ({ page }) => {
   await page.goto(".");
 

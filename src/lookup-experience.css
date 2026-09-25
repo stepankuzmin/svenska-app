@@ -408,10 +408,11 @@ body {
   margin: 0 0 .6rem;
 }
 
+/* The heading's hover fills the card, so the line that closes it does too;
+   the dividers within the details keep to the text column. */
 .word-card-details {
   border-block-start: 1px solid var(--lookup-soft-line);
-  margin-inline-start: 1.85rem;
-  padding: .75rem .8rem .85rem 0;
+  padding: .75rem .8rem .85rem 1.85rem;
 }
 
 .word-card-details > * + section {
