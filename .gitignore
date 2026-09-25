@@ -7,3 +7,4 @@ src/generated/dictionary-asset.ts
 playwright-report/
 test-results/
 .wrangler/
+coverage/
