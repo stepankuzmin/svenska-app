@@ -85,10 +85,11 @@ compare(
 compare(
   ".size-limit.json",
   (source) => {
-    const entries: { name: string; limit: string }[] = source ? JSON.parse(source) : [];
+    const entries: { name: string; limit?: string }[] = source ? JSON.parse(source) : [];
+    // An entry without a limit is only reported, so it counts as unlimited.
     return new Map(
       entries.map(({ name, limit }) => {
-        const match = sizeLimit.exec(limit.trim());
+        const match = limit === undefined ? null : sizeLimit.exec(limit.trim());
         return [name, match ? Number(match[1]) * unitBytes[match[2]] : Number.POSITIVE_INFINITY];
       }),
     );

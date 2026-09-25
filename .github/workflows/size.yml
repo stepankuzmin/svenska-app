@@ -18,11 +18,27 @@ jobs:
         with:
           node-version: 26
           cache: npm
-      - name: Report compressed size changes
-        uses: preactjs/compressed-size-action@v3
+      - name: Build pull request
+        run: npm ci && npm run build
+      - name: Check out base
+        uses: actions/checkout@v7
         with:
-          install-script: npm ci
-          build-script: npm run build
-          compression: brotli
-          pattern: "./dist/**/*.{html,css,js,json,webmanifest}"
-          strip-hash: "[-.]([\\w-]{8}|[a-f0-9]{16})\\.[a-z]+$"
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+      - name: Build base
+        working-directory: base
+        run: npm ci && npm run build
+      - name: Measure sizes
+        run: npx tsx scripts/constraints/size-report.ts base > size.md
+      - name: Add report to job summary
+        if: ${{ !cancelled() }}
+        run: cat size.md >> "$GITHUB_STEP_SUMMARY"
+      # Fork and Dependabot pull requests get a read-only token; they have the job summary.
+      - name: Comment on pull request
+        if: >-
+          !cancelled() &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          github.event.pull_request.user.login != 'dependabot[bot]'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh pr comment ${{ github.event.pull_request.number }} --edit-last --create-if-none --body-file size.md
