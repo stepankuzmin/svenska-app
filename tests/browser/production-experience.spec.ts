@@ -298,7 +298,9 @@ test("a suggestion list that runs on ends halfway through a row", async ({ page 
   await query.fill("fik");
   await expect(page.getByRole("option")).toHaveCount(2);
   expect((await rowsShown()) % 1).toBeCloseTo(0, 1);
-  expect(await fade()).toBe(0);
+  // The scroll timeline can update a frame after the list shrinks, so the
+  // fade is polled like the one above.
+  await expect.poll(fade).toBe(0);
 });
 
 test("the clear button empties the search field", async ({ page }) => {
