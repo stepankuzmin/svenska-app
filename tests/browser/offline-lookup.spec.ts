@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const bokHeadword = /^bok$/;
+const bokHeadword = /^en bok$/;
 const connectOnce = /connect once/i;
 const didNotLoad = /did not load/i;
 

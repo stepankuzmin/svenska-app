@@ -157,7 +157,7 @@ test("an extended card leaves out words that only share its letters", async ({ p
   await query.fill("val");
   await query.press("Enter");
 
-  await expect(page.locator(".word-card[open] summary strong")).toHaveText("val");
+  await expect(page.locator(".word-card[open] summary strong")).toHaveText("en val");
   await expect(page.getByRole("region", { name: "Library" }).getByText("festival")).toHaveCount(0);
 });
 
@@ -454,14 +454,19 @@ test("a closed card shows only the word, its type and its Russian", async ({ pag
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("tack");
+  await query.press("Enter");
   await query.fill("fika");
   await query.press("Enter");
   await query.fill("framgår");
   await query.press("Enter");
-  await expect(page.locator(".word-card[open] summary strong")).toHaveText("framgår");
+  await expect(page.locator(".word-card[open] summary strong")).toHaveText("att framgå");
 
+  // A verb and a noun say their type by their prefix, and any other word in parentheses.
+  const tack = page.locator(".word-card-list > li").filter({ hasText: "tack" });
+  await expect(tack.locator(".word-card-heading")).toHaveText("tack (interjektion) спасибо");
   const fika = page.locator(".word-card-list > li").filter({ hasText: "fika" });
-  await expect(fika.locator("summary")).toHaveText("fika substantiv перерыв на кофе");
+  await expect(fika.locator("summary")).toHaveText("en fika перерыв на кофе");
   await expect(fika.getByText("[²fi:ka]", { exact: true })).toBeHidden();
   await expect(fika.getByText("en fika, fikan, fikor, fikorna", { exact: true })).toBeHidden();
 });

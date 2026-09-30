@@ -53,12 +53,12 @@ const WordCard = memo(function WordCard({
   onRemove: (card: string) => void;
 }) {
   const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
-  const { partsOfSpeech, phonetics, examples, translation, hasMeanings } = item;
+  const { wordType, phonetics, examples, translation, hasMeanings } = item;
   const copy = (
     <span className="word-card-heading">
-      <strong lang="sv">{item.headword}</strong>
-      {partsOfSpeech.length > 0 ? " " : null}
-      {partsOfSpeech.length > 0 ? <span className="word-card-type">{partsOfSpeech}</span> : null}
+      <strong lang="sv">{item.citation}</strong>
+      {wordType.length > 0 ? " " : null}
+      {wordType.length > 0 ? <span className="word-card-type">({wordType})</span> : null}
       {translation.length > 0 ? " " : null}
       {translation.length > 0 ? <span className="word-card-translation" lang="ru">{translation}</span> : null}
     </span>
@@ -78,7 +78,7 @@ const WordCard = memo(function WordCard({
           <button
             type="button"
             className="word-card-remove"
-            aria-label={`Remove ${item.forms[0] ?? item.headword} from the library`}
+            aria-label={`Remove ${item.citation} from the library`}
             onClick={swipe.remove}
           >
             Remove

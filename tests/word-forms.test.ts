@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { wordForms } from "../src/word-forms.ts";
+import { citationForm, wordForms } from "../src/word-forms.ts";
 
 function formsFor(headword: string, sense: { partOfSpeech: string; article?: string; inflections: string[] }) {
   return wordForms({ headword, senses: [{ article: "", ...sense }] });
@@ -18,6 +18,13 @@ describe("Swedish word forms", () => {
       partOfSpeech: "verb",
       inflections: ["angrep", "angripit", "angrip", "angripa"],
     })).toEqual(["att angripa", "angriper", "angrep", "har angripit"]);
+  });
+
+  it("carries the rest of a verb phrase through every form", () => {
+    expect(formsFor("aktar sig", {
+      partOfSpeech: "verb",
+      inflections: ["aktade", "aktat", "akta"],
+    })).toEqual(["att akta sig", "aktar sig", "aktade sig", "har aktat sig"]);
   });
 
   it("opens a noun with its article", () => {
@@ -82,5 +89,37 @@ describe("Swedish word forms", () => {
         { partOfSpeech: "subst.", article: "en", inflections: ["engelskan", "engelskor", "engelskorna"] },
       ],
     })).toEqual(["en engelska", "engelskan", "engelskor", "engelskorna"]);
+  });
+});
+
+describe("the citation form", () => {
+  it("names a verb by its infinitive and a noun by its article", () => {
+    expect(citationForm({
+      headword: "uppskattar",
+      senses: [{ partOfSpeech: "verb", article: "", inflections: ["uppskattade", "uppskattat", "uppskatta"] }],
+    })).toBe("att uppskatta");
+    expect(citationForm({
+      headword: "sång",
+      senses: [{ partOfSpeech: "subst.", article: "en", inflections: ["sången", "sånger", "sångerna"] }],
+    })).toBe("en sång");
+  });
+
+  it("takes the first sense a prefix can name", () => {
+    expect(citationForm({
+      headword: "går",
+      senses: [
+        { partOfSpeech: "subst.", article: "", inflections: [] },
+        { partOfSpeech: "verb", article: "", inflections: ["gick", "gått", "gå"] },
+      ],
+    })).toBe("att gå");
+  });
+
+  it("has none for a word no prefix names", () => {
+    expect(citationForm({ headword: "fast", senses: [{ partOfSpeech: "adj.", article: "", inflections: ["fast", "fasta"] }] }))
+      .toBeNull();
+    expect(citationForm({ headword: "må", senses: [{ partOfSpeech: "verb", article: "", inflections: ["måtte"] }] }))
+      .toBeNull();
+    expect(citationForm({ headword: "jeans", senses: [{ partOfSpeech: "subst.", article: "", inflections: ["jeansen"] }] }))
+      .toBeNull();
   });
 });

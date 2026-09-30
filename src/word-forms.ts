@@ -7,6 +7,10 @@ type WordSense = {
 // Lexin lists a verb as present tense with inflections ordered
 // preteritum, supinum, (imperativ,) infinitiv. A noun opens with the article
 // its gender calls for, so the forms read the way Swedish teaches them.
+function isInflectedVerb({ partOfSpeech, inflections }: { partOfSpeech: string; inflections: readonly string[] }) {
+  return partOfSpeech === "verb" && inflections.length >= 3;
+}
+
 function senseForms({
   headword,
   partOfSpeech,
@@ -18,7 +22,7 @@ function senseForms({
   article: string;
   inflections: readonly string[];
 }): string[] {
-  if (partOfSpeech !== "verb" || inflections.length < 3) {
+  if (!isInflectedVerb({ partOfSpeech, inflections })) {
     // Lexin writes the odd definite singular as the bare ending, which repeats
     // the article the headword already opens with.
     return [
@@ -27,9 +31,12 @@ function senseForms({
     ];
   }
 
+  // Lexin inflects only the verb of a phrase such as `aktar sig`, so the rest
+  // of the headword follows every form.
   const [preterite, supine] = inflections;
   const infinitive = inflections.at(-1);
-  return [`att ${infinitive}`, headword, preterite, `har ${supine}`];
+  const rest = headword.slice(headword.split(" ")[0].length);
+  return [`att ${infinitive}${rest}`, headword, `${preterite}${rest}`, `har ${supine}${rest}`];
 }
 
 // Every sense of one word inflects the same way, give or take the forms Lexin
@@ -56,4 +63,18 @@ export function wordForms({
     }
   }
   return forms;
+}
+
+// A verb is named by its infinitive and a noun by its article, and either
+// prefix says the word type a label would. A word Lexin inflects neither way
+// has no such name.
+export function citationForm({
+  headword,
+  senses,
+}: {
+  headword: string;
+  senses: readonly WordSense[];
+}): string | null {
+  const marked = senses.find((sense) => isInflectedVerb(sense) || sense.article.length > 0);
+  return marked === undefined ? null : senseForms({ headword, ...marked })[0];
 }

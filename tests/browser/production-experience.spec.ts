@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const firstSuggestion = /lookup-suggestions-0/;
 const secondSuggestion = /lookup-suggestions-1/;
 const anySuggestion = /lookup-suggestions/;
-const fikaHeadword = /^fika$/;
+const fikaHeadword = /^en fika$/;
 const fikapausOption = /^fikapaus /;
 const fikaOption = /^fika /;
 const angettAdjective = /^angett adjektiv/;
@@ -262,7 +262,7 @@ test("a Russian query offers the Swedish words its translations belong to", asyn
   await expect(page.getByRole("option", { name: dominantOption })).toBeInViewport();
 
   await page.getByRole("option", { name: husOption }).click();
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["hus"]);
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["ett hus"]);
 });
 
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {

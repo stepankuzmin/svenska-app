@@ -60,7 +60,8 @@ describe("word cards", () => {
 
     expect(whale).toMatchObject({
       headword: "val",
-      partsOfSpeech: "subst.",
+      citation: "en val",
+      wordType: "",
       phonetics: ["va:l"],
       forms: ["en val", "valen", "valar"],
       examples: [{ swedish: "en blå val", russian: "синий кит" }],
@@ -115,6 +116,36 @@ describe("word cards", () => {
     expect(boiled.headword).toBe("hårdkokt");
     // The library, the list and removal still name the word by Lexin's spelling.
     expect(boiled.card).toBe("hård|kokt#200");
+  });
+});
+
+describe("a closed word card", () => {
+  const closedEntries: DictionaryAsset["entries"] = {
+    uppskattar: [sense("400", "verb", "tycka om", "ценить")],
+    må: [sense("401", "verb", "", "чувствовать себя")],
+    jeans: [sense("402", "subst.", "", "джинсы")],
+  };
+  const closedDetails: DictionaryDetailsAsset["entries"] = {
+    uppskattar: [details({ inflections: ["uppskattade", "uppskattat", "uppskatta"] })],
+    må: [details({ inflections: ["måtte"] })],
+    jeans: [details({ inflections: ["jeansen"] })],
+  };
+
+  function closedLine(headword: string, word: string, source = closedEntries) {
+    const [card] = wordCards({ libraryWords: [{ headword, word }], entries: source, details: closedDetails });
+    return [card.citation, card.wordType];
+  }
+
+  it("names a verb by its infinitive and a noun by its article, with no word type", () => {
+    expect(closedLine("uppskattar", "400")).toEqual(["att uppskatta", ""]);
+    expect(wordCards({ libraryWords: [{ headword: "val", word: "18440" }], entries, details: detailEntries })
+      .map(({ citation, wordType }) => [citation, wordType])).toEqual([["ett val", ""]]);
+  });
+
+  it("labels a word no prefix names by its word type", () => {
+    expect(closedLine("hård|kokt", "200", entries)).toEqual(["hårdkokt", "adj."]);
+    expect(closedLine("må", "401")).toEqual(["må", "verb"]);
+    expect(closedLine("jeans", "402")).toEqual(["jeans", "subst."]);
   });
 });
 
