@@ -120,8 +120,6 @@ function indexEntries({
   }));
 }
 
-// Two display words can normalise to the same form, so their headwords merge
-// into one bucket rather than the later one replacing the earlier.
 // A verb is named by its infinitive, `att vänja`, so a Swedish query that
 // begins with the infinitive marker also looks the rest up among verbs.
 const infinitiveMarker = /^att\s+(?=\S)/u;
@@ -130,6 +128,38 @@ function isVerb({ headword, word }: LibraryWord, entries: DictionaryAsset["entri
   return entries[headword].some((sense) => sense.word === word && sense.partOfSpeech === "verb");
 }
 
+// Lexin mostly indexes only the verb of a phrase such as `aktar sig`, so each
+// form it indexes alone also stands for that phrase with the rest of its
+// headword: `akta sig`, `aktade sig`.
+function verbPhraseEntries({
+  entries,
+  dictionaryEntries,
+}: {
+  entries: readonly IndexEntry[];
+  dictionaryEntries: DictionaryAsset["entries"];
+}): IndexEntry[] {
+  const phraseEntries: IndexEntry[] = [];
+  for (const { displayWord, words } of entries) {
+    for (const word of words) {
+      const headword = cleanLexinText(word.headword);
+      const rest = headword.slice(headword.indexOf(" "));
+      if (!headword.includes(" ") || displayWord.endsWith(rest) || !isVerb(word, dictionaryEntries)) {
+        continue;
+      }
+
+      const phrase = `${displayWord}${rest}`;
+      phraseEntries.push({
+        displayWord: phrase,
+        normalizedDisplayWord: normalizeSwedishLookupText(phrase),
+        words: [word],
+      });
+    }
+  }
+  return phraseEntries;
+}
+
+// Two display words can normalise to the same form, so their headwords merge
+// into one bucket rather than the later one replacing the earlier.
 function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
   const byForm = new Map<string, string[]>();
   for (const { normalizedDisplayWord, words } of entries) {
@@ -146,11 +176,15 @@ function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> 
 
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const byKey = wordsByIndexKey(dictionary.entries);
-  const swedishIndexEntries = indexEntries({
+  const indexedSwedishEntries = indexEntries({
     index: dictionary.swedishIndex,
     byKey,
     normalize: normalizeSwedishLookupText,
   });
+  const swedishIndexEntries = [
+    ...indexedSwedishEntries,
+    ...verbPhraseEntries({ entries: indexedSwedishEntries, dictionaryEntries: dictionary.entries }),
+  ];
   const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
   const russianIndexEntries = indexEntries({
     index: dictionary.russianIndex,
