@@ -189,6 +189,16 @@ describe("dictionary lookup", () => {
     });
   });
 
+  it("looks up a query with the infinitive marker among verbs", () => {
+    const outcome = search("att ange");
+
+    expect(outcome.kind).toBe("result");
+    expect(outcome.kind === "result" && outcome.headword).toBe("anger");
+    expect(choicesOf(outcome).map(({ word }) => word)).toEqual([{ headword: "anger", word: "113" }]);
+    expect(choicesOf(search("att bo")).map(({ word }) => word)).toEqual([{ headword: "bok", word: "101" }]);
+    expect(search("att hus")).toEqual({ kind: "no-match" });
+  });
+
   it("returns no match in either lookup direction", () => {
     expect(search("|")).toEqual({ kind: "no-match" });
     expect(search("constructor")).toEqual({ kind: "no-match" });
