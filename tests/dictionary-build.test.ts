@@ -69,6 +69,7 @@ describe("Lexin source edition import", () => {
 
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
+      "беречься": ["17"],
       "бронировать": ["14"],
       "дом": ["2", "3"],
       "жопа": ["6"],
@@ -115,6 +116,16 @@ describe("Lexin source edition import", () => {
       sannast: ["5"],
       taxina: ["8"],
     });
+  });
+
+  it("indexes the infinitive of a verb phrase with the rest of its headword", () => {
+    expect(assets.dictionary.swedishIndex).toMatchObject({
+      "akta": ["17"],
+      "akta sig": ["17"],
+      "aktade sig": ["17"],
+    });
+    expect(assets.dictionary.swedishIndex).not.toHaveProperty("aktat sig");
+    expect(search("att akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
   });
 
   it("leaves out forms the pattern would otherwise invent", () => {

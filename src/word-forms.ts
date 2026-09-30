@@ -19,7 +19,7 @@ function firstWord(phrase: string): string {
 // infinitive and the forms of an alternative verb, in no fixed order: `vet`
 // ends `veta, vet`, `ger` ends `ge, giv, giva`. The infinitive is the form the
 // present tense adds an r to, or else the a-form whose stem it adds er to.
-function infinitiveOf({ present, inflections }: { present: string; inflections: readonly string[] }): string {
+export function infinitiveOf({ present, inflections }: { present: string; inflections: readonly string[] }): string {
   const candidates = inflections.slice(2);
   return candidates.find((form) => `${firstWord(form)}r` === present) ??
     candidates.find((form) => firstWord(form).endsWith("a") && `${firstWord(form).slice(0, -1)}er` === present) ??

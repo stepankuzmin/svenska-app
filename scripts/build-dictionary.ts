@@ -6,6 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
+import { infinitiveOf } from "../src/word-forms.ts";
 import { wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
@@ -242,6 +243,27 @@ function sharedWordNumbers(entries: DictionaryAsset["entries"]): Set<string> {
   return shared;
 }
 
+// Lexin mostly indexes only the verb of a phrase such as `aktar sig`, so its
+// infinitive is indexed with the rest of the headword as well: `akta sig`.
+function verbPhraseInfinitives({
+  headword,
+  partOfSpeech,
+  inflectionTexts,
+}: {
+  headword: string;
+  partOfSpeech: string;
+  inflectionTexts: readonly string[];
+}): string[] {
+  const restStart = headword.indexOf(" ");
+  if (partOfSpeech !== "verb" || restStart === -1 || inflectionTexts.length < 3) {
+    return [];
+  }
+
+  const rest = headword.slice(restStart);
+  const infinitive = infinitiveOf({ present: headword.slice(0, restStart), inflections: inflectionTexts });
+  return infinitive.endsWith(rest) ? [] : [`${infinitive}${rest}`];
+}
+
 // An index names the sense a form or translation came from until the build
 // knows which word that sense belongs to.
 type IndexedSense = { headword: string; senseIndex: number };
@@ -388,6 +410,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     for (const form of [
       headword,
       ...inflectionTexts,
+      ...verbPhraseInfinitives({ headword, partOfSpeech, inflectionTexts }),
       ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
       addToIndex({ index: swedishIndex, form, sense });

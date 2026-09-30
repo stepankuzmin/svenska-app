@@ -120,78 +120,24 @@ function indexEntries({
   }));
 }
 
-// A verb is named by its infinitive, `att vänja`, so a Swedish query that
-// begins with the infinitive marker also looks the rest up among verbs.
-const infinitiveMarker = /^att\s+(?=\S)/u;
+const infinitiveQuery = /^att\s+(\S.*)$/u;
 
 function isVerb({ headword, word }: LibraryWord, entries: DictionaryAsset["entries"]): boolean {
   return entries[headword].some((sense) => sense.word === word && sense.partOfSpeech === "verb");
 }
 
-// Lexin mostly indexes only the verb of a phrase such as `aktar sig`, so each
-// form it indexes alone also stands for that phrase with the rest of its
-// headword: `akta sig`, `aktade sig`.
-function verbPhraseEntries({
-  entries,
-  dictionaryEntries,
-}: {
-  entries: readonly IndexEntry[];
-  dictionaryEntries: DictionaryAsset["entries"];
-}): IndexEntry[] {
-  const phraseEntries: IndexEntry[] = [];
-  for (const { displayWord, words } of entries) {
-    for (const word of words) {
-      const headword = cleanLexinText(word.headword);
-      const rest = headword.slice(headword.indexOf(" "));
-      if (!headword.includes(" ") || displayWord.endsWith(rest) || !isVerb(word, dictionaryEntries)) {
-        continue;
-      }
-
-      const phrase = `${displayWord}${rest}`;
-      phraseEntries.push({
-        displayWord: phrase,
-        normalizedDisplayWord: normalizeSwedishLookupText(phrase),
-        words: [word],
-      });
-    }
-  }
-  return phraseEntries;
-}
-
-// Two display words can normalise to the same form, so their headwords merge
-// into one bucket rather than the later one replacing the earlier.
-function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
-  const byForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, words } of entries) {
-    const bucket = byForm.get(normalizedDisplayWord) ?? [];
-    for (const { headword } of words) {
-      if (!bucket.includes(headword)) {
-        bucket.push(headword);
-      }
-    }
-    byForm.set(normalizedDisplayWord, bucket);
-  }
-  return byForm;
-}
-
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const byKey = wordsByIndexKey(dictionary.entries);
-  const indexedSwedishEntries = indexEntries({
+  const swedishIndexEntries = indexEntries({
     index: dictionary.swedishIndex,
     byKey,
     normalize: normalizeSwedishLookupText,
   });
-  const swedishIndexEntries = [
-    ...indexedSwedishEntries,
-    ...verbPhraseEntries({ entries: indexedSwedishEntries, dictionaryEntries: dictionary.entries }),
-  ];
-  const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
   const russianIndexEntries = indexEntries({
     index: dictionary.russianIndex,
     byKey,
     normalize: normalizeLookupText,
   });
-  const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
@@ -221,28 +167,21 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
     }
 
-    const verbQuery = infinitiveMarker.test(normalizedSwedishQuery)
-      ? normalizedSwedishQuery.replace(infinitiveMarker, "")
-      : null;
-    const swedishQueries = [
-      { query: normalizedSwedishQuery, verbsOnly: false },
-      ...(verbQuery === null ? [] : [{ query: verbQuery, verbsOnly: true }]),
-    ];
+    const verbQuery = normalizedSwedishQuery.match(infinitiveQuery)?.[1];
+    const swedishQuery = verbQuery ?? normalizedSwedishQuery;
     for (const { normalizedDisplayWord, words } of swedishIndexEntries) {
-      for (const { query: swedishQuery, verbsOnly } of swedishQueries) {
-        if (swedishQuery.length === 0 || !normalizedDisplayWord.includes(swedishQuery)) {
-          continue;
-        }
+      if (swedishQuery.length === 0 || !normalizedDisplayWord.includes(swedishQuery)) {
+        continue;
+      }
 
-        const rank = normalizedDisplayWord === swedishQuery
-          ? 0
-          : normalizedDisplayWord.startsWith(swedishQuery)
-            ? 1
-            : 2;
-        for (const word of words) {
-          if (!verbsOnly || isVerb(word, dictionary.entries)) {
-            offer({ displayWord: cleanLexinText(word.headword), word, language: "sv" }, rank);
-          }
+      const rank = normalizedDisplayWord === swedishQuery
+        ? 0
+        : normalizedDisplayWord.startsWith(swedishQuery)
+          ? 1
+          : 2;
+      for (const word of words) {
+        if (verbQuery === undefined || isVerb(word, dictionary.entries)) {
+          offer({ displayWord: cleanLexinText(word.headword), word, language: "sv" }, rank);
         }
       }
     }
@@ -263,12 +202,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     });
     const choices = sortedChoices.map(({ choice }) => choice);
 
-    const verbHeadwords = verbQuery === null
-      ? []
-      : (swedishHeadwordsByForm.get(verbQuery) ?? []).filter((headword) =>
-          dictionary.entries[headword].some((sense) => sense.partOfSpeech === "verb"));
-    const swedishHeadwords = swedishHeadwordsByForm.get(normalizedSwedishQuery) ?? verbHeadwords;
-    const russianHeadwords = russianHeadwordsByForm.get(normalizedQuery) ?? [];
+    const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
+      .filter((choice) => choice.exact && choice.language === language)
+      .map(({ word }) => word.headword))];
+    const swedishHeadwords = exactHeadwords("sv");
+    const russianHeadwords = exactHeadwords("ru");
     const resultHeadword = swedishHeadwords.length === 1
       ? swedishHeadwords[0]
       : russianHeadwords.length === 1 && choices.length === 1

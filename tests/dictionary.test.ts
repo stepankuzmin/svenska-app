@@ -38,7 +38,10 @@ const dictionary = {
     angett: [sense("115", "adj.", "uppgiven", "указанный")],
     arrangemang: [sense("116", "subst.", "evenemang", "мероприятие")],
     "abort|rådgivning": [sense("117", "subst.", "rådgivning om abort", "консультация по аборту")],
-    "aktar sig": [sense("135", "verb", "vara på sin vakt", "беречься")],
+    basar: [
+      sense("136", "subst.", "marknad", "базар"),
+      sense("137", "verb", "sola sig", "греться"),
+    ],
     fast: [
       { word: "3917", partOfSpeech: "adj.", meaning: "hård, massiv", translation: "твёрдый" },
       { word: "3917", partOfSpeech: "adj.", meaning: "som har stabilt läge", translation: "крепкий" },
@@ -46,9 +49,8 @@ const dictionary = {
     ],
   },
   swedishIndex: {
-    akta: ["135"],
-    aktade: ["135"],
-    "aktar sig": ["135"],
+    basar: ["136", "137"],
+    basaren: ["136"],
     ange: ["113"],
     anger: ["113"],
     angett: ["113", "115"],
@@ -201,15 +203,7 @@ describe("dictionary lookup", () => {
     expect(choicesOf(outcome).map(({ word }) => word)).toEqual([{ headword: "anger", word: "113" }]);
     expect(choicesOf(search("att bo")).map(({ word }) => word)).toEqual([{ headword: "bok", word: "101" }]);
     expect(search("att hus")).toEqual({ kind: "no-match" });
-  });
-
-  it("looks up every form of a verb phrase with the rest of its headword", () => {
-    expect(search("akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
-    expect(search("att akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
-    expect(choicesOf(search("aktade s")).map(({ word }) => word)).toEqual([
-      { headword: "aktar sig", word: "135" },
-    ]);
-    expect(search("akta hus")).toEqual({ kind: "no-match" });
+    expect(search("att basaren")).toEqual({ kind: "no-match" });
   });
 
   it("returns no match in either lookup direction", () => {

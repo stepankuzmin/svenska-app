@@ -122,4 +122,13 @@
     <BaseLang><Meaning>om berättarteknik</Meaning></BaseLang>
     <TargetLang><Translation>крутой</Translation></TargetLang>
   </Word>
+  <Word ID="17" MatchingID="117" Type="verb" Value="aktar sig">
+    <BaseLang>
+      <Meaning>vara på sin vakt</Meaning>
+      <Inflection>aktade sig</Inflection>
+      <Inflection>aktat</Inflection>
+      <Inflection>akta</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>беречься</Translation></TargetLang>
+  </Word>
 </Dictionary>
