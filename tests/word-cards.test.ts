@@ -142,6 +142,18 @@ describe("a closed word card", () => {
       .map(({ citation, wordType }) => [citation, wordType])).toEqual([["ett val", ""]]);
   });
 
+  it("labels the word types its prefix leaves out", () => {
+    const mixed: DictionaryAsset["entries"] = {
+      jämte: [sense("500", "subst.", "", "житель Емтланда"), sense("500", "prep.", "", "наряду с")],
+    };
+    const [card] = wordCards({
+      libraryWords: [{ headword: "jämte", word: "500" }],
+      entries: mixed,
+      details: { jämte: [details({ article: "en", inflections: ["jämten", "jämtar"] }), details()] },
+    });
+    expect([card.citation, card.wordType]).toEqual(["en jämte", "prep."]);
+  });
+
   it("labels a word no prefix names by its word type", () => {
     expect(closedLine("hård|kokt", "200", entries)).toEqual(["hårdkokt", "adj."]);
     expect(closedLine("må", "401")).toEqual(["må", "verb"]);

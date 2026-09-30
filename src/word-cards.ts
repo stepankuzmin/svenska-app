@@ -21,7 +21,7 @@ export type WordCardContent = {
   card: string;
   headword: string;
   // The closed line names a verb by its infinitive and a noun by its article,
-  // and labels only a word neither prefix names.
+  // and labels only the word types neither prefix names.
   citation: string;
   wordType: string;
   translation: string;
@@ -151,7 +151,11 @@ export function wordCards({
     const formSenses = formSensesOf({ senses: match.senses, senseIndexes, wordDetails: allDetails });
     const forms = wordForms({ headword: cleanHeadword, senses: formSenses });
     const citation = citationForm({ headword: cleanHeadword, senses: formSenses });
-    const partsOfSpeech = joinUnique(senses.map((sense) => sense.partOfSpeech));
+    // A card can join word types under one Lexin number, `en jämte` the noun
+    // and the preposition, so the label keeps every type the prefix leaves out.
+    const wordType = joinUnique(senses
+      .map((sense) => sense.partOfSpeech)
+      .filter((partOfSpeech) => partOfSpeech !== citation?.partOfSpeech));
     const phonetics = uniqueNonEmpty(wordDetails.map(({ phonetic }) => phonetic));
     const examples = wordDetails.flatMap((item) => item.examples);
     const relatedWords = relatedWordsOf({ headword: cleanHeadword, details: wordDetails });
@@ -159,8 +163,8 @@ export function wordCards({
     return [{
       card: wordKey(libraryWord),
       headword: cleanHeadword,
-      citation: citation ?? cleanHeadword,
-      wordType: citation === null ? partsOfSpeech : "",
+      citation: citation?.form ?? cleanHeadword,
+      wordType,
       translation: joinUnique(senses.map((sense) => sense.translation)),
       phonetics,
       forms,

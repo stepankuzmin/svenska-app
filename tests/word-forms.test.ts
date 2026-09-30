@@ -27,6 +27,24 @@ describe("Swedish word forms", () => {
     })).toEqual(["att akta sig", "aktar sig", "aktade sig", "har aktat sig"]);
   });
 
+  it("keeps a particle Lexin already inflects with the verb", () => {
+    expect(formsFor("laddar ned", {
+      partOfSpeech: "verb",
+      inflections: ["laddade ned", "laddat ned", "ladda ned", "hämtade", "hämtat", "hämta"],
+    })).toEqual(["att ladda ned", "laddar ned", "laddade ned", "har laddat ned"]);
+  });
+
+  it.each([
+    ["vet", ["visste", "vetat", "veta", "vet"], "att veta"],
+    ["sparar", ["sparade", "sparde", "sparat", "spart", "spara", "spar"], "att spara"],
+    ["ger", ["gav", "gett", "givit", "ge", "giv", "giva"], "att ge"],
+    ["binder", ["band", "bundit", "bind", "binda"], "att binda"],
+    ["anför", ["anförde", "anfört", "anför", "anföra"], "att anföra"],
+    ["andas", ["andades", "andats", "andas"], "att andas"],
+  ])("finds the infinitive of %s wherever Lexin lists it", (headword, inflections, infinitive) => {
+    expect(formsFor(headword, { partOfSpeech: "verb", inflections })[0]).toBe(infinitive);
+  });
+
   it("opens a noun with its article", () => {
     expect(formsFor("intryck", {
       partOfSpeech: "subst.",
@@ -97,11 +115,11 @@ describe("the citation form", () => {
     expect(citationForm({
       headword: "uppskattar",
       senses: [{ partOfSpeech: "verb", article: "", inflections: ["uppskattade", "uppskattat", "uppskatta"] }],
-    })).toBe("att uppskatta");
+    })).toEqual({ form: "att uppskatta", partOfSpeech: "verb" });
     expect(citationForm({
       headword: "sång",
       senses: [{ partOfSpeech: "subst.", article: "en", inflections: ["sången", "sånger", "sångerna"] }],
-    })).toBe("en sång");
+    })).toEqual({ form: "en sång", partOfSpeech: "subst." });
   });
 
   it("takes the first sense a prefix can name", () => {
@@ -111,7 +129,7 @@ describe("the citation form", () => {
         { partOfSpeech: "subst.", article: "", inflections: [] },
         { partOfSpeech: "verb", article: "", inflections: ["gick", "gått", "gå"] },
       ],
-    })).toBe("att gå");
+    })).toEqual({ form: "att gå", partOfSpeech: "verb" });
   });
 
   it("has none for a word no prefix names", () => {

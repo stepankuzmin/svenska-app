@@ -31,7 +31,7 @@ All matching senses for one Swedish headword, shown whether the search began in 
 _Avoid_: Russian-Swedish entry, individual sense result
 
 **Word card**:
-The compact, left-aligned presentation of one word. Its closed state is one line: the word's citation form and its Russian translations. The citation form names a verb by its infinitive, `att uppskatta`, and a noun by its article, `en sång`, and either prefix says the word type. Any other word, and a verb or noun Lexin inflects too little to name that way, keeps its headword followed by its word type in parentheses: `stor (adj.)`, `åtminstone (adv.)`.
+The compact, left-aligned presentation of one word. Its closed state is one line: the word's citation form and its Russian translations. The citation form names a verb by its infinitive, `att uppskatta`, and a noun by its article, `en sång`, and either prefix says the word type. Any other word, and a verb or noun Lexin inflects too little to name that way, keeps its headword followed by its word type in parentheses: `stor (adj.)`, `åtminstone (adv.)`. A word Lexin gives a noun sense and a preposition sense keeps the type its prefix leaves out: `en jämte (prep.)`.
 
 One spelling can hold more than one word, and each fills a card of its own, carrying the meanings, examples and compounds that belong to it:
 

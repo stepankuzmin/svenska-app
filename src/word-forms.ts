@@ -4,11 +4,27 @@ type WordSense = {
   inflections: readonly string[];
 };
 
-// Lexin lists a verb as present tense with inflections ordered
-// preteritum, supinum, (imperativ,) infinitiv. A noun opens with the article
-// its gender calls for, so the forms read the way Swedish teaches them.
+// Lexin lists a verb as present tense with inflections opening preteritum,
+// supinum. A noun opens with the article its gender calls for, so the forms
+// read the way Swedish teaches them.
 function isInflectedVerb({ partOfSpeech, inflections }: { partOfSpeech: string; inflections: readonly string[] }) {
   return partOfSpeech === "verb" && inflections.length >= 3;
+}
+
+function firstWord(phrase: string): string {
+  return phrase.split(" ")[0];
+}
+
+// After the supine Lexin can list an imperative, an infinitive, an older
+// infinitive and the forms of an alternative verb, in no fixed order: `vet`
+// ends `veta, vet`, `ger` ends `ge, giv, giva`. The infinitive is the form the
+// present tense adds an r to, or else the a-form whose stem it adds er to.
+function infinitiveOf({ present, inflections }: { present: string; inflections: readonly string[] }): string {
+  const candidates = inflections.slice(2);
+  return candidates.find((form) => `${firstWord(form)}r` === present) ??
+    candidates.find((form) => firstWord(form).endsWith("a") && `${firstWord(form).slice(0, -1)}er` === present) ??
+    candidates.find((form) => firstWord(form).endsWith("a")) ??
+    inflections.at(-1) ?? present;
 }
 
 function senseForms({
@@ -31,12 +47,14 @@ function senseForms({
     ];
   }
 
-  // Lexin inflects only the verb of a phrase such as `aktar sig`, so the rest
-  // of the headword follows every form.
+  // Lexin mostly inflects only the verb of a phrase such as `aktar sig`, so
+  // the rest of the headword follows every form that does not carry it yet.
   const [preterite, supine] = inflections;
-  const infinitive = inflections.at(-1);
-  const rest = headword.slice(headword.split(" ")[0].length);
-  return [`att ${infinitive}${rest}`, headword, `${preterite}${rest}`, `har ${supine}${rest}`];
+  const present = firstWord(headword);
+  const rest = headword.slice(present.length);
+  const withRest = (form: string) => (form.endsWith(rest) ? form : `${form}${rest}`);
+  const infinitive = infinitiveOf({ present, inflections });
+  return [`att ${withRest(infinitive)}`, headword, withRest(preterite), `har ${withRest(supine)}`];
 }
 
 // Every sense of one word inflects the same way, give or take the forms Lexin
@@ -66,15 +84,17 @@ export function wordForms({
 }
 
 // A verb is named by its infinitive and a noun by its article, and either
-// prefix says the word type a label would. A word Lexin inflects neither way
-// has no such name.
+// prefix says the word type of the sense it names. A word Lexin inflects
+// neither way has no such name.
 export function citationForm({
   headword,
   senses,
 }: {
   headword: string;
   senses: readonly WordSense[];
-}): string | null {
+}): { form: string; partOfSpeech: string } | null {
   const marked = senses.find((sense) => isInflectedVerb(sense) || sense.article.length > 0);
-  return marked === undefined ? null : senseForms({ headword, ...marked })[0];
+  return marked === undefined
+    ? null
+    : { form: senseForms({ headword, ...marked })[0], partOfSpeech: marked.partOfSpeech };
 }
