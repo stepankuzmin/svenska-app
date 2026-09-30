@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { wordForms } from "../src/word-forms.ts";
+import { citationForm, wordForms } from "../src/word-forms.ts";
 
 function formsFor(headword: string, sense: { partOfSpeech: string; article?: string; inflections: string[] }) {
   return wordForms({ headword, senses: [{ article: "", ...sense }] });
@@ -18,6 +18,31 @@ describe("Swedish word forms", () => {
       partOfSpeech: "verb",
       inflections: ["angrep", "angripit", "angrip", "angripa"],
     })).toEqual(["att angripa", "angriper", "angrep", "har angripit"]);
+  });
+
+  it("carries the rest of a verb phrase through every form", () => {
+    expect(formsFor("aktar sig", {
+      partOfSpeech: "verb",
+      inflections: ["aktade", "aktat", "akta"],
+    })).toEqual(["att akta sig", "aktar sig", "aktade sig", "har aktat sig"]);
+  });
+
+  it("keeps a particle Lexin already inflects with the verb", () => {
+    expect(formsFor("laddar ned", {
+      partOfSpeech: "verb",
+      inflections: ["laddade ned", "laddat ned", "ladda ned", "hämtade", "hämtat", "hämta"],
+    })).toEqual(["att ladda ned", "laddar ned", "laddade ned", "har laddat ned"]);
+  });
+
+  it.each([
+    ["vet", ["visste", "vetat", "veta", "vet"], "att veta"],
+    ["sparar", ["sparade", "sparde", "sparat", "spart", "spara", "spar"], "att spara"],
+    ["ger", ["gav", "gett", "givit", "ge", "giv", "giva"], "att ge"],
+    ["binder", ["band", "bundit", "bind", "binda"], "att binda"],
+    ["anför", ["anförde", "anfört", "anför", "anföra"], "att anföra"],
+    ["andas", ["andades", "andats", "andas"], "att andas"],
+  ])("finds the infinitive of %s wherever Lexin lists it", (headword, inflections, infinitive) => {
+    expect(formsFor(headword, { partOfSpeech: "verb", inflections })[0]).toBe(infinitive);
   });
 
   it("opens a noun with its article", () => {
@@ -82,5 +107,37 @@ describe("Swedish word forms", () => {
         { partOfSpeech: "subst.", article: "en", inflections: ["engelskan", "engelskor", "engelskorna"] },
       ],
     })).toEqual(["en engelska", "engelskan", "engelskor", "engelskorna"]);
+  });
+});
+
+describe("the citation form", () => {
+  it("names a verb by its infinitive and a noun by its article", () => {
+    expect(citationForm({
+      headword: "uppskattar",
+      senses: [{ partOfSpeech: "verb", article: "", inflections: ["uppskattade", "uppskattat", "uppskatta"] }],
+    })).toEqual({ form: "att uppskatta", partOfSpeech: "verb" });
+    expect(citationForm({
+      headword: "sång",
+      senses: [{ partOfSpeech: "subst.", article: "en", inflections: ["sången", "sånger", "sångerna"] }],
+    })).toEqual({ form: "en sång", partOfSpeech: "subst." });
+  });
+
+  it("takes the first sense a prefix can name", () => {
+    expect(citationForm({
+      headword: "går",
+      senses: [
+        { partOfSpeech: "subst.", article: "", inflections: [] },
+        { partOfSpeech: "verb", article: "", inflections: ["gick", "gått", "gå"] },
+      ],
+    })).toEqual({ form: "att gå", partOfSpeech: "verb" });
+  });
+
+  it("has none for a word no prefix names", () => {
+    expect(citationForm({ headword: "fast", senses: [{ partOfSpeech: "adj.", article: "", inflections: ["fast", "fasta"] }] }))
+      .toBeNull();
+    expect(citationForm({ headword: "må", senses: [{ partOfSpeech: "verb", article: "", inflections: ["måtte"] }] }))
+      .toBeNull();
+    expect(citationForm({ headword: "jeans", senses: [{ partOfSpeech: "subst.", article: "", inflections: ["jeansen"] }] }))
+      .toBeNull();
   });
 });

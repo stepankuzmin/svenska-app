@@ -1,6 +1,6 @@
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { cleanLexinText, normalizeLookupText } from "./normalize-lookup-text";
-import { wordForms } from "./word-forms";
+import { citationForm, wordForms } from "./word-forms";
 import { wordKey, wordsOf, type HeadwordWord, type LibraryWord } from "./words";
 
 type DictionaryEntries = DictionaryAsset["entries"];
@@ -20,7 +20,10 @@ export type RelatedWord = {
 export type WordCardContent = {
   card: string;
   headword: string;
-  partsOfSpeech: string;
+  // The closed line names a verb by its infinitive and a noun by its article,
+  // and labels only the word types neither prefix names.
+  citation: string;
+  wordType: string;
   translation: string;
   phonetics: readonly string[];
   forms: readonly string[];
@@ -65,6 +68,22 @@ function findWord({
   return senses === undefined || found === undefined ? null : { senses, found };
 }
 
+function formSensesOf({
+  senses,
+  senseIndexes,
+  wordDetails,
+}: {
+  senses: readonly DictionarySense[];
+  senseIndexes: readonly number[];
+  wordDetails: readonly WordDetails[];
+}) {
+  return senseIndexes.map((senseIndex) => ({
+    partOfSpeech: senses[senseIndex].partOfSpeech,
+    article: wordDetails[senseIndex]?.article ?? "",
+    inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
+  }));
+}
+
 function formsOf({
   headword,
   senses,
@@ -78,11 +97,7 @@ function formsOf({
 }): readonly string[] {
   return wordForms({
     headword: cleanLexinText(headword),
-    senses: senseIndexes.map((senseIndex) => ({
-      partOfSpeech: senses[senseIndex].partOfSpeech,
-      article: wordDetails[senseIndex]?.article ?? "",
-      inflections: (wordDetails[senseIndex]?.inflections ?? []).map(cleanLexinText),
-    })),
+    senses: formSensesOf({ senses, senseIndexes, wordDetails }),
   });
 }
 
@@ -133,7 +148,14 @@ export function wordCards({
     const senses = senseIndexes.map((senseIndex) => match.senses[senseIndex]);
     const wordDetails = senseIndexes.flatMap((senseIndex) => allDetails[senseIndex] ?? []);
     const cleanHeadword = cleanLexinText(headword);
-    const forms = formsOf({ headword, senses: match.senses, senseIndexes, wordDetails: allDetails });
+    const formSenses = formSensesOf({ senses: match.senses, senseIndexes, wordDetails: allDetails });
+    const forms = wordForms({ headword: cleanHeadword, senses: formSenses });
+    const citation = citationForm({ headword: cleanHeadword, senses: formSenses });
+    // A card can join word types under one Lexin number, `en jämte` the noun
+    // and the preposition, so the label keeps every type the prefix leaves out.
+    const wordType = joinUnique(senses
+      .map((sense) => sense.partOfSpeech)
+      .filter((partOfSpeech) => partOfSpeech !== citation?.partOfSpeech));
     const phonetics = uniqueNonEmpty(wordDetails.map(({ phonetic }) => phonetic));
     const examples = wordDetails.flatMap((item) => item.examples);
     const relatedWords = relatedWordsOf({ headword: cleanHeadword, details: wordDetails });
@@ -141,7 +163,8 @@ export function wordCards({
     return [{
       card: wordKey(libraryWord),
       headword: cleanHeadword,
-      partsOfSpeech: joinUnique(senses.map((sense) => sense.partOfSpeech)),
+      citation: citation?.form ?? cleanHeadword,
+      wordType,
       translation: joinUnique(senses.map((sense) => sense.translation)),
       phonetics,
       forms,

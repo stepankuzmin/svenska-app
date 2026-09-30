@@ -31,20 +31,20 @@ All matching senses for one Swedish headword, shown whether the search began in 
 _Avoid_: Russian-Swedish entry, individual sense result
 
 **Word card**:
-The compact, left-aligned presentation of one word. Its closed state is one line: the headword, its word type, and its Russian translations.
+The compact, left-aligned presentation of one word. Its closed state is one line: the word's citation form and its Russian translations. The citation form names a verb by its infinitive, `att uppskatta`, and a noun by its article, `en sång`, and either prefix says the word type. Any other word, and a verb or noun Lexin inflects too little to name that way, keeps its headword followed by its word type in parentheses: `stor (adj.)`, `åtminstone (adv.)`. A word Lexin gives a noun sense and a preposition sense keeps the type its prefix leaves out: `en jämte (prep.)`.
 
 One spelling can hold more than one word, and each fills a card of its own, carrying the meanings, examples and compounds that belong to it:
 
 ```
-val   subst.   кит
-val   subst.   выбор · выборы
+en val    кит
+ett val   выбор · выборы
 ```
 
 Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card.
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
-The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first, and keeps a form its paradigm spells twice: an adjective reads `fast, fast, fasta`, its neuter spelled like its headword. A card carries the one paradigm its word inflects by.
+The inflected forms shown on a word card. A verb reads in citation order: `att framgå, framgår, framgick, har framgått`, and a verb phrase carries the rest of its headword through every form: `att akta sig, aktar sig, aktade sig, har aktat sig`. A noun opens with the article its gender calls for: `ett intryck, intrycket, intryck, intrycken`. The gender comes from the definite singular Lexin spells out, so a word Lexin lists only in the plural keeps its bare headword. A noun Lexin leaves at the definite singular and the plural reads with the definite plural its pattern implies: `en val, valen, valar, valarna`. Every other word type keeps the Lexin order, headword first, and keeps a form its paradigm spells twice: an adjective reads `fast, fast, fasta`, its neuter spelled like its headword. A card carries the one paradigm its word inflects by.
 _Avoid_: Inflection list, paradigm
 
 **Extended word card**:

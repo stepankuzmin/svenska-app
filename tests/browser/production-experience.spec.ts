@@ -3,7 +3,7 @@ import { expect, test, type Page } from "@playwright/test";
 const firstSuggestion = /lookup-suggestions-0/;
 const secondSuggestion = /lookup-suggestions-1/;
 const anySuggestion = /lookup-suggestions/;
-const fikaHeadword = /^fika$/;
+const fikaHeadword = /^en fika$/;
 const fikapausOption = /^fikapaus /;
 const fikaOption = /^fika /;
 const angettAdjective = /^angett adjektiv/;
@@ -118,7 +118,8 @@ test("a selection empties the field and keeps Lexin segment markers out of the c
 
   await expect(query).toHaveValue("");
   await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Library" }).getByText("abortrådgivning", { exact: true })).toBeVisible();
+  // The card settles on the article once the word details load.
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["en abortrådgivning"]);
 });
 
 test("submitting the field empties it the way a selection does", async ({ page }) => {
@@ -130,7 +131,7 @@ test("submitting the field empties it the way a selection does", async ({ page }
 
   await expect(query).toHaveValue("");
   await expect(page.getByRole("listbox")).toHaveCount(0);
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["fika"]);
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["en fika"]);
 });
 
 test("a query the dictionary cannot place says so", async ({ page }) => {
@@ -262,7 +263,7 @@ test("a Russian query offers the Swedish words its translations belong to", asyn
   await expect(page.getByRole("option", { name: dominantOption })).toBeInViewport();
 
   await page.getByRole("option", { name: husOption }).click();
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["hus"]);
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["ett hus"]);
 });
 
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
