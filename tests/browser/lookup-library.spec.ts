@@ -54,6 +54,7 @@ const dictionary = {
     "кит": ["18439"],
     "выбор": ["18440"],
   },
+  wordAliases: {},
 };
 
 const details = {

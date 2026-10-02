@@ -10,6 +10,7 @@ const dictionary = {
   },
   swedishIndex: { fika: ["101"], fikapaus: ["102"] },
   russianIndex: { "перерыв на кофе": ["101", "102"] },
+  wordAliases: {},
 };
 
 test("a tap opens a suggested word without the field grabbing focus first", async ({ page }) => {

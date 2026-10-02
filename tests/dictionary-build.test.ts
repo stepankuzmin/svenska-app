@@ -70,11 +70,14 @@ describe("Lexin source edition import", () => {
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
       "бронировать": ["14"],
+      "должен": ["17"],
+      "долженствовать": ["17"],
       "дом": ["2", "3"],
       "жопа": ["6"],
       "книга": ["1"],
       "младенец": ["7"],
       "правдивый": ["5"],
+      "прочь": ["20"],
       "джинсы": ["13"],
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
@@ -102,6 +105,31 @@ describe("Lexin source edition import", () => {
   it("indexes a spelling against each word it holds and a form against the word it inflects", () => {
     expect(assets.dictionary.swedishIndex.bok).toEqual(["1", "14"]);
     expect(assets.dictionary.swedishIndex.boken).toEqual(["1"]);
+  });
+
+  it("keeps one word for the numbers Lexin gives a spelling it inflects one way", () => {
+    expect(assets.dictionary.entries["bör"].map(({ word }) => word)).toEqual(["17", "17"]);
+    // A library that kept the joined number finds the word it joined.
+    expect(assets.dictionary.wordAliases).toEqual({ "bör#18": "17" });
+    // The book and the verb inflect differently, so they stay two words.
+    expect(assets.dictionary.entries.bok.map(({ word }) => word)).toEqual(["1", "14"]);
+  });
+
+  it("offers the word a query spells as its headword before one it spells as a form", () => {
+    const outcome = search("Bort");
+    expect(outcome.kind).toBe("choices");
+    expect(outcome.kind === "choices" ? outcome.choices : []).toEqual([
+      { displayWord: "bort", word: { headword: "bort", word: "20" }, language: "sv", exact: true },
+      { displayWord: "bör", word: { headword: "bör", word: "17" }, language: "sv", exact: true },
+    ]);
+  });
+
+  it("offers a word before a spelling Lexin holds only as a cross reference to it", () => {
+    const outcome = search("borde");
+    expect(outcome.kind === "choices" ? outcome.choices.map(({ word }) => word) : []).toEqual([
+      { headword: "bör", word: "17" },
+      { headword: "borde", word: "21" },
+    ]);
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {
@@ -155,9 +183,14 @@ describe("Lexin source edition import", () => {
       entries: { bok: [{}] },
       swedishIndex: { bok: ["bok"] },
       russianIndex: { "книга": ["bok"] },
+      wordAliases: { "bok#2": "1" },
     })).toBe(true);
-    expect(hasDictionaryAssetShape({ metadata, entries: { bok: {} }, swedishIndex: {}, russianIndex: {} })).toBe(false);
-    expect(hasDictionaryAssetShape({ metadata: {}, entries: {}, swedishIndex: {}, russianIndex: {} })).toBe(false);
+    const indexes = { swedishIndex: {}, russianIndex: {}, wordAliases: {} };
+    expect(hasDictionaryAssetShape({ metadata, entries: { bok: {} }, ...indexes })).toBe(false);
+    expect(hasDictionaryAssetShape({ metadata: {}, entries: {}, ...indexes })).toBe(false);
+    // Resolving the library reads the aliases, so an asset without them fails here.
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, swedishIndex: {}, russianIndex: {} })).toBe(false);
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, ...indexes, wordAliases: null })).toBe(false);
   });
 
   it("requires a details asset to carry a source edition and array entries", () => {

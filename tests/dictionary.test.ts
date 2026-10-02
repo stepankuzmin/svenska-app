@@ -77,6 +77,7 @@ const dictionary = {
     "недоносить": ["113"],
     "хотя": ["3918"],
   },
+  wordAliases: {},
 } satisfies DictionaryAsset;
 
 describe("dictionary lookup", () => {

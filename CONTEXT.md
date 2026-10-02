@@ -23,7 +23,7 @@ The device-local collection of words opened by the user. Opening a word adds it 
 _Avoid_: Saved words, favourites
 
 **Word**:
-One of the words a spelling holds, and what the lookup library keeps. Lexin numbers every word — `val 18439` the whale, `val 18440` the election — and repeats that number on every sense of a word, so a library entry survives a dictionary release that rearranges the senses. The number is the word's stable identity: the lookup indexes name words by it, and the library keeps a word by its spelling and number, since Lexin now and then gives one number to two words it spells alike but for a segment marker — `hård|kokt` of an egg, `hårdkokt` of a novel — and there the indexes name the spelling as well. A cross reference, carrying no meaning, translation or forms of its own, joins the first word of its spelling rather than standing as a word nobody can read. A library entry the dictionary no longer knows as a word opens every word its spelling holds.
+One of the words a spelling holds, and what the lookup library keeps. Lexin numbers every word — `val 18439` the whale, `val 18440` the election — and repeats that number on every sense of a word, so a library entry survives a dictionary release that rearranges the senses. The number is the word's stable identity: the lookup indexes name words by it, and the library keeps a word by its spelling and number, since Lexin now and then gives one number to two words it spells alike but for a segment marker — `hård|kokt` of an egg, `hårdkokt` of a novel — and there the indexes name the spelling as well. A cross reference, carrying no meaning, translation or forms of its own, joins the first word of its spelling rather than standing as a word nobody can read. A library entry kept under a number that has since joined another word of its spelling opens that word, and one the dictionary no longer knows as a word at all opens every word its spelling holds.
 _Avoid_: Sense, entry, paradigm
 
 **Lookup result**:
@@ -40,7 +40,7 @@ en val    кит
 ett val   выбор · выборы
 ```
 
-Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card.
+Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card — and one suggestion — even where Lexin numbers its meanings apart: `bör` the duty and `bör` the expectation are one word.
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
@@ -68,7 +68,7 @@ _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It shows every word with an indexed Swedish form containing the query, once, under its headword: a word is one meaning of one word type, so `fast` the adjective stands for `fasta` too and appears once beside `fast` the conjunction. A word ranks by its best matching form: exact matches come first, followed by prefix matches and then other substring matches. A query the dictionary cannot place opens a panel reading `No matches` where the suggestion list would stand.
+The lookup area responds to every non-blank change in the search field. It shows every word with an indexed Swedish form containing the query, once, under its headword: a word is one meaning of one word type, so `fast` the adjective stands for `fasta` too and appears once beside `fast` the conjunction. A word ranks by its best matching form: a query that spells the headword itself comes first, then a query that spells another of its forms — `bort` offers the adverb `bort` before `bör`, whose supine it is — followed by prefix matches and then other substring matches. A query the dictionary cannot place opens a panel reading `No matches` where the suggestion list would stand.
 
 A Russian query shows every Swedish word with a translation containing the entered text, in the same rows a Swedish query does. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens that Swedish word.
 

@@ -72,7 +72,7 @@ function LookupApp() {
         entries: asset.entries,
       });
       setLibraryWords((currentWords) => {
-        const resolvedWords = resolveLibraryWords({ libraryWords: currentWords, entries: asset.entries });
+        const resolvedWords = resolveLibraryWords({ libraryWords: currentWords, dictionary: asset });
         if (resolvedWords !== currentWords) {
           writeLookupLibrary(resolvedWords);
         }

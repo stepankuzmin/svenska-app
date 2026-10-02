@@ -122,4 +122,45 @@
     <BaseLang><Meaning>om berättarteknik</Meaning></BaseLang>
     <TargetLang><Translation>крутой</Translation></TargetLang>
   </Word>
+  <Word ID="17" MatchingID="117" Type="verb" Value="bör">
+    <BaseLang>
+      <Phonetic>bö:r</Phonetic>
+      <Inflection>borde</Inflection>
+      <Inflection>bort</Inflection>
+      <Inflection>böra</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>долженствовать</Translation></TargetLang>
+  </Word>
+  <Word ID="18" MatchingID="118" Type="verb" Value="bör">
+    <BaseLang>
+      <Meaning>kunna förväntas</Meaning>
+      <Phonetic>bö:r</Phonetic>
+      <Inflection>borde</Inflection>
+      <Inflection>bort</Inflection>
+      <Inflection>böra</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>должен</Translation></TargetLang>
+  </Word>
+  <Word ID="19" Type="se" Value="bort">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="bör (1,2)" />
+      <Phonetic>bo:r+t</Phonetic>
+    </BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="20" MatchingID="120" Type="adv." Value="bort">
+    <BaseLang>
+      <Meaning>iväg, undan, härifrån</Meaning>
+      <Phonetic>bår+t:</Phonetic>
+    </BaseLang>
+    <TargetLang><Translation>прочь</Translation></TargetLang>
+  </Word>
+  <Word ID="21" Type="se" Value="borde">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="bör" />
+    </BaseLang>
+    <TargetLang />
+  </Word>
 </Dictionary>
