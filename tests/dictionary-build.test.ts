@@ -72,6 +72,9 @@ describe("Lexin source edition import", () => {
       "бронировать": ["14"],
       "должен": ["17"],
       "долженствовать": ["17"],
+      "ездить": ["25"],
+      "научная работа (статья)": ["22"],
+      "отец": ["24"],
       "дом": ["2", "3"],
       "жопа": ["6"],
       "книга": ["1"],
@@ -130,6 +133,27 @@ describe("Lexin source edition import", () => {
       { headword: "bör", word: "17" },
       { headword: "borde", word: "21" },
     ]);
+  });
+
+  it("reads a word Lexin gives no translation in its synonym or else its explanation", () => {
+    expect(assets.dictionary.entries.uppsats[0].translation).toBe("научная работа (статья)");
+    expect(assets.dictionary.entries.ABF[0].translation)
+      .toBe("учебный союз, организующий различные курсы обучения");
+    // An explanation describes a word rather than translating it, so a Russian
+    // query does not lead to it.
+    expect(Object.keys(assets.dictionary.russianIndex)).not.toContain(
+      "учебный союз, организующий различные курсы обучения",
+    );
+  });
+
+  it("reads a cross reference in the translations of the words it points at", () => {
+    expect(assets.dictionary.entries.borde[0].translation).toBe("долженствовать · должен");
+    // `far subst.` narrows the pointer to the noun, and a list points at each word.
+    expect(assets.dictionary.entries.fader[0].translation).toBe("отец");
+    expect(assets.dictionary.entries.intar[0].translation).toBe("дом · АО");
+    // The adverb `bort` keeps its own translation beside the pointer it joined.
+    expect(assets.dictionary.entries.bort.map(({ translation }) => translation))
+      .toEqual(["долженствовать · должен", "прочь"]);
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {

@@ -6,7 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
-import { wordKey } from "../src/words.ts";
+import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
 
@@ -57,6 +57,103 @@ function childText(
 
   return "";
 }
+
+function childTexts(
+  value: string | Record<string, unknown> | undefined,
+  child: "Explanation" | "Reference" | "Synonym",
+): unknown[] {
+  if (typeof value !== "object" || value === null || !(child in value)) {
+    return [];
+  }
+
+  return Array.isArray(value[child]) ? value[child] : [value[child]];
+}
+
+// Lexin gives most words a translation, some only a synonym — `uppsats`,
+// `научная работа (статья)` — and an abbreviation or a name now and then only
+// an explanation in quotes. A word reads in the first of them Lexin gives, and
+// only a translation or a synonym names it in the Russian index, since an
+// explanation describes the word rather than translating it.
+function russianText(target: string | Record<string, unknown> | undefined): {
+  translation: string;
+  indexed: boolean;
+} {
+  const translation = childText(target, "Translation");
+  const synonyms = childTexts(target, "Synonym").map(text).filter((item) => item.length > 0);
+  if (translation.length > 0 || synonyms.length > 0) {
+    return { translation: translation.length > 0 ? translation : synonyms.join(", "), indexed: true };
+  }
+
+  const explanations = childTexts(target, "Explanation")
+    .map((explanation) => text(explanation).replace(/^"(.*)"$/s, "$1"))
+    .filter((item) => item.length > 0);
+  return { translation: explanations.join(", "), indexed: false };
+}
+
+// A cross reference names the words it points at, `säger upp` or several at
+// once, `intar, tar in`, and now and then narrows one by its Lexin number,
+// `bör (1,2)` and `den 2`, or by its word type, `den pron.`.
+function referencedWords({
+  base,
+  wordTypes,
+}: {
+  base: string | Record<string, unknown> | undefined;
+  wordTypes: ReadonlySet<string>;
+}): { spelling: string; partOfSpeech: string }[] {
+  return childTexts(base, "Reference").flatMap((reference) => {
+    if (typeof reference !== "object" || reference === null || !("@_TYPE" in reference) ||
+      reference["@_TYPE"] !== "see" || !("@_VALUE" in reference)) {
+      return [];
+    }
+
+    return text(reference["@_VALUE"]).split(", ").map((value) => {
+      const target = value.replace(/\s*\([^)]*\)$/, "").replace(/\s+\d+$/, "").trim();
+      const typeStart = target.lastIndexOf(" ");
+      const partOfSpeech = target.slice(typeStart + 1);
+      return typeStart > 0 && wordTypes.has(partOfSpeech)
+        ? { spelling: target.slice(0, typeStart), partOfSpeech }
+        : { spelling: target, partOfSpeech: "" };
+    });
+  });
+}
+
+// A cross reference carries no translation of its own, so it reads in the
+// translations of the words it points at. It stays out of the Russian index:
+// a Russian query offers the word itself rather than every pointer to it.
+function borrowTranslations({
+  entries,
+  crossReferences,
+}: {
+  entries: DictionaryAsset["entries"];
+  crossReferences: readonly CrossReference[];
+}): void {
+  const headwordsBySpelling = new Map<string, string[]>();
+  for (const headword of Object.keys(entries)) {
+    const spelling = normalizeSwedishLookupText(headword);
+    headwordsBySpelling.set(spelling, [...(headwordsBySpelling.get(spelling) ?? []), headword]);
+  }
+
+  for (const { headword, senseIndex, targets } of crossReferences) {
+    const sense = entries[headword][senseIndex];
+    if (sense.translation.length > 0) {
+      continue;
+    }
+
+    const translations = targets.flatMap(({ spelling, partOfSpeech }) =>
+      (headwordsBySpelling.get(normalizeSwedishLookupText(spelling)) ?? []).flatMap((target) =>
+        entries[target].filter((targetSense) =>
+          targetSense.partOfSpeech !== crossReferenceType &&
+          (partOfSpeech.length === 0 || targetSense.partOfSpeech === partOfSpeech))
+          .map((targetSense) => targetSense.translation)));
+    sense.translation = [...new Set(translations.filter((item) => item.length > 0))].join(" · ");
+  }
+}
+
+type CrossReference = {
+  headword: string;
+  senseIndex: number;
+  targets: { spelling: string; partOfSpeech: string }[];
+};
 
 function inflectionGroups(value: string | Record<string, unknown> | undefined): string[][] {
   if (typeof value !== "object" || value === null || !("Inflection" in value)) {
@@ -377,7 +474,9 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   const swedishIndex = new Map<string, IndexedSense[]>();
   const russianIndex = new Map<string, IndexedSense[]>();
   const wordAliases: DictionaryAsset["wordAliases"] = {};
+  const crossReferences: CrossReference[] = [];
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
+  const wordTypes = new Set(words.map((word) => word["@_Type"]?.trim() ?? ""));
 
   for (const word of words) {
     const headword = word["@_Value"]?.trim();
@@ -395,7 +494,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     const senses = entries[headword] ?? [];
     const sense = { headword, senseIndex: senses.length };
     const wordDetails = detailEntries[headword] ?? [];
-    const translation = childText(word.TargetLang, "Translation");
+    const { translation, indexed } = russianText(word.TargetLang);
+    if (partOfSpeech === crossReferenceType) {
+      crossReferences.push({
+        ...sense,
+        targets: referencedWords({ base: word.BaseLang, wordTypes }),
+      });
+    }
     senses.push({
       word: text(word["@_ID"]),
       partOfSpeech,
@@ -420,7 +525,9 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       addToIndex({ index: swedishIndex, form, sense });
     }
 
-    addToIndex({ index: russianIndex, form: translation, sense });
+    if (indexed) {
+      addToIndex({ index: russianIndex, form: translation, sense });
+    }
   }
 
   for (const [headword, senses] of Object.entries(entries)) {
@@ -432,6 +539,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       wordAliases[wordKey({ headword, word })] = known;
     }
   }
+  borrowTranslations({ entries, crossReferences });
   const shared = sharedWordNumbers(entries);
 
   return {

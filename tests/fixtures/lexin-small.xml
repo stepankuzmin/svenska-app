@@ -163,4 +163,44 @@
     </BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="22" MatchingID="122" Type="subst." Value="uppsats">
+    <BaseLang>
+      <Meaning>vetenskaplig artikel</Meaning>
+      <Inflection>uppsatsen</Inflection>
+      <Inflection>uppsatser</Inflection>
+    </BaseLang>
+    <TargetLang>
+      <Synonym>научная работа (статья)</Synonym>
+      <Comment>"также школьное сочинение"</Comment>
+    </TargetLang>
+  </Word>
+  <Word ID="23" MatchingID="123" Type="förk." Value="ABF">
+    <BaseLang><Meaning>Arbetarnas bildningsförbund</Meaning></BaseLang>
+    <TargetLang>
+      <Explanation>"учебный союз, организующий различные курсы обучения"</Explanation>
+    </TargetLang>
+  </Word>
+  <Word ID="24" MatchingID="124" Type="subst." Value="far">
+    <BaseLang><Inflection>fadern</Inflection><Inflection>fäder</Inflection></BaseLang>
+    <TargetLang><Translation>отец</Translation></TargetLang>
+  </Word>
+  <Word ID="25" MatchingID="125" Type="verb" Value="far">
+    <BaseLang><Inflection>for</Inflection><Inflection>farit</Inflection><Inflection>fara</Inflection></BaseLang>
+    <TargetLang><Translation>ездить</Translation></TargetLang>
+  </Word>
+  <Word ID="26" Type="se" Value="fader">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="far subst." />
+    </BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="27" Type="se" Value="intar">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="hus, AB" />
+      <Reference TYPE="animation" VALUE="intar.swf" />
+    </BaseLang>
+    <TargetLang />
+  </Word>
 </Dictionary>
