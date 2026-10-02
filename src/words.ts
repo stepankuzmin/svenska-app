@@ -49,19 +49,21 @@ function uniqueWords(libraryWords: readonly LibraryWord[]): LibraryWord[] {
 
 // A library entry can name a spelling rather than one of its words, either
 // because an earlier release stored it that way or because a later dictionary
-// numbers that spelling differently. The dictionary settles it: a name it no
-// longer knows as a word opens every word the spelling holds.
+// numbers that spelling differently. The dictionary settles it: a number that
+// joined another word opens that word, and a name the dictionary no longer
+// knows as a word opens every word the spelling holds.
 export function resolveLibraryWords({
   libraryWords,
-  entries,
+  dictionary: { entries, wordAliases },
 }: {
   libraryWords: readonly LibraryWord[];
-  entries: DictionaryAsset["entries"];
+  dictionary: Pick<DictionaryAsset, "entries" | "wordAliases">;
 }): readonly LibraryWord[] {
   const resolvedWords = uniqueWords(libraryWords.flatMap((libraryWord) => {
     const senses = entries[libraryWord.headword];
-    if (senses === undefined || senses.some((sense) => sense.word === libraryWord.word)) {
-      return [libraryWord];
+    const word = wordAliases[wordKey(libraryWord)] ?? libraryWord.word;
+    if (senses === undefined || senses.some((sense) => sense.word === word)) {
+      return [word === libraryWord.word ? libraryWord : { ...libraryWord, word }];
     }
 
     return wordsOf({ headword: libraryWord.headword, senses })

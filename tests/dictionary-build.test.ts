@@ -109,6 +109,8 @@ describe("Lexin source edition import", () => {
 
   it("keeps one word for the numbers Lexin gives a spelling it inflects one way", () => {
     expect(assets.dictionary.entries["bör"].map(({ word }) => word)).toEqual(["17", "17"]);
+    // A library that kept the joined number finds the word it joined.
+    expect(assets.dictionary.wordAliases).toEqual({ "bör#18": "17" });
     // The book and the verb inflect differently, so they stay two words.
     expect(assets.dictionary.entries.bok.map(({ word }) => word)).toEqual(["1", "14"]);
   });

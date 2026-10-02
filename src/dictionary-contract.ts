@@ -1,18 +1,21 @@
 import { z } from "zod";
 
-const senseSchema = z.object({
+// Only the build and the release check parse a whole asset, so the schemas
+// below are marked pure and stay out of the application bundle, which reads
+// the metadata schema alone.
+const senseSchema = /* @__PURE__ */ z.object({
   word: z.string(),
   partOfSpeech: z.string(),
   meaning: z.string(),
   translation: z.string(),
 });
 
-const bilingualTextSchema = z.object({
+const bilingualTextSchema = /* @__PURE__ */ z.object({
   swedish: z.string(),
   russian: z.string(),
 });
 
-const wordDetailsSchema = z.object({
+const wordDetailsSchema = /* @__PURE__ */ z.object({
   phonetic: z.string(),
   article: z.string(),
   inflections: z.array(z.string()),
@@ -26,7 +29,7 @@ export const dictionaryMetadataSchema = z.object({
   license: z.literal("CC BY 4.0"),
 });
 
-export const dictionaryAssetSchema = z.object({
+export const dictionaryAssetSchema = /* @__PURE__ */ z.object({
   metadata: dictionaryMetadataSchema,
   entries: z.record(z.string(), z.array(senseSchema)),
   // Both indexes lead from a form or translation to the Lexin numbers of the
@@ -34,9 +37,12 @@ export const dictionaryAssetSchema = z.object({
   // two spellings.
   swedishIndex: z.record(z.string(), z.array(z.string()).min(1)),
   russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
+  // A Lexin number that joined an earlier word of its spelling, written
+  // `headword#number`, leads to the number of the word it joined.
+  wordAliases: z.record(z.string(), z.string()),
 });
 
-export const dictionaryDetailsAssetSchema = z.object({
+export const dictionaryDetailsAssetSchema = /* @__PURE__ */ z.object({
   sourceEditionDate: z.string(),
   entries: z.record(z.string(), z.array(wordDetailsSchema)),
 });

@@ -35,7 +35,7 @@ describe("a stored lookup library", () => {
   it("opens every word of a spelling stored before the app kept words", () => {
     expect(resolveLibraryWords({
       libraryWords: [{ headword: "val", word: "" }, { headword: "intryck", word: "" }],
-      entries,
+      dictionary: { entries, wordAliases: {} },
     })).toEqual([
       { headword: "val", word: "18439" },
       { headword: "val", word: "18440" },
@@ -46,17 +46,29 @@ describe("a stored lookup library", () => {
   it("leaves a library the dictionary resolves as it stands untouched", () => {
     const libraryWords = [{ headword: "val", word: "18440" }, { headword: "intryck", word: "" }];
 
-    expect(resolveLibraryWords({ libraryWords, entries })).toBe(libraryWords);
+    expect(resolveLibraryWords({ libraryWords, dictionary: { entries, wordAliases: {} } })).toBe(libraryWords);
   });
 
   it("opens a word this dictionary no longer numbers as every word of its spelling", () => {
     expect(resolveLibraryWords({
       libraryWords: [{ headword: "val", word: "77" }],
-      entries,
+      dictionary: { entries, wordAliases: {} },
     })).toEqual([
       { headword: "val", word: "18439" },
       { headword: "val", word: "18440" },
     ]);
+  });
+
+  it("opens the word a number joined rather than every word of its spelling", () => {
+    // Lexin numbers the skua 8849 apart from the paw 8848, which inflects the
+    // same way, while 8847 the laboratory stays a word of its own.
+    const labb: DictionaryAsset["entries"] = {
+      labb: [sense("8847", "лаборатория"), sense("8848", "лапа"), sense("8848", "поморник")],
+    };
+    expect(resolveLibraryWords({
+      libraryWords: [{ headword: "labb", word: "8849" }],
+      dictionary: { entries: labb, wordAliases: { "labb#8849": "8848" } },
+    })).toEqual([{ headword: "labb", word: "8848" }]);
   });
 
   it("keeps a spelling this dictionary does not carry, and opens no word twice", () => {
@@ -66,7 +78,7 @@ describe("a stored lookup library", () => {
         { headword: "val", word: "18439" },
         { headword: "val", word: "" },
       ],
-      entries,
+      dictionary: { entries, wordAliases: {} },
     })).toEqual([
       { headword: "saknas", word: "" },
       { headword: "val", word: "18439" },

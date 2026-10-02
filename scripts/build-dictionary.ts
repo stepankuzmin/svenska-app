@@ -209,14 +209,15 @@ function nounArticle({
 // Lexin now and then numbers the meanings of one word apart: `bör` the duty
 // and `bör` the expectation inflect `böra, borde, bort` alike. A spelling
 // Lexin inflects one way keeps one word, so a number whose paradigm — word
-// type, article and forms — repeats an earlier number's joins that word.
+// type, article and forms — repeats an earlier number's joins that word, and
+// `joined` names the number it joined so a library that kept it finds it.
 function wordsOfEntry({
   senses,
   details,
 }: {
   senses: readonly { word: string; partOfSpeech: string; meaning: string; translation: string }[];
   details: readonly { article: string; inflections: readonly string[] }[];
-}): string[] {
+}): { words: string[]; joined: [string, string][] } {
   const hasContent = (index: number) =>
     senses[index].meaning.length > 0 ||
     senses[index].translation.length > 0 ||
@@ -243,7 +244,10 @@ function wordsOfEntry({
     return [word, known];
   }));
 
-  return senses.map((sense) => joinedWords.get(sense.word) ?? firstWord);
+  return {
+    words: senses.map((sense) => joinedWords.get(sense.word) ?? firstWord),
+    joined: [...joinedWords].filter(([word, known]) => word !== known),
+  };
 }
 
 // Lexin gives a number to one word, bar the odd pair it spells with and
@@ -372,6 +376,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   const detailEntries: DictionaryDetailsAsset["entries"] = {};
   const swedishIndex = new Map<string, IndexedSense[]>();
   const russianIndex = new Map<string, IndexedSense[]>();
+  const wordAliases: DictionaryAsset["wordAliases"] = {};
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
 
   for (const word of words) {
@@ -419,10 +424,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   }
 
   for (const [headword, senses] of Object.entries(entries)) {
-    const words = wordsOfEntry({ senses, details: detailEntries[headword] ?? [] });
+    const { words, joined } = wordsOfEntry({ senses, details: detailEntries[headword] ?? [] });
     senses.forEach((sense, index) => {
       sense.word = words[index];
     });
+    for (const [word, known] of joined) {
+      wordAliases[wordKey({ headword, word })] = known;
+    }
   }
   const shared = sharedWordNumbers(entries);
 
@@ -436,6 +444,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       entries,
       swedishIndex: wordIndex({ index: swedishIndex, entries, shared }),
       russianIndex: wordIndex({ index: russianIndex, entries, shared }),
+      wordAliases,
     },
     details: {
       sourceEditionDate: sourceDictionary["@_Version"],

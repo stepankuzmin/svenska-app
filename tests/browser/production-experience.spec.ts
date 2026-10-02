@@ -69,6 +69,7 @@ const dictionary = {
     "жилой дом": ["114"],
     ...Object.fromEntries(manyRussianHeadwords.map((headword) => [`яц-${headword}`, [manyRussianWord(headword)]])),
   },
+  wordAliases: {},
 };
 
 async function openReadyApp(page: Page) {
