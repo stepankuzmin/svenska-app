@@ -69,6 +69,10 @@ function childTexts(
   return Array.isArray(value[child]) ? value[child] : [value[child]];
 }
 
+const quotedText = /^"(.*)"$/s;
+const referencedNumbers = /\s*\([^)]*\)$/;
+const referencedNumber = /\s+\d+$/;
+
 // Lexin gives most words a translation, some only a synonym — `uppsats`,
 // `научная работа (статья)` — and an abbreviation or a name now and then only
 // an explanation in quotes. A word reads in the first of them Lexin gives, and
@@ -85,7 +89,7 @@ function russianText(target: string | Record<string, unknown> | undefined): {
   }
 
   const explanations = childTexts(target, "Explanation")
-    .map((explanation) => text(explanation).replace(/^"(.*)"$/s, "$1"))
+    .map((explanation) => text(explanation).replace(quotedText, "$1"))
     .filter((item) => item.length > 0);
   return { translation: explanations.join(", "), indexed: false };
 }
@@ -107,7 +111,7 @@ function referencedWords({
     }
 
     return text(reference["@_VALUE"]).split(", ").map((value) => {
-      const target = value.replace(/\s*\([^)]*\)$/, "").replace(/\s+\d+$/, "").trim();
+      const target = value.replace(referencedNumbers, "").replace(referencedNumber, "").trim();
       const typeStart = target.lastIndexOf(" ");
       const partOfSpeech = target.slice(typeStart + 1);
       return typeStart > 0 && wordTypes.has(partOfSpeech)
