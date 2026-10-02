@@ -71,13 +71,17 @@ describe("Lexin source edition import", () => {
     expect(assets.dictionary.russianIndex).toEqual({
       "бронировать": ["14"],
       "должен": ["17"],
+      "да": ["36"],
       "долженствовать": ["17"],
       "ездить": ["25"],
       "научная работа (статья)": ["22"],
+      "нести": ["29"],
+      "омбудсмен": ["35"],
       "отец": ["24"],
       "дом": ["2", "3"],
       "жопа": ["6"],
       "книга": ["1"],
+      "кооператив": ["33"],
       "младенец": ["7"],
       "правдивый": ["5"],
       "прочь": ["20"],
@@ -86,8 +90,10 @@ describe("Lexin source edition import", () => {
       "совместимый": ["9"],
       "сообщать": ["4"],
       "такси": ["8"],
+      "техосмотр": ["32"],
       "хуже": ["12"],
       "экшн": ["11"],
+      "ягода": ["28"],
       "АО": ["15"],
       "вкрутую": ["hård|kokt#16"],
       "крутой": ["hårdkokt#16"],
@@ -154,6 +160,18 @@ describe("Lexin source edition import", () => {
     // The adverb `bort` keeps its own translation beside the pointer it joined.
     expect(assets.dictionary.entries.bort.map(({ translation }) => translation))
       .toEqual(["долженствовать · должен", "прочь"]);
+  });
+
+  it("follows a cross reference to the variant, the spelling and the pointer it names", () => {
+    // `bär 2` names the verb alone.
+    expect(assets.dictionary.entries.bar[0].translation).toBe("нести");
+    // A pointer to a pointer reads in what that one reads in, and a pair that
+    // point at each other settles rather than looping.
+    expect(assets.dictionary.entries["bil|besiktning"][0].translation).toBe("техосмотр");
+    // Lexin quotes the odd target twice over.
+    expect(assets.dictionary.entries["riksförbund"][0].translation).toBe("кооператив");
+    // `JO` is spelled exactly so, which the interjection `jo` is not.
+    expect(assets.dictionary.entries.ombudsman[0].translation).toBe("омбудсмен");
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {
