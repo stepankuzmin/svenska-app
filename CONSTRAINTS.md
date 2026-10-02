@@ -26,7 +26,7 @@ Last reviewed: 2026-09-24 by @stepankuzmin
 | Coverage: project | Lines ≥ 44.9%, statements ≥ 44.4%, branches ≥ 41.7%, functions ≥ 37.6% | Today's values less 0.5 points, so a change to an unrelated file doesn't fail the build. The thresholds only move up | `vitest run --coverage` (thresholds in `vitest.config.ts`) | task end, CI |
 | Bundle: app JS | ≤ 84.46 kB brotli | 84.03 kB today plus 0.5%. The budget only moves down | `npm run check:size` (`.size-limit.json`) | task end, CI |
 | Bundle: app CSS | ≤ 2.48 kB brotli | 2.38 kB today plus 100 B, because 0.5% of a file this small is 12 B | `npm run check:size` | task end, CI |
-| Dictionary release: lookup file | ≤ 772.3 kB brotli | 768.4 kB today plus 0.5%. Raised from 753.7 kB, with approval from @stepankuzmin, to carry the Russian that Lexin gives only as a synonym, an explanation or a cross reference. When a new source edition grows the file, the same PR raises this budget and states why | `npm run check:size` | task end, CI |
+| Dictionary release: lookup file | ≤ 772.3 kB brotli | 768.4 kB today plus 0.5%. Raised from 753.7 kB to carry the Russian that Lexin gives only as a synonym, an explanation or a cross reference. When a new source edition grows the file, the same PR raises this budget and states why | `npm run check:size` | task end, CI |
 | Dictionary release: word-detail file | ≤ 708.7 kB brotli | 705.1 kB today plus 0.5%. Same rule as the lookup file | `npm run check:size` | task end, CI |
 | Browser journey | Built app passes on Chromium, WebKit, Pixel 7 and iPhone 13 | Required by `AGENTS.md` for UI, mobile and PWA changes | `npm run test:browser` | task end for UI changes, CI |
 
@@ -44,4 +44,4 @@ The rules are `silenced-checker`, `unfinished-work`, `test-made-easier`, `test-d
 
 | ID | Rule | Path | Reason | Owner | Expires |
 |----|------|------|--------|-------|---------|
-| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 18.6 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference, approved by @stepankuzmin | @stepankuzmin | 2026-11-01 |
+| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 18.6 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference |  | 2026-11-01 |
