@@ -260,7 +260,8 @@ function looksLikeRecordOfArrays(value: unknown): boolean {
 }
 
 // The release script deep-parses these exact bytes and the asset filename is
-// their content digest, so startup only confirms the file is the right shape.
+// their content digest, so startup only confirms the file is the right shape:
+// resolving the library reads `wordAliases`, so it must be an object.
 export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsset {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -271,7 +272,8 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
     dictionaryMetadataSchema.safeParse(asset.metadata).success &&
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
-    looksLikeRecordOfArrays(asset.russianIndex)
+    looksLikeRecordOfArrays(asset.russianIndex) &&
+    Object(asset.wordAliases) === asset.wordAliases
   );
 }
 

@@ -183,9 +183,14 @@ describe("Lexin source edition import", () => {
       entries: { bok: [{}] },
       swedishIndex: { bok: ["bok"] },
       russianIndex: { "книга": ["bok"] },
+      wordAliases: { "bok#2": "1" },
     })).toBe(true);
-    expect(hasDictionaryAssetShape({ metadata, entries: { bok: {} }, swedishIndex: {}, russianIndex: {} })).toBe(false);
-    expect(hasDictionaryAssetShape({ metadata: {}, entries: {}, swedishIndex: {}, russianIndex: {} })).toBe(false);
+    const indexes = { swedishIndex: {}, russianIndex: {}, wordAliases: {} };
+    expect(hasDictionaryAssetShape({ metadata, entries: { bok: {} }, ...indexes })).toBe(false);
+    expect(hasDictionaryAssetShape({ metadata: {}, entries: {}, ...indexes })).toBe(false);
+    // Resolving the library reads the aliases, so an asset without them fails here.
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, swedishIndex: {}, russianIndex: {} })).toBe(false);
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, ...indexes, wordAliases: null })).toBe(false);
   });
 
   it("requires a details asset to carry a source edition and array entries", () => {
