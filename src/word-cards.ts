@@ -1,7 +1,7 @@
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { cleanLexinText, normalizeLookupText } from "./normalize-lookup-text";
 import { citationForm, wordForms } from "./word-forms";
-import { wordKey, wordsOf, type HeadwordWord, type LibraryWord } from "./words";
+import { crossReferenceType, wordKey, wordsOf, type HeadwordWord, type LibraryWord } from "./words";
 
 type DictionaryEntries = DictionaryAsset["entries"];
 type DetailsEntries = DictionaryDetailsAsset["entries"];
@@ -65,7 +65,18 @@ function findWord({
   const found = senses === undefined
     ? undefined
     : wordsOf({ headword, senses }).find((item) => item.word === word);
-  return senses === undefined || found === undefined ? null : { senses, found };
+  if (senses === undefined || found === undefined) {
+    return null;
+  }
+
+  // A cross reference that joined a word lends it neither its type, `se`, nor
+  // the pronunciation of the word it points to: `bort` the adverb carries the
+  // reference to the supine of `bör`.
+  const readable = found.senseIndexes.filter((senseIndex) => senses[senseIndex].partOfSpeech !== crossReferenceType);
+  return {
+    senses,
+    found: readable.length > 0 ? { ...found, senseIndexes: readable } : found,
+  };
 }
 
 function formSensesOf({

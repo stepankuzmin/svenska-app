@@ -9,7 +9,8 @@ const fikaOption = /^fika /;
 const angettAdjective = /^angett adjektiv/;
 const dominantOption = /^dominant /;
 const husOption = /^hus /;
-const angerThenAngett = [/anger/, /angett/];
+// `angett` names a word of its own and is a form of `anger`, so it comes first.
+const angettThenAnger = [/angett/, /anger/];
 
 const manyRussianHeadwords = Array.from(
   { length: 120 },
@@ -339,7 +340,7 @@ test("a q link opens every headword an exact word indexes", async ({ page }) => 
   await page.goto("./?q=angett");
 
   const library = page.getByRole("region", { name: "Library" });
-  await expect(library.getByRole("listitem")).toHaveText(angerThenAngett);
+  await expect(library.getByRole("listitem")).toHaveText(angettThenAnger);
   await expect(page.getByRole("listbox")).toHaveCount(0);
 });
 

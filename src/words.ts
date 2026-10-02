@@ -12,6 +12,10 @@ export type HeadwordWord = LibraryWord & {
   senseIndexes: number[];
 };
 
+// Lexin types a cross reference `se`: it points at another word and carries no
+// meaning, translation or forms of its own.
+export const crossReferenceType = "se";
+
 export function wordKey({ headword, word }: LibraryWord): string {
   return word.length > 0 ? `${headword}#${word}` : headword;
 }

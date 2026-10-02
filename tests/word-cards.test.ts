@@ -240,6 +240,30 @@ describe("suggestion rows", () => {
   });
 });
 
+describe("a cross reference that joined a word", () => {
+  // Lexin points `bort` at the supine of `bör` and numbers the pointer like
+  // the adverb it shares a spelling with.
+  const joined: DictionaryAsset["entries"] = {
+    bort: [sense("2048", "se", "", ""), sense("2048", "adv.", "iväg, undan, härifrån", "прочь")],
+    "bör": [sense("2489", "se", "", "")],
+  };
+  const joinedDetails: DictionaryDetailsAsset["entries"] = {
+    bort: [details({ phonetic: "bo:r+t" }), details({ phonetic: "bår+t:" })],
+  };
+
+  it("lends the word neither its type nor its pronunciation", () => {
+    const [card] = wordCards({ libraryWords: [{ headword: "bort", word: "2048" }], entries: joined, details: joinedDetails });
+    expect([card.citation, card.wordType, card.phonetics]).toEqual(["bort", "adv.", ["bår+t:"]]);
+    expect(suggestionRow({ word: { headword: "bort", word: "2048" }, entries: joined, details: joinedDetails }))
+      .toEqual({ headword: "bort", partsOfSpeech: "adv.", translation: "прочь", forms: "bort" });
+  });
+
+  it("still reads as a spelling that holds nothing else", () => {
+    expect(suggestionRow({ word: { headword: "bör", word: "2489" }, entries: joined, details: null }))
+      .toMatchObject({ partsOfSpeech: "se" });
+  });
+});
+
 describe("the card a lookup opens", () => {
   it("opens the first word its spelling holds", () => {
     expect(firstCardOf({ headword: "val", entries })).toBe("val#18439");

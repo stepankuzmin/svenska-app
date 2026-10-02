@@ -40,7 +40,7 @@ en val    кит
 ett val   выбор · выборы
 ```
 
-Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card.
+Senses share a card when one paradigm spells the other out in full, so a spelling Lexin inflects one way keeps one card — and one suggestion — even where Lexin numbers its meanings apart: `bör` the duty and `bör` the expectation are one word.
 _Avoid_: Suggestion card, library row
 
 **Swedish forms**:
@@ -68,7 +68,7 @@ _Avoid_: Suggestions section, suggestion cards
 
 ## Lookup interaction
 
-The lookup area responds to every non-blank change in the search field. It shows every word with an indexed Swedish form containing the query, once, under its headword: a word is one meaning of one word type, so `fast` the adjective stands for `fasta` too and appears once beside `fast` the conjunction. A word ranks by its best matching form: exact matches come first, followed by prefix matches and then other substring matches. A query the dictionary cannot place opens a panel reading `No matches` where the suggestion list would stand.
+The lookup area responds to every non-blank change in the search field. It shows every word with an indexed Swedish form containing the query, once, under its headword: a word is one meaning of one word type, so `fast` the adjective stands for `fasta` too and appears once beside `fast` the conjunction. A word ranks by its best matching form: a query that spells the headword itself comes first, then a query that spells another of its forms — `bort` offers the adverb `bort` before `bör`, whose supine it is — followed by prefix matches and then other substring matches. A query the dictionary cannot place opens a panel reading `No matches` where the suggestion list would stand.
 
 A Russian query shows every Swedish word with a translation containing the entered text, in the same rows a Swedish query does. Exact and whole-word matches appear before prefix and other substring matches. Selecting a Russian suggestion opens that Swedish word.
 

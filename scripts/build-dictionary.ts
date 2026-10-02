@@ -205,23 +205,45 @@ function nounArticle({
 // which is the stable identity a lookup library keeps. A cross reference
 // carries no meaning, translation or forms of its own, so it joins the first
 // word of its spelling rather than standing as a word nobody can read.
+//
+// Lexin now and then numbers the meanings of one word apart: `bör` the duty
+// and `bör` the expectation inflect `böra, borde, bort` alike. A spelling
+// Lexin inflects one way keeps one word, so a number whose paradigm — word
+// type, article and forms — repeats an earlier number's joins that word.
 function wordsOfEntry({
   senses,
   details,
 }: {
-  senses: readonly { word: string; meaning: string; translation: string }[];
-  details: readonly { inflections: readonly string[] }[];
+  senses: readonly { word: string; partOfSpeech: string; meaning: string; translation: string }[];
+  details: readonly { article: string; inflections: readonly string[] }[];
 }): string[] {
+  const hasContent = (index: number) =>
+    senses[index].meaning.length > 0 ||
+    senses[index].translation.length > 0 ||
+    (details[index]?.inflections.length ?? 0) > 0;
   const numbered = [...new Set(senses.map((sense) => sense.word))];
   const words = numbered.filter((word) =>
-    senses.some((sense, index) =>
-      sense.word === word &&
-      (sense.meaning.length > 0 ||
-        sense.translation.length > 0 ||
-        (details[index]?.inflections.length ?? 0) > 0)));
+    senses.some((sense, index) => sense.word === word && hasContent(index)));
   const [firstWord] = words.length > 0 ? words : numbered;
 
-  return senses.map((sense) => words.includes(sense.word) ? sense.word : firstWord);
+  const paradigmOf = (word: string) => {
+    const indexes = senses.flatMap((sense, index) => sense.word === word && hasContent(index) ? [index] : []);
+    const sorted = (values: readonly string[]) => [...new Set(values)].sort().join(",");
+    return [
+      sorted(indexes.map((index) => senses[index].partOfSpeech)),
+      sorted(indexes.map((index) => details[index]?.article ?? "")),
+      sorted(indexes.flatMap((index) => details[index]?.inflections ?? [])),
+    ].join("|");
+  };
+  const wordsByParadigm = new Map<string, string>();
+  const joinedWords = new Map(words.map((word) => {
+    const paradigm = paradigmOf(word);
+    const known = wordsByParadigm.get(paradigm) ?? word;
+    wordsByParadigm.set(paradigm, known);
+    return [word, known];
+  }));
+
+  return senses.map((sense) => joinedWords.get(sense.word) ?? firstWord);
 }
 
 // Lexin gives a number to one word, bar the odd pair it spells with and

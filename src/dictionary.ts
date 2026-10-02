@@ -4,7 +4,7 @@ import {
   type DictionaryDetailsAsset,
 } from "./dictionary-contract";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "./normalize-lookup-text";
-import { wordKey, wordsOf, type LibraryWord } from "./words";
+import { crossReferenceType, wordKey, wordsOf, type LibraryWord } from "./words";
 
 type LookupResult = {
   kind: "result";
@@ -164,8 +164,18 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       const offered = rankedChoices.get(key);
       if (offered === undefined || rank < offered.rank ||
         (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {
-        rankedChoices.set(key, { choice: { ...choice, exact: rank === 0 }, rank });
+        rankedChoices.set(key, { choice: { ...choice, exact: rank <= 1 }, rank });
       }
+    }
+
+    // A query that spells a headword in full ranks above one that spells
+    // another of its forms: `bort` the adverb comes before `bör`, whose supine
+    // `har bort` the query spells too. A spelling Lexin holds only as a cross
+    // reference names no word of its own, so `borde` offers `bör` first.
+    function namesWord({ headword, word }: LibraryWord): boolean {
+      return normalizeSwedishLookupText(headword) === normalizedSwedishQuery &&
+        dictionary.entries[headword].some((sense) =>
+          sense.word === word && sense.partOfSpeech !== crossReferenceType);
     }
 
     for (const { displayWord, normalizedDisplayWord, words } of russianIndexEntries) {
@@ -175,7 +185,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
 
       for (const word of words) {
-        offer({ displayWord, word, language: "ru" }, rank);
+        offer({ displayWord, word, language: "ru" }, rank + 1);
       }
     }
 
@@ -188,12 +198,15 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
 
       const rank = normalizedDisplayWord === normalizedSwedishQuery
-        ? 0
+        ? 1
         : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
-          ? 1
-          : 2;
+          ? 2
+          : 3;
       for (const word of words) {
-        offer({ displayWord: cleanLexinText(word.headword), word, language: "sv" }, rank);
+        offer(
+          { displayWord: cleanLexinText(word.headword), word, language: "sv" },
+          rank === 1 && namesWord(word) ? 0 : rank,
+        );
       }
     }
 
