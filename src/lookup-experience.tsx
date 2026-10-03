@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
-import { queryMatch, spellsForm } from "./query-match";
+import { formMatch, queryMatch, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
@@ -160,8 +160,7 @@ const noSuggestions: readonly LookupChoice[] = [];
 
 // The part of a row the query spells reads marked, so the row shows why it
 // answers: `att minska` marks the infinitive among the forms of `minskar`.
-function MarkedText({ text, query }: { text: string; query: string }) {
-  const match = queryMatch({ text, query });
+function MarkedText({ text, match }: { text: string; match: QueryMatch | null }) {
   if (match === null) {
     return text;
   }
@@ -217,14 +216,10 @@ const SuggestionMenu = memo(function SuggestionMenu({
     >
       {items.map((item, index) => {
         const row = rows[index];
-        // A Russian query marks the translation it spells, a Swedish one the form.
-        const marksTranslation = item.language === "ru";
-        // A form the search found that the row's forms leave out, such as the
-        // comparative `abnormare`, leads them before a dot, where a narrow row
-        // cannot clip it.
-        const forms = !marksTranslation && item.form !== undefined && !spellsForm({ forms: row.forms, form: item.form })
-          ? `${item.form} · ${row.forms}`
-          : row.forms;
+        // A Russian query marks the translation it spells, a Swedish one the
+        // form that offered the word.
+        const translationMatch = item.form ? null : queryMatch({ text: row.translation, query });
+        const forms = item.form ? formMatch({ forms: row.forms, form: item.form, query }) : { text: row.forms, match: null };
         return (
           <li
             id={`${listId}-${index}`}
@@ -250,14 +245,14 @@ const SuggestionMenu = memo(function SuggestionMenu({
               {row.translation.length > 0
                 ? (
                   <span className="suggestion-translation" lang="ru">
-                    {marksTranslation ? <MarkedText text={row.translation} query={query} /> : row.translation}
+                    <MarkedText text={row.translation} match={translationMatch} />
                   </span>
                 )
                 : null}
             </span>
             {" "}
             <span className="suggestion-forms" lang="sv">
-              {marksTranslation ? forms : <MarkedText text={forms} query={query} />}
+              <MarkedText text={forms.text} match={forms.match} />
             </span>
           </li>
         );

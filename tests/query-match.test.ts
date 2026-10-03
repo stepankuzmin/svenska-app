@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queryMatch, spellsForm } from "../src/query-match.ts";
+import { formMatch, queryMatch } from "../src/query-match.ts";
 
 function marked({ text, query }: { text: string; query: string }) {
   const match = queryMatch({ text, query });
@@ -46,16 +46,38 @@ describe("the part of a suggestion a query spells", () => {
   });
 });
 
-describe("whether a row spells an indexed form", () => {
-  it("finds a form in full or behind the prefix its citation adds", () => {
-    expect(spellsForm({ forms: minskar, form: "minskade" })).toBe(true);
-    expect(spellsForm({ forms: minskar, form: "minska" })).toBe(true);
-    expect(spellsForm({ forms: minskar, form: "minskat" })).toBe(true);
-    expect(spellsForm({ forms: "en val, valen, valar, valarna", form: "val" })).toBe(true);
+function formMarked({ forms, form, query }: { forms: string; form: string; query: string }) {
+  const { text, match } = formMatch({ forms, form, query });
+  return match === null ? text : `${text.slice(0, match.start)}[${text.slice(match.start, match.end)}]${text.slice(match.end)}`;
+}
+
+describe("the indexed form a Swedish suggestion marks", () => {
+  it("marks the query inside the form that offered the word", () => {
+    expect(formMarked({ forms: minskar, form: "minskade", query: "minskade" }))
+      .toBe("att minska, minskar, [minskade], har minskat");
+    expect(formMarked({ forms: minskar, form: "minskat", query: "minskat" }))
+      .toBe("att minska, minskar, minskade, har [minskat]");
   });
 
-  it("does not take a form the row only spells part of", () => {
-    expect(spellsForm({ forms: "att anbefalla, anbefaller, anbefallde, har anbefallt", form: "anbefall" })).toBe(false);
-    expect(spellsForm({ forms: "abnorm, abnormt, abnorma", form: "abnormare" })).toBe(false);
+  it("marks a citation only for a query that opens with one", () => {
+    expect(formMarked({ forms: minskar, form: "minska", query: "att minska" }))
+      .toBe("[att minska], minskar, minskade, har minskat");
+    expect(formMarked({ forms: minskar, form: "minskat", query: "har minskat" }))
+      .toBe("att minska, minskar, minskade, [har minskat]");
+    expect(formMarked({ forms: "ett bett, bettet, bett, betten", form: "bettet", query: "ett" }))
+      .toBe("ett bett, b[ett]et, bett, betten");
+    expect(formMarked({ forms: "att attackera, attackerar", form: "attackera", query: "att" }))
+      .toBe("att [att]ackera, attackerar");
+  });
+
+  it("leads with a form the row leaves out", () => {
+    expect(formMarked({ forms: "abnorm, abnormt, abnorma", form: "abnormare", query: "abnormare" }))
+      .toBe("[abnormare] · abnorm, abnormt, abnorma");
+    expect(formMarked({ forms: "att anbefalla, anbefaller", form: "anbefall", query: "anbefall" }))
+      .toBe("[anbefall] · att anbefalla, anbefaller");
+  });
+
+  it("keeps a form that holds a comma of its own whole", () => {
+    expect(formMarked({ forms: "äldre, äldst", form: "äldre, äldst", query: "äldre" })).toBe("[äldre], äldst");
   });
 });

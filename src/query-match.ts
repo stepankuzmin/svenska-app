@@ -39,9 +39,31 @@ export function queryMatch({ text, query }: { text: string; query: string }): Qu
   return null;
 }
 
-// A row spells a form when one of its forms is that form, or opens with the
-// `att`, `har` or article its citation adds: `minska` is the `att minska` of
-// `minskar`, while the imperative `anbefall` is no form of `att anbefalla`.
-export function spellsForm({ forms, form }: { forms: string; form: string }): boolean {
-  return forms.split(", ").some((shown) => shown === form || (citedQuery.test(shown) && shown.endsWith(` ${form}`)));
+const citationPrefixes = ["", "att ", "har ", "en ", "ett "] as const;
+
+// A Swedish row marks the query inside the indexed form that offered it, so
+// `ett` marks the `ett` of `bett`, not the article of `ett bett`; a query that
+// opens the way a citation does also marks that citation's `att`, `har` or
+// article. A form the row's forms leave out, such as the comparative
+// `abnormare`, leads them before a dot, where a narrow row cannot clip it.
+// Forms are matched whole between the row's separators, since a Lexin form
+// can hold a comma of its own: `äldre, äldst`.
+export function formMatch({ forms, form, query }: { forms: string; form: string; query: string }): {
+  text: string;
+  match: QueryMatch | null;
+} {
+  let start = 0;
+  let prefix = "";
+  let text = `${form} · ${forms}`;
+  for (const candidate of citationPrefixes) {
+    const index = `, ${forms}, `.indexOf(`, ${candidate + form}, `);
+    if (index !== -1) {
+      [start, prefix, text] = [index, candidate, forms];
+      break;
+    }
+  }
+
+  const from = citedQuery.test(normalizeSwedishLookupText(query)) ? start : start + prefix.length;
+  const match = queryMatch({ text: text.slice(from, start + prefix.length + form.length), query });
+  return { text, match: match && { start: match.start + from, end: match.end + from } };
 }
