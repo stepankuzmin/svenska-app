@@ -107,14 +107,15 @@ describe("dictionary lookup", () => {
       headword: "anger",
       senses: dictionary.entries.anger,
       suggestions: [
-        { displayWord: "anger", word: { headword: "anger", word: "113" }, language: "sv", exact: true },
-        { displayWord: "angett", word: { headword: "angett", word: "115" }, language: "sv", exact: false },
-        { displayWord: "angelägen", word: { headword: "angelägen", word: "114" }, language: "sv", exact: false },
+        { displayWord: "anger", word: { headword: "anger", word: "113" }, language: "sv", exact: true, form: "ange" },
+        { displayWord: "angett", word: { headword: "angett", word: "115" }, language: "sv", exact: false, form: "angett" },
+        { displayWord: "angelägen", word: { headword: "angelägen", word: "114" }, language: "sv", exact: false, form: "angelägen" },
         {
           displayWord: "arrangemang",
           word: { headword: "arrangemang", word: "116" },
           language: "sv",
           exact: false,
+          form: "arrangemang",
         },
       ],
     });
@@ -163,7 +164,7 @@ describe("dictionary lookup", () => {
     expect(search("ok")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "bok", word: { headword: "bok", word: "101" }, language: "sv", exact: false },
+        { displayWord: "bok", word: { headword: "bok", word: "101" }, language: "sv", exact: false, form: "bok" },
       ],
     });
     expect(search("ниров")).toMatchObject({
@@ -182,8 +183,8 @@ describe("dictionary lookup", () => {
     expect(search("fas")).toEqual({
       kind: "choices",
       choices: [
-        { displayWord: "fast", word: adjective, language: "sv", exact: false },
-        { displayWord: "fast", word: conjunction, language: "sv", exact: false },
+        { displayWord: "fast", word: adjective, language: "sv", exact: false, form: "fast" },
+        { displayWord: "fast", word: conjunction, language: "sv", exact: false, form: "fast" },
       ],
     });
     // `fastare` is a form of the adjective, which it offers under its headword.
@@ -238,8 +239,9 @@ describe("dictionary lookup", () => {
   it("offers the autocomplete every choice beside or in place of an exact result", () => {
     const adjective = { headword: "fast", word: "3917" };
     const conjunction = { headword: "fast", word: "3918" };
+    // The comparative is indexed but no card spells it, so the choice keeps it.
     expect(choicesOf(search("fastare"))).toEqual([
-      { displayWord: "fast", word: adjective, language: "sv", exact: true },
+      { displayWord: "fast", word: adjective, language: "sv", exact: true, form: "fastare" },
     ]);
     expect(choicesOf(search("хот"))).toEqual([
       { displayWord: "хотя", word: conjunction, language: "ru", exact: false },

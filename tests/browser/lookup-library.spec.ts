@@ -32,6 +32,7 @@ const dictionary = {
     fikor: ["102"],
     fikorna: ["102"],
     tack: ["103"],
+    tackare: ["103"],
     framgår: ["104"],
     framgick: ["104"],
     framgått: ["104"],
@@ -219,6 +220,8 @@ test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("framgår");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
@@ -232,6 +235,8 @@ test("a noun lists its Swedish forms behind its article", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("abborre");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
@@ -292,6 +297,25 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18440" },
   ]);
+});
+
+test("a suggestion marks the form or translation the query spells", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  const options = page.getByRole("option");
+  await query.fill("att framgå");
+  await expect(options.first().locator("mark")).toHaveText("att framgå");
+  await query.fill("framgick");
+  await expect(options.first().locator("mark")).toHaveText("framgick");
+  await query.fill("val");
+  await expect(options.locator(".suggestion-forms mark")).toHaveText(["val", "val"]);
+  await query.fill("кит");
+  await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
+  // An indexed form the row's forms leave out leads them, marked.
+  await query.fill("tackare");
+  await expect(options).toHaveText(["tack interjektion спасибо tackare · tack"]);
+  await expect(options.first().locator("mark")).toHaveText("tackare");
 });
 
 test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {

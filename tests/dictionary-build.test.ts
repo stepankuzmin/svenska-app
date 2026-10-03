@@ -137,8 +137,8 @@ describe("Lexin source edition import", () => {
     const outcome = search("Bort");
     expect(outcome.kind).toBe("choices");
     expect(outcome.kind === "choices" ? outcome.choices : []).toEqual([
-      { displayWord: "bort", word: { headword: "bort", word: "20" }, language: "sv", exact: true },
-      { displayWord: "bör", word: { headword: "bör", word: "17" }, language: "sv", exact: true },
+      { displayWord: "bort", word: { headword: "bort", word: "20" }, language: "sv", exact: true, form: "bort" },
+      { displayWord: "bör", word: { headword: "bör", word: "17" }, language: "sv", exact: true, form: "bort" },
     ]);
   });
 
@@ -255,7 +255,7 @@ describe("Lexin source edition import", () => {
   it("matches an uppercase headword and translation typed in lower case", () => {
     expect(search("ab")).toMatchObject({ kind: "result", headword: "AB" });
     const ab = { headword: "AB", word: "15" };
-    expect(closestSuggestion("ab")).toEqual({ displayWord: "AB", word: ab, language: "sv", exact: true });
+    expect(closestSuggestion("ab")).toEqual({ displayWord: "AB", word: ab, language: "sv", exact: true, form: "AB" });
     expect(closestSuggestion("ао")).toEqual({ displayWord: "АО", word: ab, language: "ru", exact: true });
   });
 

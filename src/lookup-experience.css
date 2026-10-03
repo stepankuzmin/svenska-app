@@ -44,6 +44,7 @@ body {
   --lookup-control: #d4d4d8;
   --lookup-selected: #e9f2fc;
   --lookup-hover: #f3f8fd;
+  --lookup-match: #ffc8004d;
   --text-headword: 1.0625rem;
   --text-body: .9375rem;
   --text-secondary: .8125rem;
@@ -245,6 +246,12 @@ body {
   color: var(--lookup-muted);
   font-size: var(--text-secondary);
   line-height: 1.3;
+}
+
+/* The part of a row the query spells, on a tint that reads on a selected row too. */
+.suggestion-menu mark {
+  background: var(--lookup-match);
+  color: var(--lookup-ink);
 }
 
 .word-card-list,
