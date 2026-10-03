@@ -30,6 +30,10 @@ describe("the part of a suggestion a query spells", () => {
     expect(marked({ text: minskar, query: "att minskade" })).toBe("att minska, minskar, [minskade], har minskat");
   });
 
+  it("drops a Lexin segment marker from the query, as the lookup does", () => {
+    expect(marked({ text: "hårdkokt", query: "hård|kokt" })).toBe("[hårdkokt]");
+  });
+
   it("marks a Russian translation by the same rule", () => {
     expect(marked({ text: "доминирующий · жилой дом", query: "дом" }))
       .toBe("доминирующий · жилой [дом]");

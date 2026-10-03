@@ -1,5 +1,5 @@
 import { citedQuery, isWordCharacter } from "./dictionary";
-import { normalizeLookupText } from "./normalize-lookup-text";
+import { normalizeSwedishLookupText } from "./normalize-lookup-text";
 
 export type QueryMatch = { start: number; end: number };
 
@@ -11,7 +11,8 @@ export function queryMatch({ text, query }: { text: string; query: string }): Qu
   // Swedish and Russian lower case keep every letter's length, so an offset
   // into the lowered text points at the same letter of the shown one.
   const lowered = text.toLocaleLowerCase("sv-SE");
-  const typed = normalizeLookupText(query);
+  // The query drops Lexin segment markers the way the lookup does.
+  const typed = normalizeSwedishLookupText(query);
 
   // `att minska` is looked up as typed and then as the `minska` its citation
   // opens, so a row marks whichever of the two it spells.

@@ -18,12 +18,15 @@ type LookupResult = {
 // match: `fast` the adjective stands for `fasta` too, beside `fast` the
 // conjunction. `displayWord` is the best match, the headword for a Swedish one
 // and the translation for a Russian one, and `exact` tells whether the query
-// spells it in full.
+// spells it in full. `form` is the indexed Swedish form a Swedish choice
+// matched, which a suggestion shows when its forms leave it out: the
+// comparative `abnormare` offers `abnorm`.
 export type LookupChoice = {
   displayWord: string;
   word: LibraryWord;
   language: "ru" | "sv";
   exact: boolean;
+  form?: string;
 };
 
 export type LookupOutcome =
@@ -179,7 +182,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     // The query as typed still counts, so `en face` stays a word of its own.
     const [, citation, citedForm] = normalizedSwedishQuery.match(citedQuery) ?? [];
     const citedType = citation === "en" || citation === "ett" ? "subst." : "verb";
-    for (const { normalizedDisplayWord, words } of swedishIndexEntries) {
+    for (const { displayWord: form, normalizedDisplayWord, words } of swedishIndexEntries) {
       for (const swedishQuery of [normalizedSwedishQuery, citedForm]) {
         if (!swedishQuery || !normalizedDisplayWord.includes(swedishQuery)) {
           continue;
@@ -194,7 +197,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
           if (swedishQuery === normalizedSwedishQuery || dictionary.entries[word.headword].some((sense) =>
             sense.word === word.word && sense.partOfSpeech === citedType)) {
             offer(
-              { displayWord: cleanLexinText(word.headword), word, language: "sv" },
+              { displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) },
               rank === 1 && namesWord(word, swedishQuery) ? 0 : rank,
             );
           }

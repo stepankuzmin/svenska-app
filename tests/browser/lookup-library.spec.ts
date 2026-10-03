@@ -32,6 +32,7 @@ const dictionary = {
     fikor: ["102"],
     fikorna: ["102"],
     tack: ["103"],
+    tackare: ["103"],
     framgår: ["104"],
     framgick: ["104"],
     framgått: ["104"],
@@ -307,6 +308,10 @@ test("a suggestion marks the form or translation the query spells", async ({ pag
   await expect(options.locator(".suggestion-forms mark")).toHaveText(["val", "val"]);
   await query.fill("кит");
   await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
+  // An indexed form the row's forms leave out follows them, marked.
+  await query.fill("tackare");
+  await expect(options).toHaveText(["tack interjektion спасибо tack · tackare"]);
+  await expect(options.first().locator("mark")).toHaveText("tackare");
 });
 
 test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {

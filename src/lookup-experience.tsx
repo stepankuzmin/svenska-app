@@ -219,6 +219,11 @@ const SuggestionMenu = memo(function SuggestionMenu({
         const row = rows[index];
         // A Russian query marks the translation it spells, a Swedish one the form.
         const marksTranslation = item.language === "ru";
+        // A form the search found that the row's forms leave out, such as the
+        // comparative `abnormare`, follows them after a dot, so it still shows.
+        const forms = !marksTranslation && item.form !== undefined && queryMatch({ text: row.forms, query }) === null
+          ? `${row.forms} · ${item.form}`
+          : row.forms;
         return (
           <li
             id={`${listId}-${index}`}
@@ -251,7 +256,7 @@ const SuggestionMenu = memo(function SuggestionMenu({
             </span>
             {" "}
             <span className="suggestion-forms" lang="sv">
-              {marksTranslation ? row.forms : <MarkedText text={row.forms} query={query} />}
+              {marksTranslation ? forms : <MarkedText text={forms} query={query} />}
             </span>
           </li>
         );
