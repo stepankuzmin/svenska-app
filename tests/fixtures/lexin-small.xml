@@ -122,7 +122,7 @@
     <BaseLang><Meaning>om berättarteknik</Meaning></BaseLang>
     <TargetLang><Translation>крутой</Translation></TargetLang>
   </Word>
-  <Word ID="17" MatchingID="117" Type="verb" Value="bör">
+  <Word ID="17" MatchingID="117" Type="verb" Value="bör" Variant="1">
     <BaseLang>
       <Phonetic>bö:r</Phonetic>
       <Inflection>borde</Inflection>
@@ -131,7 +131,7 @@
     </BaseLang>
     <TargetLang><Translation>долженствовать</Translation></TargetLang>
   </Word>
-  <Word ID="18" MatchingID="118" Type="verb" Value="bör">
+  <Word ID="18" MatchingID="118" Type="verb" Value="bör" Variant="2">
     <BaseLang>
       <Meaning>kunna förväntas</Meaning>
       <Phonetic>bö:r</Phonetic>
@@ -161,6 +161,150 @@
       <Meaning />
       <Reference TYPE="see" VALUE="bör" />
     </BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="22" MatchingID="122" Type="subst." Value="uppsats">
+    <BaseLang>
+      <Meaning>vetenskaplig artikel</Meaning>
+      <Inflection>uppsatsen</Inflection>
+      <Inflection>uppsatser</Inflection>
+    </BaseLang>
+    <TargetLang>
+      <Synonym>научная работа (статья)</Synonym>
+      <Comment>"также школьное сочинение"</Comment>
+    </TargetLang>
+  </Word>
+  <Word ID="23" MatchingID="123" Type="förk." Value="ABF">
+    <BaseLang><Meaning>Arbetarnas bildningsförbund</Meaning></BaseLang>
+    <TargetLang>
+      <Explanation>"учебный союз, организующий различные курсы обучения"</Explanation>
+    </TargetLang>
+  </Word>
+  <Word ID="24" MatchingID="124" Type="subst." Value="far">
+    <BaseLang><Inflection>fadern</Inflection><Inflection>fäder</Inflection></BaseLang>
+    <TargetLang><Translation>отец</Translation></TargetLang>
+  </Word>
+  <Word ID="25" MatchingID="125" Type="verb" Value="far">
+    <BaseLang><Inflection>for</Inflection><Inflection>farit</Inflection><Inflection>fara</Inflection></BaseLang>
+    <TargetLang><Translation>ездить</Translation></TargetLang>
+  </Word>
+  <Word ID="26" Type="se" Value="fader">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="far subst." />
+    </BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="27" Type="se" Value="intar">
+    <BaseLang>
+      <Meaning />
+      <Reference TYPE="see" VALUE="hus, taxi" />
+      <Reference TYPE="animation" VALUE="intar.swf" />
+    </BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="28" MatchingID="128" Type="subst." Value="bär" Variant="1">
+    <BaseLang><Inflection>bäret</Inflection></BaseLang>
+    <TargetLang><Translation>ягода</Translation></TargetLang>
+  </Word>
+  <Word ID="29" MatchingID="129" Type="verb" Value="bär" Variant="2">
+    <BaseLang><Inflection>bar</Inflection><Inflection>burit</Inflection><Inflection>bära</Inflection></BaseLang>
+    <TargetLang><Translation>нести</Translation></TargetLang>
+  </Word>
+  <Word ID="30" Type="se" Value="bar">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="bär 2" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="31" Type="se" Value="bil|besiktning">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="kontrollbesiktning" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="32" Type="se" Value="kontrollbesiktning">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="bil|besiktning" /></BaseLang>
+    <TargetLang><Synonym>техосмотр</Synonym></TargetLang>
+  </Word>
+  <Word ID="33" MatchingID="133" Type="förk." Value="LRF">
+    <BaseLang><Meaning>Lantbrukarnas riksförbund</Meaning></BaseLang>
+    <TargetLang><Translation>кооператив</Translation></TargetLang>
+  </Word>
+  <Word ID="34" Type="se" Value="riksförbund">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="&amp;quot;LRF&amp;quot;" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="35" MatchingID="135" Type="förk." Value="JO">
+    <BaseLang><Meaning>justitieombudsman</Meaning></BaseLang>
+    <TargetLang><Translation>омбудсмен</Translation></TargetLang>
+  </Word>
+  <Word ID="36" MatchingID="136" Type="interj." Value="jo">
+    <BaseLang><Meaning>ja</Meaning></BaseLang>
+    <TargetLang><Translation>да</Translation></TargetLang>
+  </Word>
+  <Word ID="37" Type="se" Value="ombudsman">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="JO" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="38" MatchingID="138" Type="verb" Value="skriver">
+    <BaseLang><Inflection>skrev</Inflection><Inflection>skrivit</Inflection><Inflection>skriva</Inflection></BaseLang>
+    <TargetLang><Translation>писать</Translation></TargetLang>
+  </Word>
+  <Word ID="39" MatchingID="139" Type="verb" Value="skriver">
+    <BaseLang><Inflection>skrev in</Inflection><Inflection>skrivit in</Inflection><Inflection>skriva in</Inflection></BaseLang>
+    <TargetLang><Translation>вписывать</Translation></TargetLang>
+  </Word>
+  <Word ID="40" Type="se" Value="inskriver">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="skriver 2" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="41" Type="se" Value="stack" Variant="1">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="sticker" /></BaseLang>
+    <TargetLang><Synonym>оставил</Synonym></TargetLang>
+  </Word>
+  <Word ID="42" MatchingID="142" Type="subst." Value="stack" Variant="2">
+    <BaseLang><Inflection>stacken</Inflection><Inflection>stackar</Inflection></BaseLang>
+    <TargetLang><Translation>куча</Translation></TargetLang>
+  </Word>
+  <Word ID="43" MatchingID="143" Type="namn" Value="Invandrarnas kulturcentrum (IKC)">
+    <BaseLang>
+      <Index Value="Invandrarnas kulturcentrum" />
+      <Index Value="IKC" type="prefix" />
+    </BaseLang>
+    <TargetLang><Translation>культурный центр для иммигрантов</Translation></TargetLang>
+  </Word>
+  <Word ID="44" Type="se" Value="IKC">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="Invandrarnas kulturcentrum" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="45" MatchingID="145" Type="subst." Value="får">
+    <BaseLang><Inflection>fåret</Inflection><Inflection>får</Inflection></BaseLang>
+    <TargetLang><Translation>овца</Translation></TargetLang>
+  </Word>
+  <Word ID="46" MatchingID="146" Type="verb" Value="får">
+    <BaseLang><Inflection>fick</Inflection><Inflection>fått</Inflection><Inflection>få</Inflection></BaseLang>
+    <TargetLang><Translation>получать</Translation></TargetLang>
+  </Word>
+  <Word ID="47" Type="se" Value="fick">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="får" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="48" MatchingID="148" Type="subst." Value="rätt" Variant="1">
+    <BaseLang>
+      <Inflection>rätten</Inflection>
+      <Inflection>rätter</Inflection>
+      <Index Value="rätt" />
+      <Index Value="maträtt" />
+    </BaseLang>
+    <TargetLang><Translation>блюдо</Translation></TargetLang>
+  </Word>
+  <Word ID="49" MatchingID="149" Type="subst." Value="rätt" Variant="2">
+    <BaseLang>
+      <Inflection>rätten</Inflection>
+      <Index Value="rätt" />
+      <Index Value="tingsrätt" />
+    </BaseLang>
+    <TargetLang><Translation>суд</Translation></TargetLang>
+  </Word>
+  <Word ID="50" Type="se" Value="mat|rätt">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="rätt subst." /></BaseLang>
     <TargetLang />
   </Word>
 </Dictionary>
