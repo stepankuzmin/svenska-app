@@ -230,11 +230,17 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       : russianHeadwords.length === 1 && choices.length === 1
         ? russianHeadwords[0]
         : undefined;
+    // A cited query opens only the words of the type it names: `en basar`
+    // the market, not the verb Lexin spells alike.
+    const citedWords = new Set(choices
+      .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
+      .map(({ word }) => word.word));
     if (resultHeadword !== undefined) {
       return {
         kind: "result",
         headword: resultHeadword,
-        senses: dictionary.entries[resultHeadword],
+        senses: dictionary.entries[resultHeadword].filter((sense) =>
+          citedForm === undefined || citedWords.has(sense.word)),
         suggestions: choices,
       };
     }

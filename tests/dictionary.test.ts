@@ -214,6 +214,13 @@ describe("dictionary lookup", () => {
     expect(choicesOf(search("har angett")).map(({ word }) => word.headword)).toEqual(["anger"]);
     expect(search("ett hus")).toMatchObject({ kind: "result", headword: "hus" });
     expect(search("en basaren")).toMatchObject({ kind: "result", headword: "basar" });
+    // The result holds the market alone, so opening it leaves the verb out.
+    expect(search("en basar")).toMatchObject({
+      kind: "result",
+      headword: "basar",
+      senses: [{ word: "136", partOfSpeech: "subst." }],
+    });
+    expect(search("basar")).toMatchObject({ kind: "result", senses: [{ word: "136" }, { word: "137" }] });
     expect(search("en angett")).toEqual({ kind: "no-match" });
   });
 

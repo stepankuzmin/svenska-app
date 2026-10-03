@@ -150,14 +150,15 @@ describe("Lexin source edition import", () => {
     ]);
   });
 
-  it("indexes the infinitive of a verb phrase with the rest of its headword", () => {
+  it("indexes the forms a verb phrase's card spells out with the rest of its headword", () => {
     expect(assets.dictionary.swedishIndex).toMatchObject({
       "akta": ["60"],
       "akta sig": ["60"],
       "aktade sig": ["60"],
     });
-    expect(assets.dictionary.swedishIndex).not.toHaveProperty("aktat sig");
+    expect(assets.dictionary.swedishIndex).toHaveProperty("aktat sig", ["60"]);
     expect(search("att akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
+    expect(search("har aktat sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
   });
 
   it("reads a word Lexin gives no translation in its synonym or else its explanation", () => {

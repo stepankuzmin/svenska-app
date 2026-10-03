@@ -454,9 +454,10 @@ function sharedWordNumbers(entries: DictionaryAsset["entries"]): Set<string> {
   return shared;
 }
 
-// Lexin mostly indexes only the verb of a phrase such as `aktar sig`, so its
-// infinitive is indexed with the rest of the headword as well: `akta sig`.
-function verbPhraseInfinitives({
+// Lexin mostly indexes only the verb of a phrase such as `aktar sig`, so the
+// forms its card spells out are indexed with the rest of the headword as
+// well: `akta sig`, `aktade sig`, `aktat sig`.
+function verbPhraseForms({
   headword,
   partOfSpeech,
   inflectionTexts,
@@ -471,8 +472,9 @@ function verbPhraseInfinitives({
   }
 
   const rest = headword.slice(restStart);
+  const [preterite, supine] = inflectionTexts;
   const infinitive = infinitiveOf({ present: headword.slice(0, restStart), inflections: inflectionTexts });
-  return infinitive.endsWith(rest) ? [] : [`${infinitive}${rest}`];
+  return [infinitive, preterite, supine].filter((form) => !form.endsWith(rest)).map((form) => `${form}${rest}`);
 }
 
 // An index names the sense a form or translation came from until the build
@@ -636,7 +638,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     for (const form of [
       headword,
       ...inflectionTexts,
-      ...verbPhraseInfinitives({ headword, partOfSpeech, inflectionTexts }),
+      ...verbPhraseForms({ headword, partOfSpeech, inflectionTexts }),
       ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
       addToIndex({ index: swedishIndex, form, sense });
