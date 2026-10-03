@@ -396,13 +396,15 @@ test("a collapsed card leaves on a swipe without opening on the way", async ({ p
   await page.goto(".");
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("abborre");
-  await query.press("Enter");
-  await query.fill("fika");
-  await query.press("Enter");
-
   const cards = page.locator(".word-card-list > li");
-  await expect(cards).toHaveCount(2);
+  // Each lookup is submitted once its suggestions show, so neither Enter
+  // lands before the dictionary has loaded or the query has rendered.
+  for (const [word, count] of [["abborre", 1], ["fika", 2]] as const) {
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+    await expect(cards).toHaveCount(count);
+  }
   const collapsed = cards.nth(1);
   await expect(collapsed.locator("details")).not.toHaveAttribute("open");
 

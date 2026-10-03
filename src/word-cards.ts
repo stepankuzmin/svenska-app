@@ -73,10 +73,10 @@ function findWord({
   // the pronunciation of the word it points to: `bort` the adverb carries the
   // reference to the supine of `bör`.
   const readable = found.senseIndexes.filter((senseIndex) => senses[senseIndex].partOfSpeech !== crossReferenceType);
-  return {
-    senses,
-    found: readable.length > 0 ? { ...found, senseIndexes: readable } : found,
-  };
+  if (readable.length > 0) {
+    found.senseIndexes = readable;
+  }
+  return { senses, found };
 }
 
 function formSensesOf({
