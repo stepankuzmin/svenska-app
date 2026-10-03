@@ -38,6 +38,11 @@ const dictionary = {
     angett: [sense("115", "adj.", "uppgiven", "указанный")],
     arrangemang: [sense("116", "subst.", "evenemang", "мероприятие")],
     "abort|rådgivning": [sense("117", "subst.", "rådgivning om abort", "консультация по аборту")],
+    basar: [
+      sense("136", "subst.", "marknad", "базар"),
+      sense("137", "verb", "sola sig", "греться"),
+    ],
+    "en face": [sense("138", "adv.", "framifrån", "анфас")],
     fast: [
       { word: "3917", partOfSpeech: "adj.", meaning: "hård, massiv", translation: "твёрдый" },
       { word: "3917", partOfSpeech: "adj.", meaning: "som har stabilt läge", translation: "крепкий" },
@@ -45,6 +50,9 @@ const dictionary = {
     ],
   },
   swedishIndex: {
+    basar: ["136", "137"],
+    basaren: ["136"],
+    "en face": ["138"],
     ange: ["113"],
     anger: ["113"],
     angett: ["113", "115"],
@@ -188,6 +196,29 @@ describe("dictionary lookup", () => {
       kind: "choices",
       choices: [{ displayWord: "хотя", word: conjunction, language: "ru", exact: false }],
     });
+  });
+
+  it("looks up a query with the infinitive marker among verbs", () => {
+    const outcome = search("att ange");
+
+    expect(outcome.kind).toBe("result");
+    expect(outcome.kind === "result" && outcome.headword).toBe("anger");
+    expect(choicesOf(outcome).map(({ word }) => word)).toEqual([{ headword: "anger", word: "113" }]);
+    expect(choicesOf(search("att bo")).map(({ word }) => word)).toEqual([{ headword: "bok", word: "101" }]);
+    expect(search("att hus")).toEqual({ kind: "no-match" });
+    expect(search("att basaren")).toEqual({ kind: "no-match" });
+  });
+
+  it("looks up a supine after har among verbs and a noun after its article among nouns", () => {
+    expect(search("har angett")).toMatchObject({ kind: "result", headword: "anger" });
+    expect(choicesOf(search("har angett")).map(({ word }) => word.headword)).toEqual(["anger"]);
+    expect(search("ett hus")).toMatchObject({ kind: "result", headword: "hus" });
+    expect(search("en basaren")).toMatchObject({ kind: "result", headword: "basar" });
+    expect(search("en angett")).toEqual({ kind: "no-match" });
+  });
+
+  it("keeps a headword that opens with an article a word of its own", () => {
+    expect(search("en face")).toMatchObject({ kind: "result", headword: "en face" });
   });
 
   it("returns no match in either lookup direction", () => {

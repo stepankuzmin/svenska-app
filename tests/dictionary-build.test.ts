@@ -69,6 +69,7 @@ describe("Lexin source edition import", () => {
 
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
+      "беречься": ["60"],
       "бронировать": ["14"],
       "должен": ["17"],
       "долженствовать": ["17"],
@@ -130,6 +131,16 @@ describe("Lexin source edition import", () => {
       { headword: "bör", word: "17" },
       { headword: "borde", word: "21" },
     ]);
+  });
+
+  it("indexes the infinitive of a verb phrase with the rest of its headword", () => {
+    expect(assets.dictionary.swedishIndex).toMatchObject({
+      "akta": ["60"],
+      "akta sig": ["60"],
+      "aktade sig": ["60"],
+    });
+    expect(assets.dictionary.swedishIndex).not.toHaveProperty("aktat sig");
+    expect(search("att akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {
