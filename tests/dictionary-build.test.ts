@@ -70,6 +70,7 @@ describe("Lexin source edition import", () => {
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
       "АО": ["15"],
+      "беречься": ["60"],
       "блюдо": ["48", "50"],
       "бронировать": ["14"],
       "вкрутую": ["hård|kokt#16"],
@@ -147,6 +148,17 @@ describe("Lexin source edition import", () => {
       { headword: "bör", word: "17" },
       { headword: "borde", word: "21" },
     ]);
+  });
+
+  it("indexes the forms a verb phrase's card spells out with the rest of its headword", () => {
+    expect(assets.dictionary.swedishIndex).toMatchObject({
+      "akta": ["60"],
+      "akta sig": ["60"],
+      "aktade sig": ["60"],
+    });
+    expect(assets.dictionary.swedishIndex).toHaveProperty("aktat sig", ["60"]);
+    expect(search("att akta sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
+    expect(search("har aktat sig")).toMatchObject({ kind: "result", headword: "aktar sig" });
   });
 
   it("reads a word Lexin gives no translation in its synonym or else its explanation", () => {

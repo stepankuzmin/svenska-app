@@ -24,9 +24,9 @@ Last reviewed: 2026-09-24 by @stepankuzmin
 | Floor | Zero floor violations | See above | `npm run check:floor` | edit loop (`check:fast`), CI |
 | Coverage: changed lines | ≥ 80% of executable lines added to `src/*.ts` and `scripts/*.ts` run by Vitest | High enough to force a test for new logic, low enough to allow a guard clause. Applies to new code only, so no legacy debt blocks it | `npm run check:coverage` (reads `coverage/lcov.info` and intersects it with `git diff`) | task end (`check:task`), CI |
 | Coverage: project | Lines ≥ 44.9%, statements ≥ 44.4%, branches ≥ 41.7%, functions ≥ 37.6% | Today's values less 0.5 points, so a change to an unrelated file doesn't fail the build. The thresholds only move up | `vitest run --coverage` (thresholds in `vitest.config.ts`) | task end, CI |
-| Bundle: app JS | ≤ 84.46 kB brotli | 84.03 kB today plus 0.5%. The budget only moves down | `npm run check:size` (`.size-limit.json`) | task end, CI |
+| Bundle: app JS | ≤ 84.75 kB brotli | Raised from 84.46 kB to search by the form a word card names a word by (`att`, `har`, `en`, `ett`), with room for the brotli shift a new dictionary hash causes. The budget only moves down | `npm run check:size` (`.size-limit.json`) | task end, CI |
 | Bundle: app CSS | ≤ 2.48 kB brotli | 2.38 kB today plus 100 B, because 0.5% of a file this small is 12 B | `npm run check:size` | task end, CI |
-| Dictionary release: lookup file | ≤ 771.2 kB brotli | 767.4 kB today plus 0.5%. Raised from 753.7 kB to carry the Russian that Lexin gives only as a synonym, an explanation or a cross reference. When a new source edition grows the file, the same PR raises this budget and states why | `npm run check:size` | task end, CI |
+| Dictionary release: lookup file | ≤ 772.3 kB brotli | 771.5 kB today, with the forms of a verb phrase indexed with the rest of its headword. Raised from 753.7 kB to carry the Russian that Lexin gives only as a synonym, an explanation or a cross reference. When a new source edition grows the file, the same PR raises this budget and states why | `npm run check:size` | task end, CI |
 | Dictionary release: word-detail file | ≤ 708.7 kB brotli | 705.1 kB today plus 0.5%. Same rule as the lookup file | `npm run check:size` | task end, CI |
 | Browser journey | Built app passes on Chromium, WebKit, Pixel 7 and iPhone 13 | Required by `AGENTS.md` for UI, mobile and PWA changes | `npm run test:browser` | task end for UI changes, CI |
 
@@ -44,4 +44,5 @@ The rules are `silenced-checker`, `unfinished-work`, `test-made-easier`, `test-d
 
 | ID | Rule | Path | Reason | Owner | Expires |
 |----|------|------|--------|-------|---------|
-| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 17.5 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference |  | 2026-11-01 |
+| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 18.6 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference |  | 2026-11-01 |
+| E2 | threshold-loosened | .size-limit.json | App JS budget raised 0.29 kB to search by citation form (`att`, `har`, `en`, `ett`) |  | 2026-11-01 |

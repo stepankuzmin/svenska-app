@@ -120,21 +120,10 @@ function indexEntries({
   }));
 }
 
-// Two display words can normalise to the same form, so their headwords merge
-// into one bucket rather than the later one replacing the earlier.
-function headwordsByForm(entries: readonly IndexEntry[]): Map<string, string[]> {
-  const byForm = new Map<string, string[]>();
-  for (const { normalizedDisplayWord, words } of entries) {
-    const bucket = byForm.get(normalizedDisplayWord) ?? [];
-    for (const { headword } of words) {
-      if (!bucket.includes(headword)) {
-        bucket.push(headword);
-      }
-    }
-    byForm.set(normalizedDisplayWord, bucket);
-  }
-  return byForm;
-}
+// A card names a verb by its infinitive, `att minska`, a noun by its article,
+// `en val`, and spells the supine after `har`, so a query that opens the same
+// way also looks the rest up among the words of that type.
+const citedQuery = /^(att|har|en|ett)\s+(\S.*)$/u;
 
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const byKey = wordsByIndexKey(dictionary.entries);
@@ -143,13 +132,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     byKey,
     normalize: normalizeSwedishLookupText,
   });
-  const swedishHeadwordsByForm = headwordsByForm(swedishIndexEntries);
   const russianIndexEntries = indexEntries({
     index: dictionary.russianIndex,
     byKey,
     normalize: normalizeLookupText,
   });
-  const russianHeadwordsByForm = headwordsByForm(russianIndexEntries);
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
@@ -172,8 +159,8 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     // another of its forms: `bort` the adverb comes before `bör`, whose supine
     // `har bort` the query spells too. A spelling Lexin holds only as a cross
     // reference names no word of its own, so `borde` offers `bör` first.
-    function namesWord({ headword, word }: LibraryWord): boolean {
-      return normalizeSwedishLookupText(headword) === normalizedSwedishQuery &&
+    function namesWord({ headword, word }: LibraryWord, swedishQuery: string): boolean {
+      return normalizeSwedishLookupText(headword) === swedishQuery &&
         dictionary.entries[headword].some((sense) =>
           sense.word === word && sense.partOfSpeech !== crossReferenceType);
     }
@@ -189,24 +176,29 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
     }
 
+    // The query as typed still counts, so `en face` stays a word of its own.
+    const [, citation, citedForm] = normalizedSwedishQuery.match(citedQuery) ?? [];
+    const citedType = citation === "en" || citation === "ett" ? "subst." : "verb";
     for (const { normalizedDisplayWord, words } of swedishIndexEntries) {
-      if (
-        normalizedSwedishQuery.length === 0 ||
-        !normalizedDisplayWord.includes(normalizedSwedishQuery)
-      ) {
-        continue;
-      }
+      for (const swedishQuery of [normalizedSwedishQuery, citedForm]) {
+        if (!swedishQuery || !normalizedDisplayWord.includes(swedishQuery)) {
+          continue;
+        }
 
-      const rank = normalizedDisplayWord === normalizedSwedishQuery
-        ? 1
-        : normalizedDisplayWord.startsWith(normalizedSwedishQuery)
-          ? 2
-          : 3;
-      for (const word of words) {
-        offer(
-          { displayWord: cleanLexinText(word.headword), word, language: "sv" },
-          rank === 1 && namesWord(word) ? 0 : rank,
-        );
+        const rank = normalizedDisplayWord === swedishQuery
+          ? 1
+          : normalizedDisplayWord.startsWith(swedishQuery)
+            ? 2
+            : 3;
+        for (const word of words) {
+          if (swedishQuery === normalizedSwedishQuery || dictionary.entries[word.headword].some((sense) =>
+            sense.word === word.word && sense.partOfSpeech === citedType)) {
+            offer(
+              { displayWord: cleanLexinText(word.headword), word, language: "sv" },
+              rank === 1 && namesWord(word, swedishQuery) ? 0 : rank,
+            );
+          }
+        }
       }
     }
 
@@ -226,18 +218,29 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     });
     const choices = sortedChoices.map(({ choice }) => choice);
 
-    const swedishHeadwords = swedishHeadwordsByForm.get(normalizedSwedishQuery) ?? [];
-    const russianHeadwords = russianHeadwordsByForm.get(normalizedQuery) ?? [];
+    // A query names a result when it spells the forms of one Swedish headword,
+    // or one Russian translation that no other word shares.
+    const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
+      .filter((choice) => choice.exact && choice.language === language)
+      .map(({ word }) => word.headword))];
+    const swedishHeadwords = exactHeadwords("sv");
+    const russianHeadwords = exactHeadwords("ru");
     const resultHeadword = swedishHeadwords.length === 1
       ? swedishHeadwords[0]
       : russianHeadwords.length === 1 && choices.length === 1
         ? russianHeadwords[0]
         : undefined;
+    // A cited query opens only the words of the type it names: `en basar`
+    // the market, not the verb Lexin spells alike.
+    const citedWords = new Set(choices
+      .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
+      .map(({ word }) => word.word));
     if (resultHeadword !== undefined) {
       return {
         kind: "result",
         headword: resultHeadword,
-        senses: dictionary.entries[resultHeadword],
+        senses: dictionary.entries[resultHeadword].filter((sense) =>
+          citedForm === undefined || citedWords.has(sense.word)),
         suggestions: choices,
       };
     }

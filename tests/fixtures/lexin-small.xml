@@ -163,6 +163,15 @@
     </BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="60" MatchingID="160" Type="verb" Value="aktar sig">
+    <BaseLang>
+      <Meaning>vara på sin vakt</Meaning>
+      <Inflection>aktade sig</Inflection>
+      <Inflection>aktat</Inflection>
+      <Inflection>akta</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>беречься</Translation></TargetLang>
+  </Word>
   <Word ID="22" MatchingID="122" Type="subst." Value="uppsats">
     <BaseLang>
       <Meaning>vetenskaplig artikel</Meaning>
