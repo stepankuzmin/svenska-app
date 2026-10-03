@@ -273,7 +273,8 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
     looksLikeRecordOfArrays(asset.russianIndex) &&
-    Object(asset.wordAliases) === asset.wordAliases
+    typeof asset.wordAliases === "object" &&
+    asset.wordAliases !== null
   );
 }
 

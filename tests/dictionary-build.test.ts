@@ -88,9 +88,11 @@ describe("Lexin source edition import", () => {
       "младенец": ["7"],
       "научная работа (статья)": ["22"],
       "нести": ["29", "30"],
+      "овца": ["45"],
       "омбудсмен": ["35", "37"],
       "отец": ["24", "26"],
       "писать": ["38"],
+      "получать": ["46", "47"],
       "правдивый": ["5"],
       "прочь": ["20"],
       "сентиментальная ценность": ["10"],
@@ -178,6 +180,9 @@ describe("Lexin source edition import", () => {
     expect(assets.dictionary.entries.ombudsman[0].translation).toBe("омбудсмен");
     // A number Lexin gives no variant names the sense in that place.
     expect(assets.dictionary.entries.inskriver[0].translation).toBe("вписывать");
+    // A pointer that spells a form of one word Lexin spells alike means that
+    // word: `fick` the past of `får` to get, not `får` the sheep.
+    expect(assets.dictionary.entries.fick[0].translation).toBe("получать");
     // A reference can name a spelling Lexin only indexes its target under.
     expect(assets.dictionary.entries.IKC[0].translation).toBe("культурный центр для иммигрантов");
   });

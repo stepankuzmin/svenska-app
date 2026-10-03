@@ -274,4 +274,16 @@
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="Invandrarnas kulturcentrum" /></BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="45" MatchingID="145" Type="subst." Value="får">
+    <BaseLang><Inflection>fåret</Inflection><Inflection>får</Inflection></BaseLang>
+    <TargetLang><Translation>овца</Translation></TargetLang>
+  </Word>
+  <Word ID="46" MatchingID="146" Type="verb" Value="får">
+    <BaseLang><Inflection>fick</Inflection><Inflection>fått</Inflection><Inflection>få</Inflection></BaseLang>
+    <TargetLang><Translation>получать</Translation></TargetLang>
+  </Word>
+  <Word ID="47" Type="se" Value="fick">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="får" /></BaseLang>
+    <TargetLang />
+  </Word>
 </Dictionary>

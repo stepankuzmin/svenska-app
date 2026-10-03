@@ -135,11 +135,13 @@ function referencedWords({
 // settle round by round until none gains a translation.
 function borrowTranslations({
   entries,
+  details,
   variants,
   indexSpellings,
   crossReferences,
 }: {
   entries: DictionaryAsset["entries"];
+  details: DictionaryDetailsAsset["entries"];
   variants: Readonly<Record<string, readonly string[]>>;
   indexSpellings: ReadonlyMap<string, readonly string[]>;
   crossReferences: readonly CrossReference[];
@@ -165,13 +167,23 @@ function borrowTranslations({
     headwordsBySpelling.get(cleanLexinText(spelling)) ??
     headwordsByForm.get(normalizeSwedishLookupText(spelling)) ??
     indexSpellings.get(normalizeSwedishLookupText(spelling)) ?? [];
-  const translationsOf = ({ spelling, partOfSpeech, variants: wanted }: ReferencedWord) =>
+  // A pointer that names neither a variant nor a word type often spells a form
+  // of the word it means, `fick` of the verb `får`, so the senses that inflect
+  // to it win over a homonym, `får` the sheep.
+  const translationsOf = (
+    { spelling, partOfSpeech, variants: wanted }: ReferencedWord,
+    pointer: string,
+  ) =>
     targetsOf(spelling).flatMap((target) => {
-      const matching = entries[target].filter((targetSense, index) =>
+      const matching = entries[target].flatMap((targetSense, index) =>
         (partOfSpeech.length === 0 || targetSense.partOfSpeech === partOfSpeech) &&
-        (wanted.length === 0 || wanted.includes(variantOf(target, index))));
-      const words = matching.filter((targetSense) => targetSense.partOfSpeech !== crossReferenceType);
-      return (words.length > 0 ? words : matching).map((targetSense) => targetSense.translation);
+        (wanted.length === 0 || wanted.includes(variantOf(target, index))) ? [index] : []);
+      const words = matching.filter((index) => entries[target][index].partOfSpeech !== crossReferenceType);
+      const candidates = words.length > 0 ? words : matching;
+      const form = normalizeSwedishLookupText(pointer);
+      const inflecting = partOfSpeech.length > 0 || wanted.length > 0 ? [] : candidates.filter((index) =>
+        (details[target]?.[index]?.inflections ?? []).some((inflection) => normalizeSwedishLookupText(inflection) === form));
+      return (inflecting.length > 0 ? inflecting : candidates).map((index) => entries[target][index].translation);
     });
 
   let pending = crossReferences.filter(({ headword, senseIndex }) =>
@@ -179,7 +191,8 @@ function borrowTranslations({
   while (pending.length > 0) {
     const settled = pending.filter((crossReference) => {
       const { headword, senseIndex, targets } = crossReference;
-      crossReference.borrowed = [...new Set(targets.flatMap(translationsOf).filter((item) => item.length > 0))];
+      crossReference.borrowed = [...new Set(targets.flatMap((target) => translationsOf(target, headword))
+        .filter((item) => item.length > 0))];
       entries[headword][senseIndex].translation = crossReference.borrowed.join(" · ");
       return crossReference.borrowed.length > 0;
     });
@@ -625,7 +638,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       wordAliases[wordKey({ headword, word })] = known;
     }
   }
-  borrowTranslations({ entries, variants, indexSpellings, crossReferences });
+  borrowTranslations({ entries, details: detailEntries, variants, indexSpellings, crossReferences });
   indexCrossReferences({ entries, crossReferences, russianIndex });
   const shared = sharedWordNumbers(entries);
 
