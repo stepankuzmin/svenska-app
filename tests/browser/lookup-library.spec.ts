@@ -220,6 +220,8 @@ test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("framgår");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
@@ -233,6 +235,8 @@ test("a noun lists its Swedish forms behind its article", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("abborre");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
