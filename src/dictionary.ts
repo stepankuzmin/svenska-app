@@ -43,7 +43,7 @@ export function choicesOf(outcome: LookupOutcome | null): readonly LookupChoice[
 
 const wordCharacter = /[\p{L}\p{N}]/u;
 
-function isWordCharacter(value: string | undefined): boolean {
+export function isWordCharacter(value: string | undefined): boolean {
   return value !== undefined && wordCharacter.test(value);
 }
 
@@ -123,7 +123,7 @@ function indexEntries({
 // A card names a verb by its infinitive, `att minska`, a noun by its article,
 // `en val`, and spells the supine after `har`, so a query that opens the same
 // way also looks the rest up among the words of that type.
-const citedQuery = /^(att|har|en|ett)\s+(\S.*)$/u;
+export const citedQuery = /^(att|har|en|ett)\s+(\S.*)$/u;
 
 export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (query: string) => LookupOutcome {
   const byKey = wordsByIndexKey(dictionary.entries);

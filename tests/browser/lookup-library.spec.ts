@@ -294,6 +294,21 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   ]);
 });
 
+test("a suggestion marks the form or translation the query spells", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  const options = page.getByRole("option");
+  await query.fill("att framgå");
+  await expect(options.first().locator("mark")).toHaveText("att framgå");
+  await query.fill("framgick");
+  await expect(options.first().locator("mark")).toHaveText("framgick");
+  await query.fill("val");
+  await expect(options.locator(".suggestion-forms mark")).toHaveText(["val", "val"]);
+  await query.fill("кит");
+  await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
+});
+
 test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {
   await page.goto(".");
 
