@@ -312,9 +312,9 @@ test("a suggestion marks the form or translation the query spells", async ({ pag
   await expect(options.locator(".suggestion-forms mark")).toHaveText(["val", "val"]);
   await query.fill("кит");
   await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
-  // An indexed form the row's forms leave out follows them, marked.
+  // An indexed form the row's forms leave out leads them, marked.
   await query.fill("tackare");
-  await expect(options).toHaveText(["tack interjektion спасибо tack · tackare"]);
+  await expect(options).toHaveText(["tack interjektion спасибо tackare · tack"]);
   await expect(options.first().locator("mark")).toHaveText("tackare");
 });
 

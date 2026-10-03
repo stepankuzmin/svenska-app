@@ -38,3 +38,10 @@ export function queryMatch({ text, query }: { text: string; query: string }): Qu
 
   return null;
 }
+
+// A row spells a form when one of its forms is that form, or opens with the
+// `att`, `har` or article its citation adds: `minska` is the `att minska` of
+// `minskar`, while the imperative `anbefall` is no form of `att anbefalla`.
+export function spellsForm({ forms, form }: { forms: string; form: string }): boolean {
+  return forms.split(", ").some((shown) => shown === form || (citedQuery.test(shown) && shown.endsWith(` ${form}`)));
+}

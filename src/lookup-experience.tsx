@@ -13,7 +13,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
-import { queryMatch } from "./query-match";
+import { queryMatch, spellsForm } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
@@ -220,9 +220,10 @@ const SuggestionMenu = memo(function SuggestionMenu({
         // A Russian query marks the translation it spells, a Swedish one the form.
         const marksTranslation = item.language === "ru";
         // A form the search found that the row's forms leave out, such as the
-        // comparative `abnormare`, follows them after a dot, so it still shows.
-        const forms = !marksTranslation && item.form !== undefined && queryMatch({ text: row.forms, query }) === null
-          ? `${row.forms} · ${item.form}`
+        // comparative `abnormare`, leads them before a dot, where a narrow row
+        // cannot clip it.
+        const forms = !marksTranslation && item.form !== undefined && !spellsForm({ forms: row.forms, form: item.form })
+          ? `${item.form} · ${row.forms}`
           : row.forms;
         return (
           <li

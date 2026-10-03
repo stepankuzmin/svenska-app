@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { queryMatch } from "../src/query-match.ts";
+import { queryMatch, spellsForm } from "../src/query-match.ts";
 
 function marked({ text, query }: { text: string; query: string }) {
   const match = queryMatch({ text, query });
@@ -43,5 +43,19 @@ describe("the part of a suggestion a query spells", () => {
   it("marks nothing the text does not spell", () => {
     expect(marked({ text: minskar, query: "öka" })).toBeNull();
     expect(marked({ text: minskar, query: "   " })).toBeNull();
+  });
+});
+
+describe("whether a row spells an indexed form", () => {
+  it("finds a form in full or behind the prefix its citation adds", () => {
+    expect(spellsForm({ forms: minskar, form: "minskade" })).toBe(true);
+    expect(spellsForm({ forms: minskar, form: "minska" })).toBe(true);
+    expect(spellsForm({ forms: minskar, form: "minskat" })).toBe(true);
+    expect(spellsForm({ forms: "en val, valen, valar, valarna", form: "val" })).toBe(true);
+  });
+
+  it("does not take a form the row only spells part of", () => {
+    expect(spellsForm({ forms: "att anbefalla, anbefaller, anbefallde, har anbefallt", form: "anbefall" })).toBe(false);
+    expect(spellsForm({ forms: "abnorm, abnormt, abnorma", form: "abnormare" })).toBe(false);
   });
 });
