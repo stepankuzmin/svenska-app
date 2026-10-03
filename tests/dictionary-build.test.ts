@@ -69,34 +69,38 @@ describe("Lexin source edition import", () => {
 
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
+      "АО": ["15"],
       "бронировать": ["14"],
-      "должен": ["17"],
+      "вкрутую": ["hård|kokt#16"],
+      "вписывать": ["39", "40"],
       "да": ["36"],
-      "долженствовать": ["17"],
+      "джинсы": ["13"],
+      "должен": ["17", "21"],
+      "долженствовать": ["17", "21"],
+      "дом": ["2", "3", "27"],
       "ездить": ["25"],
-      "научная работа (статья)": ["22"],
-      "нести": ["29"],
-      "омбудсмен": ["35"],
-      "отец": ["24"],
-      "дом": ["2", "3"],
       "жопа": ["6"],
       "книга": ["1"],
-      "кооператив": ["33"],
+      "кооператив": ["33", "34"],
+      "крутой": ["hårdkokt#16"],
+      "культурный центр для иммигрантов": ["43", "44"],
+      "куча": ["42"],
       "младенец": ["7"],
+      "научная работа (статья)": ["22"],
+      "нести": ["29", "30"],
+      "омбудсмен": ["35", "37"],
+      "отец": ["24", "26"],
+      "писать": ["38"],
       "правдивый": ["5"],
       "прочь": ["20"],
-      "джинсы": ["13"],
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
       "сообщать": ["4"],
-      "такси": ["8"],
-      "техосмотр": ["32"],
+      "такси": ["8", "27"],
+      "техосмотр": ["32", "31"],
       "хуже": ["12"],
       "экшн": ["11"],
       "ягода": ["28"],
-      "АО": ["15"],
-      "вкрутую": ["hård|kokt#16"],
-      "крутой": ["hårdkokt#16"],
     });
   });
 
@@ -156,7 +160,7 @@ describe("Lexin source edition import", () => {
     expect(assets.dictionary.entries.borde[0].translation).toBe("долженствовать · должен");
     // `far subst.` narrows the pointer to the noun, and a list points at each word.
     expect(assets.dictionary.entries.fader[0].translation).toBe("отец");
-    expect(assets.dictionary.entries.intar[0].translation).toBe("дом · АО");
+    expect(assets.dictionary.entries.intar[0].translation).toBe("дом · такси");
     // The adverb `bort` keeps its own translation beside the pointer it joined.
     expect(assets.dictionary.entries.bort.map(({ translation }) => translation))
       .toEqual(["долженствовать · должен", "прочь"]);
@@ -172,6 +176,22 @@ describe("Lexin source edition import", () => {
     expect(assets.dictionary.entries["riksförbund"][0].translation).toBe("кооператив");
     // `JO` is spelled exactly so, which the interjection `jo` is not.
     expect(assets.dictionary.entries.ombudsman[0].translation).toBe("омбудсмен");
+    // A number Lexin gives no variant names the sense in that place.
+    expect(assets.dictionary.entries.inskriver[0].translation).toBe("вписывать");
+    // A reference can name a spelling Lexin only indexes its target under.
+    expect(assets.dictionary.entries.IKC[0].translation).toBe("культурный центр для иммигрантов");
+  });
+
+  it("joins a pointer with a synonym to a word of its spelling", () => {
+    expect(assets.dictionary.entries.stack.map(({ word }) => word)).toEqual(["42", "42"]);
+    // The noun alone answers a Russian query, not the pointer it joined.
+    expect(assets.dictionary.russianIndex["оставил"]).toBeUndefined();
+  });
+
+  it("leads a Russian query to a pointer that stands as a word of its own", () => {
+    expect(assets.dictionary.russianIndex["должен"]).toEqual(["17", "21"]);
+    // `bort` the pointer joined the adverb, so `должен` does not lead there.
+    expect(assets.dictionary.russianIndex["должен"]).not.toContain("20");
   });
 
   it("adds the definite plural and comparative forms Lexin leaves implicit", () => {

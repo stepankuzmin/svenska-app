@@ -61,7 +61,7 @@ function childText(
 
 function childTexts(
   value: string | Record<string, unknown> | undefined,
-  child: "Explanation" | "Reference" | "Synonym",
+  child: "Explanation" | "Index" | "Reference" | "Synonym",
 ): unknown[] {
   if (typeof value !== "object" || value === null || !(child in value)) {
     return [];
@@ -132,16 +132,16 @@ function referencedWords({
 // over one that only reads alike, so `JO` is not taken for the interjection
 // `jo`. A target that is itself a pointer lends what it reads in once it has
 // it, `bil|besiktning` through `årlig kontrollbesiktning`, so the pointers
-// settle round by round until none gains a translation. A borrowed
-// translation stays out of the Russian index: a Russian query offers the word
-// itself rather than every pointer to it.
+// settle round by round until none gains a translation.
 function borrowTranslations({
   entries,
   variants,
+  indexSpellings,
   crossReferences,
 }: {
   entries: DictionaryAsset["entries"];
   variants: Readonly<Record<string, readonly string[]>>;
+  indexSpellings: ReadonlyMap<string, readonly string[]>;
   crossReferences: readonly CrossReference[];
 }): void {
   const headwordsBySpelling = new Map<string, string[]>();
@@ -155,12 +155,21 @@ function borrowTranslations({
     }
   }
 
+  // Lexin numbers a sense by its variant, or where it leaves the variant out,
+  // by its place among the senses of its spelling: `skriver 2`.
+  const variantOf = (target: string, index: number) => variants[target]?.[index] || String(index + 1);
+  // A reference names a headword, or now and then only a spelling Lexin
+  // indexes it under: `Invandrarnas kulturcentrum` for the headword that adds
+  // `(IKC)`.
+  const targetsOf = (spelling: string) =>
+    headwordsBySpelling.get(cleanLexinText(spelling)) ??
+    headwordsByForm.get(normalizeSwedishLookupText(spelling)) ??
+    indexSpellings.get(normalizeSwedishLookupText(spelling)) ?? [];
   const translationsOf = ({ spelling, partOfSpeech, variants: wanted }: ReferencedWord) =>
-    (headwordsBySpelling.get(cleanLexinText(spelling)) ??
-      headwordsByForm.get(normalizeSwedishLookupText(spelling)) ?? []).flatMap((target) => {
+    targetsOf(spelling).flatMap((target) => {
       const matching = entries[target].filter((targetSense, index) =>
         (partOfSpeech.length === 0 || targetSense.partOfSpeech === partOfSpeech) &&
-        (wanted.length === 0 || wanted.includes(variants[target]?.[index] ?? "")));
+        (wanted.length === 0 || wanted.includes(variantOf(target, index))));
       const words = matching.filter((targetSense) => targetSense.partOfSpeech !== crossReferenceType);
       return (words.length > 0 ? words : matching).map((targetSense) => targetSense.translation);
     });
@@ -168,10 +177,11 @@ function borrowTranslations({
   let pending = crossReferences.filter(({ headword, senseIndex }) =>
     entries[headword][senseIndex].translation.length === 0);
   while (pending.length > 0) {
-    const settled = pending.filter(({ headword, senseIndex, targets }) => {
-      const translations = targets.flatMap(translationsOf).filter((item) => item.length > 0);
-      entries[headword][senseIndex].translation = [...new Set(translations)].join(" · ");
-      return translations.length > 0;
+    const settled = pending.filter((crossReference) => {
+      const { headword, senseIndex, targets } = crossReference;
+      crossReference.borrowed = [...new Set(targets.flatMap(translationsOf).filter((item) => item.length > 0))];
+      entries[headword][senseIndex].translation = crossReference.borrowed.join(" · ");
+      return crossReference.borrowed.length > 0;
     });
     if (settled.length === 0) {
       break;
@@ -184,7 +194,39 @@ type CrossReference = {
   headword: string;
   senseIndex: number;
   targets: ReferencedWord[];
+  // The Russian a pointer carries itself, a synonym, or else what it borrows.
+  ownTranslation: boolean;
+  borrowed: string[];
 };
+
+// A Russian query offers every word whose translation holds it, a pointer that
+// stands as a word of its own among them. A pointer that joined another word
+// of its spelling stays out, so `должен` does not lead to the adverb `bort`,
+// and a borrowed explanation stays out as its target's does.
+function indexCrossReferences({
+  entries,
+  crossReferences,
+  russianIndex,
+}: {
+  entries: DictionaryAsset["entries"];
+  crossReferences: readonly CrossReference[];
+  russianIndex: Map<string, IndexedSense[]>;
+}): void {
+  const standing = crossReferences.filter(({ headword, senseIndex }) => {
+    const { word } = entries[headword][senseIndex];
+    return !entries[headword].some((other) => other.word === word && other.partOfSpeech !== crossReferenceType);
+  });
+  // A pointer's own synonym enters first, so a pointer that borrows it finds
+  // it indexed wherever Lexin lists the two.
+  for (const { headword, senseIndex } of standing.filter(({ ownTranslation }) => ownTranslation)) {
+    addToIndex({ index: russianIndex, form: entries[headword][senseIndex].translation, sense: { headword, senseIndex } });
+  }
+  for (const { headword, senseIndex, borrowed } of standing) {
+    for (const form of borrowed.filter((item) => russianIndex.has(item))) {
+      addToIndex({ index: russianIndex, form, sense: { headword, senseIndex } });
+    }
+  }
+}
 
 function inflectionGroups(value: string | Record<string, unknown> | undefined): string[][] {
   if (typeof value !== "object" || value === null || !("Inflection" in value)) {
@@ -346,10 +388,12 @@ function wordsOfEntry({
   senses: readonly { word: string; partOfSpeech: string; meaning: string; translation: string }[];
   details: readonly { article: string; inflections: readonly string[] }[];
 }): { words: string[]; joined: [string, string][] } {
-  const hasContent = (index: number) =>
+  // A cross reference names another word, so even one Lexin gives a synonym
+  // joins a word of its spelling rather than standing as one.
+  const hasContent = (index: number) => senses[index].partOfSpeech !== crossReferenceType && (
     senses[index].meaning.length > 0 ||
     senses[index].translation.length > 0 ||
-    (details[index]?.inflections.length ?? 0) > 0;
+    (details[index]?.inflections.length ?? 0) > 0);
   const numbered = [...new Set(senses.map((sense) => sense.word))];
   const words = numbered.filter((word) =>
     senses.some((sense, index) => sense.word === word && hasContent(index)));
@@ -507,6 +551,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   const wordAliases: DictionaryAsset["wordAliases"] = {};
   const crossReferences: CrossReference[] = [];
   const variants: Record<string, string[]> = {};
+  const indexSpellings = new Map<string, string[]>();
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
   const wordTypes = new Set(words.map((word) => word["@_Type"]?.trim() ?? ""));
 
@@ -532,6 +577,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       crossReferences.push({
         ...sense,
         targets: referencedWords({ base: word.BaseLang, wordTypes }),
+        ownTranslation: indexed && translation.length > 0,
+        borrowed: [],
       });
     }
     senses.push({
@@ -558,8 +605,14 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       addToIndex({ index: swedishIndex, form, sense });
     }
 
-    if (indexed) {
+    if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
+    }
+    for (const index of childTexts(word.BaseLang, "Index")) {
+      if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
+        const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
+        indexSpellings.set(spelling, [...new Set([...(indexSpellings.get(spelling) ?? []), headword])]);
+      }
     }
   }
 
@@ -572,7 +625,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       wordAliases[wordKey({ headword, word })] = known;
     }
   }
-  borrowTranslations({ entries, variants, crossReferences });
+  borrowTranslations({ entries, variants, indexSpellings, crossReferences });
+  indexCrossReferences({ entries, crossReferences, russianIndex });
   const shared = sharedWordNumbers(entries);
 
   return {

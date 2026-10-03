@@ -198,7 +198,7 @@
   <Word ID="27" Type="se" Value="intar">
     <BaseLang>
       <Meaning />
-      <Reference TYPE="see" VALUE="hus, AB" />
+      <Reference TYPE="see" VALUE="hus, taxi" />
       <Reference TYPE="animation" VALUE="intar.swf" />
     </BaseLang>
     <TargetLang />
@@ -241,6 +241,37 @@
   </Word>
   <Word ID="37" Type="se" Value="ombudsman">
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="JO" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="38" MatchingID="138" Type="verb" Value="skriver">
+    <BaseLang><Inflection>skrev</Inflection><Inflection>skrivit</Inflection><Inflection>skriva</Inflection></BaseLang>
+    <TargetLang><Translation>писать</Translation></TargetLang>
+  </Word>
+  <Word ID="39" MatchingID="139" Type="verb" Value="skriver">
+    <BaseLang><Inflection>skrev in</Inflection><Inflection>skrivit in</Inflection><Inflection>skriva in</Inflection></BaseLang>
+    <TargetLang><Translation>вписывать</Translation></TargetLang>
+  </Word>
+  <Word ID="40" Type="se" Value="inskriver">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="skriver 2" /></BaseLang>
+    <TargetLang />
+  </Word>
+  <Word ID="41" Type="se" Value="stack" Variant="1">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="sticker" /></BaseLang>
+    <TargetLang><Synonym>оставил</Synonym></TargetLang>
+  </Word>
+  <Word ID="42" MatchingID="142" Type="subst." Value="stack" Variant="2">
+    <BaseLang><Inflection>stacken</Inflection><Inflection>stackar</Inflection></BaseLang>
+    <TargetLang><Translation>куча</Translation></TargetLang>
+  </Word>
+  <Word ID="43" MatchingID="143" Type="namn" Value="Invandrarnas kulturcentrum (IKC)">
+    <BaseLang>
+      <Index Value="Invandrarnas kulturcentrum" />
+      <Index Value="IKC" type="prefix" />
+    </BaseLang>
+    <TargetLang><Translation>культурный центр для иммигрантов</Translation></TargetLang>
+  </Word>
+  <Word ID="44" Type="se" Value="IKC">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="Invandrarnas kulturcentrum" /></BaseLang>
     <TargetLang />
   </Word>
 </Dictionary>
