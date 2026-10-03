@@ -70,6 +70,7 @@ describe("Lexin source edition import", () => {
   it("indexes every translation against the Lexin number of the word that carries it", () => {
     expect(assets.dictionary.russianIndex).toEqual({
       "АО": ["15"],
+      "блюдо": ["48", "50"],
       "бронировать": ["14"],
       "вкрутую": ["hård|kokt#16"],
       "вписывать": ["39", "40"],
@@ -97,6 +98,7 @@ describe("Lexin source edition import", () => {
       "прочь": ["20"],
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
+      "суд": ["49"],
       "сообщать": ["4"],
       "такси": ["8", "27"],
       "техосмотр": ["32", "31"],
@@ -183,6 +185,9 @@ describe("Lexin source edition import", () => {
     // A pointer that spells a form of one word Lexin spells alike means that
     // word: `fick` the past of `får` to get, not `får` the sheep.
     expect(assets.dictionary.entries.fick[0].translation).toBe("получать");
+    // A pointer that names a word type still means the sense it is a compound
+    // of: `maträtt` the dish, not `rätt` the court.
+    expect(assets.dictionary.entries["mat|rätt"][0].translation).toBe("блюдо");
     // A reference can name a spelling Lexin only indexes its target under.
     expect(assets.dictionary.entries.IKC[0].translation).toBe("культурный центр для иммигрантов");
   });

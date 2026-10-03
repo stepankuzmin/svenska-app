@@ -135,13 +135,13 @@ function referencedWords({
 // settle round by round until none gains a translation.
 function borrowTranslations({
   entries,
-  details,
+  senseForms,
   variants,
   indexSpellings,
   crossReferences,
 }: {
   entries: DictionaryAsset["entries"];
-  details: DictionaryDetailsAsset["entries"];
+  senseForms: Readonly<Record<string, readonly (readonly string[])[]>>;
   variants: Readonly<Record<string, readonly string[]>>;
   indexSpellings: ReadonlyMap<string, readonly string[]>;
   crossReferences: readonly CrossReference[];
@@ -167,9 +167,10 @@ function borrowTranslations({
     headwordsBySpelling.get(cleanLexinText(spelling)) ??
     headwordsByForm.get(normalizeSwedishLookupText(spelling)) ??
     indexSpellings.get(normalizeSwedishLookupText(spelling)) ?? [];
-  // A pointer that names neither a variant nor a word type often spells a form
-  // of the word it means, `fick` of the verb `får`, so the senses that inflect
-  // to it win over a homonym, `får` the sheep.
+  // A pointer often spells a form of the sense it means: an inflection,
+  // `fick` of the verb `får` rather than `får` the sheep, or a compound,
+  // `maträtt` of `rätt` the dish rather than `rätt` the court. The senses Lexin
+  // indexes under the pointer's spelling win, whatever else it names.
   const translationsOf = (
     { spelling, partOfSpeech, variants: wanted }: ReferencedWord,
     pointer: string,
@@ -181,9 +182,8 @@ function borrowTranslations({
       const words = matching.filter((index) => entries[target][index].partOfSpeech !== crossReferenceType);
       const candidates = words.length > 0 ? words : matching;
       const form = normalizeSwedishLookupText(pointer);
-      const inflecting = partOfSpeech.length > 0 || wanted.length > 0 ? [] : candidates.filter((index) =>
-        (details[target]?.[index]?.inflections ?? []).some((inflection) => normalizeSwedishLookupText(inflection) === form));
-      return (inflecting.length > 0 ? inflecting : candidates).map((index) => entries[target][index].translation);
+      const spelled = candidates.filter((index) => senseForms[target]?.[index]?.includes(form));
+      return (spelled.length > 0 ? spelled : candidates).map((index) => entries[target][index].translation);
     });
 
   let pending = crossReferences.filter(({ headword, senseIndex }) =>
@@ -565,6 +565,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   const crossReferences: CrossReference[] = [];
   const variants: Record<string, string[]> = {};
   const indexSpellings = new Map<string, string[]>();
+  const senseForms: Record<string, string[][]> = {};
   const words = Array.isArray(sourceDictionary.Word) ? sourceDictionary.Word : [sourceDictionary.Word];
   const wordTypes = new Set(words.map((word) => word["@_Type"]?.trim() ?? ""));
 
@@ -621,12 +622,15 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
     }
+    const forms = new Set(inflectionTexts.map(normalizeSwedishLookupText));
     for (const index of childTexts(word.BaseLang, "Index")) {
       if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
         const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
+        forms.add(spelling);
         indexSpellings.set(spelling, [...new Set([...(indexSpellings.get(spelling) ?? []), headword])]);
       }
     }
+    senseForms[headword] = [...(senseForms[headword] ?? []), [...forms]];
   }
 
   for (const [headword, senses] of Object.entries(entries)) {
@@ -638,7 +642,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       wordAliases[wordKey({ headword, word })] = known;
     }
   }
-  borrowTranslations({ entries, details: detailEntries, variants, indexSpellings, crossReferences });
+  borrowTranslations({ entries, senseForms, variants, indexSpellings, crossReferences });
   indexCrossReferences({ entries, crossReferences, russianIndex });
   const shared = sharedWordNumbers(entries);
 

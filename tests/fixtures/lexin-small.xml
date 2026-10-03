@@ -286,4 +286,25 @@
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="får" /></BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="48" MatchingID="148" Type="subst." Value="rätt" Variant="1">
+    <BaseLang>
+      <Inflection>rätten</Inflection>
+      <Inflection>rätter</Inflection>
+      <Index Value="rätt" />
+      <Index Value="maträtt" />
+    </BaseLang>
+    <TargetLang><Translation>блюдо</Translation></TargetLang>
+  </Word>
+  <Word ID="49" MatchingID="149" Type="subst." Value="rätt" Variant="2">
+    <BaseLang>
+      <Inflection>rätten</Inflection>
+      <Index Value="rätt" />
+      <Index Value="tingsrätt" />
+    </BaseLang>
+    <TargetLang><Translation>суд</Translation></TargetLang>
+  </Word>
+  <Word ID="50" Type="se" Value="mat|rätt">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="rätt subst." /></BaseLang>
+    <TargetLang />
+  </Word>
 </Dictionary>

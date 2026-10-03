@@ -269,12 +269,11 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
 
   const asset = value as Partial<DictionaryAsset>;
   return (
+    Object(asset.wordAliases) === asset.wordAliases &&
     dictionaryMetadataSchema.safeParse(asset.metadata).success &&
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
-    looksLikeRecordOfArrays(asset.russianIndex) &&
-    typeof asset.wordAliases === "object" &&
-    asset.wordAliases !== null
+    looksLikeRecordOfArrays(asset.russianIndex)
   );
 }
 
