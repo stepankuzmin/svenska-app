@@ -57,13 +57,21 @@ describe("Swedish word forms", () => {
     ["måste", ["måste", "måst"], ["måste", "måst"]],
     ["andas", ["andades", "andats", "andas"], ["andades", "andats", "andas"]],
   ])("puts the supine of %s beside its first preterite", (present, inflections, ordered) => {
-    expect(verbInflections({ present, inflections })).toEqual(ordered);
+    expect(verbInflections({ present, inflections: inflections.map((form) => [form]) })).toEqual(ordered);
+  });
+
+  it("reads a variant Lexin groups with the preterite as a preterite", () => {
+    expect(verbInflections({ present: "skvätter", inflections: [["skvätte", "skvatt"], ["skvätt"], ["skvätta"]] }))
+      .toEqual(["skvätte", "skvätt", "skvätta"]);
   });
 
   it("reads a verb with two preterites by the first preterite and supine", () => {
     expect(formsFor("smälter", {
       partOfSpeech: "verb",
-      inflections: verbInflections({ present: "smälter", inflections: ["smalt", "smälte", "smält", "smultit", "smält", "smälta"] }),
+      inflections: verbInflections({
+        present: "smälter",
+        inflections: [["smalt", "smälte"], ["smält", "smultit"], ["smält"], ["smälta"]],
+      }),
     })).toEqual(["att smälta", "smälter", "smalt", "har smält"]);
   });
 
@@ -92,6 +100,16 @@ describe("Swedish word forms", () => {
         { partOfSpeech: "subst.", article: "", inflections: [] },
       ],
     })).toEqual(["en synd", "synden", "synder"]);
+  });
+
+  it("keeps a form a sense without an article spells besides its headword", () => {
+    expect(wordForms({
+      headword: "kroatiska",
+      senses: [
+        { partOfSpeech: "subst.", article: "en", inflections: ["kroatiskan"] },
+        { partOfSpeech: "subst.", article: "", inflections: ["kroatiska", "kroatiskor", "kroatiskorna"] },
+      ],
+    })).toEqual(["en kroatiska", "kroatiskan", "kroatiska", "kroatiskor", "kroatiskorna"]);
   });
 
   it("opens a noun with its article", () => {

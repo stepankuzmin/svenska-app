@@ -609,7 +609,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     // A verb's card spells one preterite and one supine; every form Lexin
     // lists is still indexed.
     const inflectionTexts = partOfSpeech === "verb"
-      ? verbInflections({ present: headword.split(" ")[0], inflections: indexedInflections })
+      ? verbInflections({ present: headword.split(" ")[0], inflections })
       : indexedInflections;
     const senses = entries[headword] ?? [];
     const sense = { headword, senseIndex: senses.length };

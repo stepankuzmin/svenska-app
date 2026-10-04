@@ -32,18 +32,28 @@ const weakPreteriteEnding = /de$/u;
 
 // Lexin lists every preterite before every supine, so a verb with two
 // preterites puts the second where the supine stands: `beslutar` reads
-// `beslutade, beslöt, beslutit, beslutat`, `säger` `sade, sa, sagt`. The supine
-// is the first later form shaped like one: `-it`, `-tt` or a consonant and t,
-// as no strong preterite such as `beslöt` ends, or the supine the preterite
-// gives away, `simmade` `simmat`. A word card shows the first preterite and
-// supine, so the build leaves out the preterites between them, and the present
-// Lexin now and then repeats first, as `omsätter` does.
-export function verbInflections({ present, inflections }: { present: string; inflections: readonly string[] }): string[] {
-  const own = inflections.length > 3 && firstWord(inflections[0]) === present ? inflections.slice(1) : inflections;
+// `beslutade, beslöt, beslutit, beslutat`, `säger` `sade, sa, sagt`. A variant
+// Lexin groups with the first preterite, `skvätte` or `skvatt`, is a preterite
+// too. The supine is the first later form shaped like one: `-it`, `-tt` or a
+// consonant and t, as no strong preterite such as `beslöt` ends, or the supine
+// the preterite gives away, `simmade` `simmat`. A word card shows the first
+// preterite and supine, so the build leaves out the preterites between them,
+// and the present Lexin now and then repeats first, as `omsätter` does.
+export function verbInflections({
+  present,
+  inflections,
+}: {
+  present: string;
+  inflections: readonly (readonly string[])[];
+}): string[] {
+  const groups = inflections.length > 3 && firstWord(inflections[0]?.[0] ?? "") === present
+    ? inflections.slice(1)
+    : inflections;
+  const own = groups.flat();
   const weakSupine = firstWord(own[0] ?? "").replace(weakPreteriteEnding, "t");
   const supineIndex = own.findIndex((form, index) =>
-    index > 0 && (supineEnding.test(firstWord(form)) || firstWord(form) === weakSupine));
-  return own.length < 3 || supineIndex === -1 ? [...own] : [own[0], ...own.slice(supineIndex)];
+    index >= (groups[0]?.length ?? 0) && (supineEnding.test(firstWord(form)) || firstWord(form) === weakSupine));
+  return own.length < 3 || supineIndex === -1 ? own : [own[0], ...own.slice(supineIndex)];
 }
 
 function senseForms({
@@ -102,8 +112,10 @@ export function wordForms({
       const count = (spelled.get(form) ?? 0) + 1;
       spelled.set(form, count);
       // A noun's article already spells out the bare headword of a sense
-      // that takes no article.
-      const articled = !named(sense) && (forms.includes(`en ${form}`) || forms.includes(`ett ${form}`));
+      // that takes no article, though not a form that sense spells again:
+      // `kroatiska` the woman lists a `kroatiska` of its own.
+      const articled = !named(sense) && count === 1 &&
+        (forms.includes(`en ${form}`) || forms.includes(`ett ${form}`));
       if (form.length > 0 && !articled && forms.filter((known) => known === form).length < count) {
         forms.push(form);
       }
