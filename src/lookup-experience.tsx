@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useCallback,
   useDeferredValue,
@@ -13,6 +14,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
+import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
@@ -157,11 +159,28 @@ const WordCard = memo(function WordCard({
 
 const noSuggestions: readonly LookupChoice[] = [];
 
+// Every place a row spells the query reads marked, so the row shows why it
+// answers.
+function MarkedText({ text, matches }: { text: string; matches: readonly QueryMatch[] }) {
+  return (
+    <>
+      {matches.map((match, index) => (
+        <Fragment key={match.start}>
+          {text.slice(matches[index - 1]?.end ?? 0, match.start)}
+          <mark>{text.slice(match.start, match.end)}</mark>
+        </Fragment>
+      ))}
+      {text.slice(matches.at(-1)?.end ?? 0)}
+    </>
+  );
+}
+
 // The menu renders behind the field: while the deferred list is unchanged, a
 // keystroke re-renders the input and stops at this boundary.
 const SuggestionMenu = memo(function SuggestionMenu({
   listId,
   items,
+  query,
   totalCount,
   activeIndex,
   stale,
@@ -173,6 +192,7 @@ const SuggestionMenu = memo(function SuggestionMenu({
 }: {
   listId: string;
   items: readonly LookupChoice[];
+  query: string;
   totalCount: number;
   activeIndex: number;
   stale: boolean;
@@ -197,6 +217,10 @@ const SuggestionMenu = memo(function SuggestionMenu({
     >
       {items.map((item, index) => {
         const row = rows[index];
+        // A Russian query marks the translation, a Swedish one the forms.
+        const forms = item.form ? withForm({ forms: row.forms, form: item.form }) : row.forms;
+        const translationMatches = item.form ? [] : queryMatches({ text: row.translation, query });
+        const formMatches = item.form ? queryMatches({ text: forms, query }) : [];
         return (
           <li
             id={`${listId}-${index}`}
@@ -220,11 +244,17 @@ const SuggestionMenu = memo(function SuggestionMenu({
                 : null}
               {row.translation.length > 0 ? " " : null}
               {row.translation.length > 0
-                ? <span className="suggestion-translation" lang="ru">{row.translation}</span>
+                ? (
+                  <span className="suggestion-translation" lang="ru">
+                    <MarkedText text={row.translation} matches={translationMatches} />
+                  </span>
+                )
                 : null}
             </span>
             {" "}
-            <span className="suggestion-forms" lang="sv">{row.forms}</span>
+            <span className="suggestion-forms" lang="sv">
+              <MarkedText text={forms} matches={formMatches} />
+            </span>
           </li>
         );
       })}
@@ -235,8 +265,13 @@ const SuggestionMenu = memo(function SuggestionMenu({
 export function LookupExperience(props: LookupExperienceProps) {
   // The field owns the urgent update; a hundred suggestion rows render behind
   // it, so a keystroke never waits on the list it will replace.
-  const matches = useMemo(() => choicesOf(props.outcome), [props.outcome]);
-  const suggestions = useDeferredValue(matches);
+  // The rows mark the query they answer, so the query defers with them.
+  const matches = useMemo(
+    () => ({ choices: choicesOf(props.outcome), query: props.query }),
+    [props.outcome, props.query],
+  );
+  const deferredMatches = useDeferredValue(matches);
+  const suggestions = deferredMatches.choices;
   const library = useMemo(
     () => wordCards({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
     [props.libraryWords, props.entries, props.details],
@@ -254,11 +289,11 @@ export function LookupExperience(props: LookupExperienceProps) {
     [autocompleteOpen, suggestions, renderedSuggestionCount],
   );
   const activeSuggestion = visibleSuggestions[activeSuggestionIndex];
-  const suggestionsStale = matches !== suggestions;
+  const suggestionsStale = matches !== deferredMatches;
   const showNoMatches = autocompleteOpen &&
     props.status === "ready" &&
     props.query.trim().length > 0 &&
-    matches.length === 0;
+    matches.choices.length === 0;
   const queryInput = useRef<HTMLInputElement>(null);
   // The menu's handlers read what the last render saw, so they keep one
   // identity and the menu keeps its place across a keystroke.
@@ -432,6 +467,7 @@ export function LookupExperience(props: LookupExperienceProps) {
           <SuggestionMenu
             listId={listId}
             items={visibleSuggestions}
+            query={deferredMatches.query}
             totalCount={suggestions.length}
             activeIndex={activeSuggestionIndex}
             stale={suggestionsStale}

@@ -32,6 +32,7 @@ const dictionary = {
     fikor: ["102"],
     fikorna: ["102"],
     tack: ["103"],
+    tackare: ["103"],
     framgår: ["104"],
     framgick: ["104"],
     framgått: ["104"],
@@ -128,6 +129,7 @@ test("an extended card includes compounds associated with the Lexin entry", asyn
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("abborre");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(page.getByRole("region", { name: "Words containing abborre" }).getByText("abborrpinne")).toBeVisible();
@@ -138,6 +140,7 @@ test("an extended card closes its heading across the card and keeps its details 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fika");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const card = page.locator(".word-card[open]");
@@ -156,6 +159,7 @@ test("an extended card leaves out words that only share its letters", async ({ p
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(page.locator(".word-card[open] summary strong")).toHaveText("en val");
@@ -219,6 +223,8 @@ test("a verb lists its Swedish forms from the infinitive", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("framgår");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
@@ -232,6 +238,8 @@ test("a noun lists its Swedish forms behind its article", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("abborre");
+  // Enter submits only once the dictionary has loaded and suggests the word.
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(
@@ -245,6 +253,7 @@ test("an en-word and an ett-word of one spelling fill a card each", async ({ pag
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -262,6 +271,7 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -292,6 +302,26 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18440" },
   ]);
+});
+
+test("a suggestion marks the form or translation the query spells", async ({ page }) => {
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  const options = page.getByRole("option");
+  await query.fill("att framgå");
+  await expect(options.first().locator("mark")).toHaveText("att framgå");
+  await query.fill("framgick");
+  await expect(options.first().locator("mark")).toHaveText("framgick");
+  await query.fill("val");
+  // Every place a row spells the query is marked.
+  await expect(options.first().locator(".suggestion-forms mark")).toHaveText(["val", "val", "val", "val"]);
+  await query.fill("кит");
+  await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
+  // An indexed form the row's forms leave out leads them, marked.
+  await query.fill("tackare");
+  await expect(options).toHaveText(["tack interjektion спасибо tackare · tack"]);
+  await expect(options.first().locator("mark")).toHaveText("tackare");
 });
 
 test("every suggestion reads the same way whether it has forms or not", async ({ page }) => {
@@ -362,6 +392,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -381,6 +412,7 @@ test("a word a swipe pulls at without carrying off keeps its place", async ({ pa
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -422,6 +454,7 @@ test("the card a swipe uncovers can be removed from the keyboard", async ({ page
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -445,6 +478,7 @@ test("a word removed without motion leaves just the same", async ({ page }) => {
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const cards = page.locator(".word-card-list > li");
@@ -458,10 +492,13 @@ test("a closed card shows only the word, its type and its Russian", async ({ pag
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("tack");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
   await query.fill("fika");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
   await query.fill("framgår");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
   await expect(page.locator(".word-card[open] summary strong")).toHaveText("att framgå");
 
@@ -479,6 +516,7 @@ test("a word with nothing beyond its closed line cannot be extended", async ({ p
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("tack");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   const library = page.getByRole("region", { name: "Library" });
@@ -486,6 +524,7 @@ test("a word with nothing beyond its closed line cannot be extended", async ({ p
   await expect(library.getByRole("group")).toHaveCount(0);
 
   await query.fill("fika");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
   await expect(library.getByRole("group")).toHaveCount(1);
 });

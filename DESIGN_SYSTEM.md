@@ -18,6 +18,7 @@ The tokens live on `.minimal-lookup` in `src/lookup-experience.css`. This file n
 | `--lookup-control` | `#d4d4d8` | `#636367` | Clear button; pressed mixes 20% ink |
 | `--lookup-selected` | `#e9f2fc` | `#19395a` | Active or hovered suggestion |
 | `--lookup-hover` | `#f3f8fd` | `#15293d` | Hovered word card |
+| `--lookup-match` | `#ffc8004d` | `#ffc8004d` | The form or translation a suggestion matches, under `--lookup-ink`; translucent, so it tints either theme and a selected row |
 
 ## Type
 

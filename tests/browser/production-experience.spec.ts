@@ -129,6 +129,7 @@ test("submitting the field empties it the way a selection does", async ({ page }
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fika");
+  await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
   await expect(query).toHaveValue("");
