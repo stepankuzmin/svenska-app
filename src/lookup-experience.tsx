@@ -1,4 +1,5 @@
 import {
+  Fragment,
   memo,
   useCallback,
   useDeferredValue,
@@ -13,7 +14,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
-import { formMatch, queryMatch, type QueryMatch } from "./query-match";
+import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
@@ -158,18 +159,18 @@ const WordCard = memo(function WordCard({
 
 const noSuggestions: readonly LookupChoice[] = [];
 
-// The part of a row the query spells reads marked, so the row shows why it
-// answers: `att minska` marks the infinitive among the forms of `minskar`.
-function MarkedText({ text, match }: { text: string; match: QueryMatch | null }) {
-  if (match === null) {
-    return text;
-  }
-
+// Every place a row spells the query reads marked, so the row shows why it
+// answers.
+function MarkedText({ text, matches }: { text: string; matches: readonly QueryMatch[] }) {
   return (
     <>
-      {text.slice(0, match.start)}
-      <mark>{text.slice(match.start, match.end)}</mark>
-      {text.slice(match.end)}
+      {matches.map((match, index) => (
+        <Fragment key={match.start}>
+          {text.slice(matches[index - 1]?.end ?? 0, match.start)}
+          <mark>{text.slice(match.start, match.end)}</mark>
+        </Fragment>
+      ))}
+      {text.slice(matches.at(-1)?.end ?? 0)}
     </>
   );
 }
@@ -216,10 +217,10 @@ const SuggestionMenu = memo(function SuggestionMenu({
     >
       {items.map((item, index) => {
         const row = rows[index];
-        // A Russian query marks the translation it spells, a Swedish one the
-        // form that offered the word.
-        const translationMatch = item.form ? null : queryMatch({ text: row.translation, query });
-        const forms = item.form ? formMatch({ forms: row.forms, form: item.form, query }) : { text: row.forms, match: null };
+        // A Russian query marks the translation, a Swedish one the forms.
+        const forms = item.form ? withForm({ forms: row.forms, form: item.form }) : row.forms;
+        const translationMatches = item.form ? [] : queryMatches({ text: row.translation, query });
+        const formMatches = item.form ? queryMatches({ text: forms, query }) : [];
         return (
           <li
             id={`${listId}-${index}`}
@@ -245,14 +246,14 @@ const SuggestionMenu = memo(function SuggestionMenu({
               {row.translation.length > 0
                 ? (
                   <span className="suggestion-translation" lang="ru">
-                    <MarkedText text={row.translation} match={translationMatch} />
+                    <MarkedText text={row.translation} matches={translationMatches} />
                   </span>
                 )
                 : null}
             </span>
             {" "}
             <span className="suggestion-forms" lang="sv">
-              <MarkedText text={forms.text} match={forms.match} />
+              <MarkedText text={forms} matches={formMatches} />
             </span>
           </li>
         );

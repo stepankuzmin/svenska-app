@@ -314,7 +314,8 @@ test("a suggestion marks the form or translation the query spells", async ({ pag
   await query.fill("framgick");
   await expect(options.first().locator("mark")).toHaveText("framgick");
   await query.fill("val");
-  await expect(options.locator(".suggestion-forms mark")).toHaveText(["val", "val"]);
+  // Every place a row spells the query is marked.
+  await expect(options.first().locator(".suggestion-forms mark")).toHaveText(["val", "val", "val", "val"]);
   await query.fill("кит");
   await expect(options.first().locator(".suggestion-translation mark")).toHaveText("кит");
   // An indexed form the row's forms leave out leads them, marked.

@@ -46,7 +46,7 @@ export function choicesOf(outcome: LookupOutcome | null): readonly LookupChoice[
 
 const wordCharacter = /[\p{L}\p{N}]/u;
 
-export function isWordCharacter(value: string | undefined): boolean {
+function isWordCharacter(value: string | undefined): boolean {
   return value !== undefined && wordCharacter.test(value);
 }
 
