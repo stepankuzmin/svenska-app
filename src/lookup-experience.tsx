@@ -218,7 +218,7 @@ const SuggestionMenu = memo(function SuggestionMenu({
       {items.map((item, index) => {
         const row = rows[index];
         // A Russian query marks the translation, a Swedish one the forms.
-        const forms = item.form ? withForm({ forms: row.forms, form: item.form }) : row.forms;
+        const forms = item.form ? withForm({ forms: row.forms, form: item.form, query }) : row.forms;
         const translationMatches = item.form ? [] : queryMatches({ text: row.translation, query });
         const formMatches = item.form ? queryMatches({ text: forms, query }) : [];
         return (
