@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { citationForm, wordForms } from "../src/word-forms.ts";
+import { citationForm, verbInflections, wordForms } from "../src/word-forms.ts";
 
 function formsFor(headword: string, sense: { partOfSpeech: string; article?: string; inflections: string[] }) {
   return wordForms({ headword, senses: [{ article: "", ...sense }] });
@@ -43,6 +43,55 @@ describe("Swedish word forms", () => {
     ["andas", ["andades", "andats", "andas"], "att andas"],
   ])("finds the infinitive of %s wherever Lexin lists it", (headword, inflections, infinitive) => {
     expect(formsFor(headword, { partOfSpeech: "verb", inflections })[0]).toBe(infinitive);
+  });
+
+  it.each([
+    ["beslutar", ["beslutade", "beslöt", "beslutit", "beslutat", "besluta"], ["beslutade", "beslutit", "beslutat", "besluta"]],
+    ["säger", ["sade", "sa", "sagt", "säg", "säga", "säj", "säja"], ["sade", "sagt", "säg", "säga", "säj", "säja"]],
+    ["duger", ["dög", "dugde", "dugt", "duga"], ["dög", "dugt", "duga"]],
+    ["simmar", ["simmade", "sam", "simmat", "summit", "simma"], ["simmade", "simmat", "summit", "simma"]],
+    ["lyder", ["lydde", "löd", "lytt", "lyd", "lyda"], ["lydde", "lytt", "lyd", "lyda"]],
+    ["smälter", ["smalt", "smälte", "smält", "smultit", "smält", "smälta"], ["smalt", "smält", "smultit", "smält", "smälta"]],
+    ["nyper", ["nöp", "nypt", "nupit", "nyp", "nypa"], ["nöp", "nypt", "nupit", "nyp", "nypa"]],
+    ["omsätter", ["omsätter", "omsatte", "omsatt", "omsätt", "omsätta"], ["omsatte", "omsatt", "omsätt", "omsätta"]],
+    ["måste", ["måste", "måst"], ["måste", "måst"]],
+    ["andas", ["andades", "andats", "andas"], ["andades", "andats", "andas"]],
+  ])("puts the supine of %s beside its first preterite", (present, inflections, ordered) => {
+    expect(verbInflections({ present, inflections })).toEqual(ordered);
+  });
+
+  it("reads a verb with two preterites by the first preterite and supine", () => {
+    expect(formsFor("smälter", {
+      partOfSpeech: "verb",
+      inflections: verbInflections({ present: "smälter", inflections: ["smalt", "smälte", "smält", "smultit", "smält", "smälta"] }),
+    })).toEqual(["att smälta", "smälter", "smalt", "har smält"]);
+  });
+
+  it("opens a verb with its infinitive when a bare noun sense joins it", () => {
+    expect(wordForms({
+      headword: "går",
+      senses: [
+        { partOfSpeech: "subst.", article: "", inflections: [] },
+        { partOfSpeech: "verb", article: "", inflections: ["gick", "gått", "gå"] },
+      ],
+    })).toEqual(["att gå", "går", "gick", "har gått"]);
+  });
+
+  it("lets a noun's article spell the headword of a sense without one", () => {
+    expect(wordForms({
+      headword: "stup",
+      senses: [
+        { partOfSpeech: "adv.", article: "", inflections: [] },
+        { partOfSpeech: "subst.", article: "ett", inflections: ["stupet", "stup", "stupen"] },
+      ],
+    })).toEqual(["ett stup", "stupet", "stup", "stupen"]);
+    expect(wordForms({
+      headword: "synd",
+      senses: [
+        { partOfSpeech: "subst.", article: "en", inflections: ["synden", "synder"] },
+        { partOfSpeech: "subst.", article: "", inflections: [] },
+      ],
+    })).toEqual(["en synd", "synden", "synder"]);
   });
 
   it("opens a noun with its article", () => {

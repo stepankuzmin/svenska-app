@@ -50,6 +50,12 @@ describe("Lexin source edition import", () => {
     ]);
   });
 
+  it("keeps a verb's first preterite and supine together and indexes every form", () => {
+    expect(assets.details.entries.beslutar[0].inflections).toEqual(["beslutade", "beslutit", "beslutat", "besluta"]);
+    expect(assets.dictionary.swedishIndex.beslöt).toEqual(["70"]);
+    expect(search("har beslutit")).toMatchObject({ kind: "result", headword: "beslutar" });
+  });
+
   it("completes a noun's paradigm with the definite plural Lexin leaves implicit", () => {
     expect(assets.details.entries.bok[0].inflections).toEqual(["boken", "böcker", "böckerna"]);
     expect(assets.details.entries.taxi[0].inflections).toEqual(["taxin", "taxi", "taxina"]);
@@ -97,6 +103,7 @@ describe("Lexin source edition import", () => {
       "получать": ["46", "47"],
       "правдивый": ["5"],
       "прочь": ["20"],
+      "решать": ["70"],
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
       "суд": ["49"],
