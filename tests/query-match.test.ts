@@ -46,15 +46,27 @@ describe("the places a suggestion spells the query", () => {
 });
 
 describe("an indexed form the row's forms leave out", () => {
-  it("leads the forms", () => {
-    expect(withForm({ forms: "abnorm, abnormt, abnorma", form: "abnormare" })).toBe("abnormare · abnorm, abnormt, abnorma");
-    expect(withForm({ forms: "att anbefalla, anbefaller", form: "anbefall" })).toBe("anbefall · att anbefalla, anbefaller");
+  it("follows the forms when no form the row shows spells the query", () => {
+    expect(withForm({ forms: "abnorm, abnormt, abnorma", form: "abnormare", query: "abnormar" }))
+      .toBe("abnorm, abnormt, abnorma · abnormare");
+    expect(withForm({ forms: "tack", form: "tackare", query: "tackare" })).toBe("tack · tackare");
+  });
+
+  it("leaves the forms as they are while a form the row shows spells the query", () => {
+    const påminner = "att påminna, påminner, påminde, har påmint";
+    expect(withForm({ forms: påminner, form: "påminn", query: "påminn" })).toBe(påminner);
+    expect(withForm({ forms: påminner, form: "påminna", query: "påmin" })).toBe(påminner);
+    expect(withForm({ forms: "abnorm, abnormt, abnorma", form: "abnormare", query: "abnorm" }))
+      .toBe("abnorm, abnormt, abnorma");
+    expect(withForm({ forms: "att anbefalla, anbefaller", form: "anbefall", query: "anbefall" }))
+      .toBe("att anbefalla, anbefaller");
   });
 
   it("is not repeated when the row spells it, with or without a citation", () => {
-    expect(withForm({ forms: minskar, form: "minskade" })).toBe(minskar);
-    expect(withForm({ forms: minskar, form: "minska" })).toBe(minskar);
-    expect(withForm({ forms: "en val, valen, valar, valarna", form: "val" })).toBe("en val, valen, valar, valarna");
-    expect(withForm({ forms: "äldre, äldst", form: "äldre, äldst" })).toBe("äldre, äldst");
+    expect(withForm({ forms: minskar, form: "minskade", query: "att minskade" })).toBe(minskar);
+    expect(withForm({ forms: minskar, form: "minska", query: "minska" })).toBe(minskar);
+    expect(withForm({ forms: "en val, valen, valar, valarna", form: "val", query: "val" }))
+      .toBe("en val, valen, valar, valarna");
+    expect(withForm({ forms: "äldre, äldst", form: "äldre, äldst", query: "äldre, äldst" })).toBe("äldre, äldst");
   });
 });

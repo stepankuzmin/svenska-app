@@ -316,4 +316,15 @@
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="rätt subst." /></BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="70" MatchingID="170" Type="verb" Value="beslutar">
+    <BaseLang>
+      <Meaning>bestämma</Meaning>
+      <Inflection>beslutade</Inflection>
+      <Inflection>beslöt</Inflection>
+      <Inflection>beslutit</Inflection>
+      <Inflection>beslutat</Inflection>
+      <Inflection>besluta</Inflection>
+    </BaseLang>
+    <TargetLang><Translation>решать</Translation></TargetLang>
+  </Word>
 </Dictionary>

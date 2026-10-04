@@ -33,12 +33,16 @@ export function queryMatches({ text, query }: { text: string; query: string }): 
 const citationPrefixes = ["", "att ", "har ", "en ", "ett "];
 
 // A form the search found that the row's forms leave out, such as the
-// comparative `abnormare` of `abnorm`, leads them before a dot, where a
-// narrow row cannot clip it. Forms are compared whole between the row's
-// separators, with or without the `att`, `har` or article a citation adds,
-// since a Lexin form can hold a comma of its own: `äldre, äldst`.
-export function withForm({ forms, form }: { forms: string; form: string }): string {
-  return citationPrefixes.some((prefix) => `, ${forms}, `.includes(`, ${prefix}${form}, `))
+// comparative `abnormare` of `abnorm`, follows them after a dot, but only once
+// no form the row shows spells the query: the forms never move while the user
+// types, so `påmin` and `påminn` read `att påminna, påminner, påminde, har
+// påmint` alike, and `abnormar` adds `abnormare` after `abnorma` without
+// shifting it. Forms are compared whole between the row's separators, with or
+// without the `att`, `har` or article a citation adds, since a Lexin form can
+// hold a comma of its own: `äldre, äldst`.
+export function withForm({ forms, form, query }: { forms: string; form: string; query: string }): string {
+  return queryMatches({ text: forms, query }).length > 0 ||
+      citationPrefixes.some((prefix) => `, ${forms}, `.includes(`, ${prefix}${form}, `))
     ? forms
-    : `${form} · ${forms}`;
+    : `${forms} · ${form}`;
 }

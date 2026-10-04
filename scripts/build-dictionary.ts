@@ -6,7 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
-import { infinitiveOf } from "../src/word-forms.ts";
+import { infinitiveOf, verbInflections } from "../src/word-forms.ts";
 import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
@@ -602,10 +602,15 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     const partOfSpeech = word["@_Type"]?.trim() ?? "";
     const inflections = inflectionGroups(word.BaseLang);
     const usage = childText(word.BaseLang, "Usage");
-    const inflectionTexts = [
+    const indexedInflections = [
       ...inflections.flat(),
       ...definitePluralTexts({ headword, partOfSpeech, inflections }),
     ];
+    // A verb's card spells one preterite and one supine; every form Lexin
+    // lists is still indexed.
+    const inflectionTexts = partOfSpeech === "verb"
+      ? verbInflections({ present: headword.split(" ")[0], inflections })
+      : indexedInflections;
     const senses = entries[headword] ?? [];
     const sense = { headword, senseIndex: senses.length };
     const wordDetails = detailEntries[headword] ?? [];
@@ -637,7 +642,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
 
     for (const form of [
       headword,
-      ...inflectionTexts,
+      ...indexedInflections,
       ...verbPhraseForms({ headword, partOfSpeech, inflectionTexts }),
       ...comparativeTexts({ partOfSpeech, inflections, usage }),
     ]) {
@@ -647,7 +652,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
     }
-    const forms = new Set(inflectionTexts.map(normalizeSwedishLookupText));
+    const forms = new Set(indexedInflections.map(normalizeSwedishLookupText));
     for (const index of childTexts(word.BaseLang, "Index")) {
       if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
         const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
