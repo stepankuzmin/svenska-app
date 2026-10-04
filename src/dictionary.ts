@@ -1,8 +1,4 @@
-import {
-  dictionaryMetadataSchema,
-  type DictionaryAsset,
-  type DictionaryDetailsAsset,
-} from "./dictionary-contract";
+import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "./normalize-lookup-text";
 import { crossReferenceType, wordKey, wordsOf, type LibraryWord } from "./words";
 
@@ -265,6 +261,15 @@ function looksLikeRecordOfArrays(value: unknown): boolean {
   return true;
 }
 
+// The app checks the metadata by hand so the schema library stays out of its
+// bundle; the build parses the whole asset with the schema.
+function hasMetadataShape(value: unknown): value is DictionaryAsset["metadata"] {
+  const metadata = (value ?? {}) as Partial<DictionaryAsset["metadata"]>;
+  return typeof metadata.sourceEditionDate === "string" &&
+    typeof metadata.attribution === "string" &&
+    metadata.license === "CC BY 4.0";
+}
+
 // The release script deep-parses these exact bytes and the asset filename is
 // their content digest, so startup only confirms the file is the right shape:
 // resolving the library reads `wordAliases`, so it must be an object.
@@ -276,7 +281,7 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
   const asset = value as Partial<DictionaryAsset>;
   return (
     Object(asset.wordAliases) === asset.wordAliases &&
-    dictionaryMetadataSchema.safeParse(asset.metadata).success &&
+    hasMetadataShape(asset.metadata) &&
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
     looksLikeRecordOfArrays(asset.russianIndex)
