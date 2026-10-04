@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { flushSync } from "react-dom";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import {
@@ -10,13 +9,7 @@ import {
 } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
-import {
-  addToLookupLibrary,
-  readLookupLibrary,
-  removeFromLookupLibrary,
-  writeLookupLibrary,
-} from "./lookup-library";
-import { resolveLibraryWords, wordsOf, type LibraryWord } from "./words";
+import { useLookupSession } from "./use-lookup-session";
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -40,12 +33,11 @@ function readDeepLinkQuery(): string {
 }
 
 function LookupApp() {
-  const [query, setQuery] = useState(readDeepLinkQuery);
-  const [deepLinkHeadword, setDeepLinkHeadword] = useState<string | null>(null);
+  const { session, dispatch } = useLookupSession({ initialQuery: readDeepLinkQuery() });
   const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
-  const [libraryWords, setLibraryWords] = useState(readLookupLibrary);
+  const { query } = session;
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
     [lookupState, query],
@@ -71,13 +63,7 @@ function LookupApp() {
         search: createSearch({ dictionary: asset }),
         entries: asset.entries,
       });
-      setLibraryWords((currentWords) => {
-        const resolvedWords = resolveLibraryWords({ libraryWords: currentWords, dictionary: asset });
-        if (resolvedWords !== currentWords) {
-          writeLookupLibrary(resolvedWords);
-        }
-        return resolvedWords;
-      });
+      dispatch({ kind: "dictionary-loaded", dictionary: asset });
 
       const details = await detailsRequest;
       if (
@@ -102,72 +88,12 @@ function LookupApp() {
 
     const lookupQuery = pendingDeepLinkQuery.current;
     pendingDeepLinkQuery.current = "";
-    const deepLinkOutcome = lookupState.search(lookupQuery);
-    if (deepLinkOutcome.kind === "result") {
-      setDeepLinkHeadword(deepLinkOutcome.headword);
-      openResult(deepLinkOutcome);
-      return;
-    }
-
-    // A word like "fika" indexes several words, so an exact link opens all of
-    // them rather than the one a suggestion would.
-    const exactChoices = deepLinkOutcome.kind === "choices"
-      ? deepLinkOutcome.choices.filter((choice) => choice.exact)
-      : [];
-    const [closestChoice] = exactChoices;
-    if (closestChoice === undefined) {
-      return;
-    }
-
-    setDeepLinkHeadword(closestChoice.word.headword);
-    addWordsToLibrary(exactChoices.map(({ word }) => word));
+    dispatch({ kind: "deep-linked", outcome: lookupState.search(lookupQuery) });
   }, [lookupState]);
-
-  function withLibraryMotion(apply: () => void) {
-    if (
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      typeof document.startViewTransition !== "function"
-    ) {
-      apply();
-      return;
-    }
-
-    document.startViewTransition(() => flushSync(apply));
-  }
-
-  function updateLibrary(change: (libraryWords: readonly LibraryWord[]) => readonly LibraryWord[]) {
-    withLibraryMotion(() => {
-      setLibraryWords((currentWords) => {
-        const nextWords = change(currentWords);
-        writeLookupLibrary(nextWords);
-        return nextWords;
-      });
-    });
-  }
-
-  function removeFromLibrary(card: string) {
-    updateLibrary((libraryWords) => removeFromLookupLibrary({ libraryWords, card }));
-  }
-
-  function openResult({ headword, senses }: { headword: string; senses: readonly { word: string }[] }) {
-    addWordsToLibrary(wordsOf({ headword, senses }).map(({ word }) => ({ headword, word })));
-  }
-
-  function addWordsToLibrary(openedWords: readonly LibraryWord[]) {
-    updateLibrary((libraryWords) => addToLookupLibrary({ libraryWords, openedWords }));
-  }
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (outcome?.kind === "result") {
-      openResult(outcome);
-      setQuery("");
-    }
-  }
-
-  function selectChoice(word: LibraryWord) {
-    setQuery("");
-    addWordsToLibrary([word]);
+    dispatch({ kind: "submitted", outcome });
   }
 
   return (
@@ -177,12 +103,14 @@ function LookupApp() {
       outcome={outcome}
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}
-      libraryWords={libraryWords}
-      deepLinkHeadword={deepLinkHeadword}
-      onQueryChange={setQuery}
+      libraryWords={session.libraryWords}
+      expandedCard={session.expandedCard}
+      opens={session.opens}
+      onQueryChange={(nextQuery) => dispatch({ kind: "query-changed", query: nextQuery })}
       onSubmit={submit}
-      onSelectSuggestion={selectChoice}
-      onRemoveWord={removeFromLibrary}
+      onSelectSuggestion={(choice) => dispatch({ kind: "picked", choice })}
+      onToggleCard={(card) => dispatch({ kind: "card-toggled", card })}
+      onRemoveWord={(card) => dispatch({ kind: "word-removed", card })}
     />
   );
 }

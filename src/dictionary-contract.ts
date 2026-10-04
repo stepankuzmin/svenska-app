@@ -23,7 +23,7 @@ const wordDetailsSchema = /* @__PURE__ */ z.object({
   compounds: z.array(bilingualTextSchema),
 });
 
-export const dictionaryMetadataSchema = z.object({
+export const dictionaryMetadataSchema = /* @__PURE__ */ z.object({
   sourceEditionDate: z.string(),
   attribution: z.string(),
   license: z.literal("CC BY 4.0"),

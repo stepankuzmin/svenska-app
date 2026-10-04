@@ -16,7 +16,7 @@ import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contr
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
-import { firstCardOf, suggestionRow, wordCards, type WordCardContent } from "./word-cards";
+import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
 
 export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed";
@@ -28,10 +28,12 @@ type LookupExperienceProps = {
   entries: DictionaryAsset["entries"] | null;
   details: DictionaryDetailsAsset["entries"] | null;
   libraryWords: readonly LibraryWord[];
-  deepLinkHeadword: string | null;
+  expandedCard: string | null;
+  opens: number;
   onQueryChange: (query: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onSelectSuggestion: (word: LibraryWord) => void;
+  onSelectSuggestion: (choice: LookupChoice) => void;
+  onToggleCard: (card: string) => void;
   onRemoveWord: (card: string) => void;
 };
 
@@ -282,7 +284,6 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const transitionNames = useRef(new Map<string, string>());
   const visibleSuggestions = useMemo(
     () => (autocompleteOpen ? suggestions.slice(0, renderedSuggestionCount) : noSuggestions),
@@ -310,14 +311,13 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [autoFocusField] = useState(() => !window.matchMedia("(pointer: coarse)").matches);
 
   useEffect(() => {
-    if (props.deepLinkHeadword === null) {
+    if (props.opens === 0) {
       return;
     }
 
     setAutocompleteOpen(false);
     setActiveSuggestionIndex(-1);
-    setExpandedCard(firstCardOf({ headword: props.deepLinkHeadword, entries: props.entries }));
-  }, [props.deepLinkHeadword]);
+  }, [props.opens]);
 
   useEffect(() => {
     if (activeSuggestionIndex >= 0) {
@@ -326,10 +326,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
   const selectSuggestion = useCallback((item: LookupChoice) => {
-    setAutocompleteOpen(false);
-    setActiveSuggestionIndex(-1);
-    setExpandedCard(wordKey(item.word));
-    latest.current.onSelectSuggestion(item.word);
+    latest.current.onSelectSuggestion(item);
   }, []);
 
   const revealMoreSuggestions = useCallback((event: UIEvent<HTMLUListElement>) => {
@@ -356,17 +353,8 @@ export function LookupExperience(props: LookupExperienceProps) {
     return name;
   }
 
-  const toggleExpanded = useCallback((card: string) => {
-    setExpandedCard((currentCard) => currentCard === card ? null : card);
-  }, []);
-
   function submitLookup(event: FormEvent<HTMLFormElement>) {
     props.onSubmit(event);
-    if (props.outcome?.kind === "result") {
-      setAutocompleteOpen(false);
-      setActiveSuggestionIndex(-1);
-      setExpandedCard(firstCardOf({ headword: props.outcome.headword, entries: props.entries }));
-    }
   }
 
   // Focusing from a tap on the page keeps the keyboard a gesture away without
@@ -403,7 +391,6 @@ export function LookupExperience(props: LookupExperienceProps) {
             setAutocompleteOpen(event.target.value.trim().length > 0);
             setActiveSuggestionIndex(-1);
             setRenderedSuggestionCount(suggestionBatchSize);
-            setExpandedCard(null);
           }}
           onPointerDown={() => setAutocompleteOpen(props.query.trim().length > 0)}
           onKeyDown={(event) => {
@@ -452,7 +439,6 @@ export function LookupExperience(props: LookupExperienceProps) {
               props.onQueryChange("");
               setAutocompleteOpen(false);
               setActiveSuggestionIndex(-1);
-              setExpandedCard(null);
               queryInput.current?.focus();
             }}
           >
@@ -503,9 +489,9 @@ export function LookupExperience(props: LookupExperienceProps) {
               <WordCard
                 key={item.card}
                 item={item}
-                expanded={expandedCard === item.card}
+                expanded={props.expandedCard === item.card}
                 transitionName={index < animatedCardLimit ? transitionNameFor(item.card) : ""}
-                onToggle={toggleExpanded}
+                onToggle={props.onToggleCard}
                 onRemove={props.onRemoveWord}
               />
             ))}
