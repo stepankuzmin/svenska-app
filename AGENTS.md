@@ -12,15 +12,18 @@ Read `DESIGN_SYSTEM.md` before changing styles, and take colours and type sizes 
 
 ## Public GitHub actions
 
-Act publicly only through an identity that GitHub visibly attributes to Codex or the Codex bot. This includes comments, reviews, replies, reactions, review-thread resolution, review requests, and PR or issue metadata changes.
+A public action is anything visible on GitHub to other people: a comment, review, reply, reaction, review-thread resolution, review request, label, or change to PR or issue metadata. Pushing a branch and opening a PR also count. GitHub shows these as the user's account, so this section says when the user has already approved them.
 
-Before each public action, verify which GitHub account will be displayed. If the action would be attributed to the user, or the displayed identity cannot be verified, prepare the action but wait for the user's explicit approval before executing it.
+**Autonomous run.** A run is autonomous when it starts from a scheduled routine or trigger, or when the user says to work on your own, autonomously, or without asking. In an autonomous run the user has already approved exactly two public actions, and you take them without asking:
 
-Scope approval to the exact requested action. A request to create a PR authorizes creating that PR, but not later comments or other public actions. "Babysit the PR" authorizes read-only monitoring and in-scope code changes, commits, and pushes; it does not authorize public communication or PR metadata changes.
+1. Push your commits to the session's designated branch.
+2. Open one pull request for the work, with a title and description that say what changed and why. Do this whenever the run produced a change a human should review. Do not stop at pushing the branch, and do not leave the PR for the user to open. If the run found nothing worth changing, open no PR.
 
-## Git commits
+**Everything else needs the user's explicit approval in that conversation**, in an autonomous run as well as an interactive one. That covers comments, replies, reviews, reactions, resolving threads, requesting reviewers, labels, PR or issue edits after creation, closing, and merging. Never write or post anything in the user's name that the user has not approved. When such an action seems useful, prepare it, say so in your final report, and leave it unposted. Replying to review comments on a PR you opened is not covered by the PR approval.
 
-Create Codex-authored commits with `git commit --author="Codex <199175422+chatgpt-codex-connector[bot]@users.noreply.github.com>"`; leave the user's Git configuration unchanged.
+**Interactive run.** Do only the public actions the user asked for, scoped to that request. "Open a PR" covers opening that PR and nothing after it. "Babysit the PR" covers read-only monitoring plus in-scope code changes, commits and pushes. It does not cover comments, replies or metadata changes.
+
+The account GitHub displays is not a reason to hold back an action this section approves.
 
 ## Linting
 
