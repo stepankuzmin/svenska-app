@@ -2,9 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addToLookupLibrary,
   readLookupLibrary,
-  removeFromLookupLibrary,
   writeLookupLibrary,
 } from "../src/lookup-library.ts";
+import { reduceLookupSession, startLookupSession } from "../src/lookup-session.ts";
 
 const storageKey = "svenska.lookup-library";
 
@@ -116,18 +116,17 @@ describe("opening words", () => {
   });
 });
 
+function removeWord(libraryWords: readonly (typeof whale)[], card: string) {
+  const session = startLookupSession({ query: "", libraryWords });
+  return reduceLookupSession({ session, event: { kind: "word-removed", card }, entries: null }).libraryWords;
+}
+
 describe("removing a word", () => {
   it("removes only the word its card names", () => {
-    expect(removeFromLookupLibrary({
-      libraryWords: [whale, election, impression],
-      card: "val#18440",
-    })).toEqual([whale, impression]);
+    expect(removeWord([whale, election, impression], "val#18440")).toEqual([whale, impression]);
   });
 
   it("names a word that has no number by its spelling", () => {
-    expect(removeFromLookupLibrary({
-      libraryWords: [whale, impression],
-      card: "intryck",
-    })).toEqual([whale]);
+    expect(removeWord([whale, impression], "intryck")).toEqual([whale]);
   });
 });
