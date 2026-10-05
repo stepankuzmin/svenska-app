@@ -1,6 +1,6 @@
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import type { DictionaryAsset } from "./dictionary-contract";
-import { addToLookupLibrary, removeFromLookupLibrary } from "./lookup-library";
+import { addToLookupLibrary } from "./lookup-library";
 import { firstCardOf } from "./word-cards";
 import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
 
@@ -93,7 +93,7 @@ export function reduceLookupSession({
     case "word-removed":
       return {
         ...session,
-        libraryWords: removeFromLookupLibrary({ libraryWords: session.libraryWords, card: event.card }),
+        libraryWords: session.libraryWords.filter((libraryWord) => wordKey(libraryWord) !== event.card),
       };
   }
 }

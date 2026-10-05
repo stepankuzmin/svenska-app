@@ -50,13 +50,3 @@ export function addToLookupLibrary({
     ...libraryWords.filter((libraryWord) => !openedKeys.has(wordKey(libraryWord))),
   ];
 }
-
-export function removeFromLookupLibrary({
-  libraryWords,
-  card,
-}: {
-  libraryWords: readonly LibraryWord[];
-  card: string;
-}): readonly LibraryWord[] {
-  return libraryWords.filter((libraryWord) => wordKey(libraryWord) !== card);
-}
