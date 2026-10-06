@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LookupChoice, LookupOutcome } from "../src/dictionary";
-import { reduceLookupSession, startLookupSession, type LookupSessionEvent } from "../src/lookup-session";
+import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
 
 const sense = (word: string) => ({ word, partOfSpeech: "subst.", meaning: "", translation: "" });
 const entries = {
@@ -19,7 +19,11 @@ const choice = (word: typeof val1, exact: boolean): LookupChoice => ({
   exact,
 });
 
-function run(session: ReturnType<typeof startLookupSession>, event: LookupSessionEvent) {
+function startLookupSession({ query, libraryWords }: Pick<LookupSession, "query" | "libraryWords">): LookupSession {
+  return { query, libraryWords, expandedCard: null, opens: 0 };
+}
+
+function run(session: LookupSession, event: LookupSessionEvent) {
   return reduceLookupSession({ session, event, entries });
 }
 

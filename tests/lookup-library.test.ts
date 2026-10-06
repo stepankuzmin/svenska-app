@@ -4,7 +4,7 @@ import {
   readLookupLibrary,
   writeLookupLibrary,
 } from "../src/lookup-library.ts";
-import { reduceLookupSession, startLookupSession } from "../src/lookup-session.ts";
+import { reduceLookupSession } from "../src/lookup-session.ts";
 
 const storageKey = "svenska.lookup-library";
 
@@ -117,7 +117,7 @@ describe("opening words", () => {
 });
 
 function removeWord(libraryWords: readonly (typeof whale)[], card: string) {
-  const session = startLookupSession({ query: "", libraryWords });
+  const session = { query: "", libraryWords, expandedCard: null, opens: 0 };
   return reduceLookupSession({ session, event: { kind: "word-removed", card }, entries: null }).libraryWords;
 }
 

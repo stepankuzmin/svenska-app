@@ -2,7 +2,7 @@ import { flushSync } from "react-dom";
 import { useRef, useState } from "react";
 import type { DictionaryAsset } from "./dictionary-contract";
 import { readLookupLibrary, writeLookupLibrary } from "./lookup-library";
-import { reduceLookupSession, startLookupSession, type LookupSessionEvent } from "./lookup-session";
+import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "./lookup-session";
 
 function withLibraryMotion(apply: () => void) {
   if (
@@ -22,8 +22,12 @@ function withLibraryMotion(apply: () => void) {
 // field and the extended card change at once, and a word typed meanwhile is
 // not undone by the lookup that came before it.
 export function useLookupSession({ initialQuery }: { initialQuery: string }) {
-  const [session, setSession] = useState(() =>
-    startLookupSession({ query: initialQuery, libraryWords: readLookupLibrary() }));
+  const [session, setSession] = useState<LookupSession>(() => ({
+    query: initialQuery,
+    libraryWords: readLookupLibrary(),
+    expandedCard: null,
+    opens: 0,
+  }));
   const latest = useRef({ session, entries: null as DictionaryAsset["entries"] | null });
 
   function dispatch(event: LookupSessionEvent) {

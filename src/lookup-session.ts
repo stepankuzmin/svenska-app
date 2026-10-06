@@ -23,16 +23,6 @@ export type LookupSessionEvent =
   | { kind: "card-toggled"; card: string }
   | { kind: "word-removed"; card: string };
 
-export function startLookupSession({
-  query,
-  libraryWords,
-}: {
-  query: string;
-  libraryWords: readonly LibraryWord[];
-}): LookupSession {
-  return { query, libraryWords, expandedCard: null, opens: 0 };
-}
-
 // A lookup opens the words it names and extends one card: the first of the
 // headword it names, or the one a pick names. Editing the field closes the
 // card.
