@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CCCC_VERSION: v1.7.0
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -32,6 +35,10 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+      - name: Check complexity
+        run: |
+          curl -sSfL "https://github.com/moznion/cccc/releases/download/$CCCC_VERSION/cccc-$CCCC_VERSION-x86_64-unknown-linux-musl.tar.gz" | tar xz -C "$RUNNER_TEMP" cccc
+          "$RUNNER_TEMP/cccc" .
       - name: Check the constraints floor
         run: npm run check:floor
         env:
