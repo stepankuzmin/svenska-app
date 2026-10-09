@@ -95,23 +95,6 @@ function formSensesOf({
   }));
 }
 
-function formsOf({
-  headword,
-  senses,
-  senseIndexes,
-  wordDetails,
-}: {
-  headword: string;
-  senses: readonly DictionarySense[];
-  senseIndexes: readonly number[];
-  wordDetails: readonly WordDetails[];
-}): readonly string[] {
-  return wordForms({
-    headword: cleanLexinText(headword),
-    senses: formSensesOf({ senses, senseIndexes, wordDetails }),
-  });
-}
-
 function relatedWordsOf({
   headword,
   details,
@@ -204,11 +187,13 @@ export function suggestionRow({
   const cleanHeadword = cleanLexinText(word.headword);
   const match = entries === null ? null : findWord({ libraryWord: word, entries });
   const senses = match === null ? [] : match.found.senseIndexes.map((senseIndex) => match.senses[senseIndex]);
-  const forms = match === null ? [] : formsOf({
-    headword: word.headword,
-    senses: match.senses,
-    senseIndexes: match.found.senseIndexes,
-    wordDetails: details?.[word.headword] ?? [],
+  const forms = match === null ? [] : wordForms({
+    headword: cleanHeadword,
+    senses: formSensesOf({
+      senses: match.senses,
+      senseIndexes: match.found.senseIndexes,
+      wordDetails: details?.[word.headword] ?? [],
+    }),
   });
   return {
     headword: cleanHeadword,
