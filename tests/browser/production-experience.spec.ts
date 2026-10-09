@@ -172,7 +172,8 @@ test("a compound Lexin lists under a word finds that word", async ({ page }) => 
   await expect(page.getByRole("option")).toHaveCount(1);
   await query.press("Enter");
   await expect(query).toHaveValue("");
-  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["hus"]);
+  // The card settles on the article once the word details load.
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["ett hus"]);
 });
 
 test("tabbing out of the field closes the suggestions", async ({ page }) => {
