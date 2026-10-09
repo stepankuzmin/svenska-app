@@ -59,6 +59,8 @@ Commit with the repository's configured Git identity, and end each commit messag
 
 Run `npm run lint` before reporting completion.
 
+Run `npm run check:complexity` before reporting completion and make it exit 0. It runs the pinned, checksum-verified `cccc` release (`scripts/cccc.sh`), which reads its complexity limits from `cccc.toml`.
+
 ## Browser verification
 
 For UI, mobile, or PWA changes, run `npm run test:browser` before reporting completion. It builds the shipped app, runs the production journey in Chromium and WebKit, and runs the touch test on the Pixel and iPhone profiles. The production journey stays on the desktop profiles because three of its tests assert the search field is focused on load, which the app suppresses on a coarse pointer. If local socket permissions block the command, rerun it with the required sandbox escalation; an `EPERM` startup error is not a test result.

@@ -144,7 +144,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
 
     const normalizedSwedishQuery = normalizeSwedishLookupText(query);
-    const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
+    const rankedChoices = new Map<string, RankedChoice>();
     function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
       const key = wordKey(choice.word);
       const offered = rankedChoices.get(key);
@@ -201,51 +201,61 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
     }
 
-    const sortedChoices = [...rankedChoices.values()].sort((left, right) => {
-      const rankDifference = left.rank - right.rank;
-      if (rankDifference !== 0) {
-        return rankDifference;
-      }
-
-      const lengthDifference = left.choice.displayWord.length - right.choice.displayWord.length;
-      return lengthDifference !== 0
-        ? lengthDifference
-        : left.choice.displayWord.localeCompare(
-            right.choice.displayWord,
-            left.choice.language,
-          );
-    });
-    const choices = sortedChoices.map(({ choice }) => choice);
-
-    // A query names a result when it spells the forms of one Swedish headword,
-    // or one Russian translation that no other word shares.
-    const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
-      .filter((choice) => choice.exact && choice.language === language)
-      .map(({ word }) => word.headword))];
-    const swedishHeadwords = exactHeadwords("sv");
-    const russianHeadwords = exactHeadwords("ru");
-    const resultHeadword = swedishHeadwords.length === 1
-      ? swedishHeadwords[0]
-      : russianHeadwords.length === 1 && choices.length === 1
-        ? russianHeadwords[0]
-        : undefined;
-    // A cited query opens only the words of the type it names: `en basar`
-    // the market, not the verb Lexin spells alike.
-    const citedWords = new Set(choices
-      .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
-      .map(({ word }) => word.word));
-    if (resultHeadword !== undefined) {
-      return {
-        kind: "result",
-        headword: resultHeadword,
-        senses: dictionary.entries[resultHeadword].filter((sense) =>
-          citedForm === undefined || citedWords.has(sense.word)),
-        suggestions: choices,
-      };
-    }
-
-    return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
+    const choices = [...rankedChoices.values()].sort(byRank).map(({ choice }) => choice);
+    return outcomeOf({ choices, dictionary, cited: citedForm !== undefined });
   };
+}
+
+type RankedChoice = { choice: LookupChoice; rank: number };
+
+function byRank(left: RankedChoice, right: RankedChoice): number {
+  const rankDifference = left.rank - right.rank;
+  if (rankDifference !== 0) {
+    return rankDifference;
+  }
+
+  const lengthDifference = left.choice.displayWord.length - right.choice.displayWord.length;
+  return lengthDifference !== 0
+    ? lengthDifference
+    : left.choice.displayWord.localeCompare(
+        right.choice.displayWord,
+        left.choice.language,
+      );
+}
+
+function outcomeOf({ choices, dictionary, cited }: {
+  choices: readonly LookupChoice[];
+  dictionary: DictionaryAsset;
+  cited: boolean;
+}): LookupOutcome {
+  // A query names a result when it spells the forms of one Swedish headword,
+  // or one Russian translation that no other word shares.
+  const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
+    .filter((choice) => choice.exact && choice.language === language)
+    .map(({ word }) => word.headword))];
+  const swedishHeadwords = exactHeadwords("sv");
+  const russianHeadwords = exactHeadwords("ru");
+  const resultHeadword = swedishHeadwords.length === 1
+    ? swedishHeadwords[0]
+    : russianHeadwords.length === 1 && choices.length === 1
+      ? russianHeadwords[0]
+      : undefined;
+  // A cited query opens only the words of the type it names: `en basar`
+  // the market, not the verb Lexin spells alike.
+  const citedWords = new Set(choices
+    .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
+    .map(({ word }) => word.word));
+  if (resultHeadword !== undefined) {
+    return {
+      kind: "result",
+      headword: resultHeadword,
+      senses: dictionary.entries[resultHeadword].filter((sense) =>
+        !cited || citedWords.has(sense.word)),
+      suggestions: choices,
+    };
+  }
+
+  return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
 }
 
 function looksLikeRecordOfArrays(value: unknown): boolean {
