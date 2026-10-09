@@ -24,7 +24,7 @@ function startLookupSession({ query, libraryWords }: Pick<LookupSession, "query"
 }
 
 function run(session: LookupSession, event: LookupSessionEvent) {
-  return reduceLookupSession({ session, event, entries });
+  return reduceLookupSession({ session, event });
 }
 
 const result: LookupOutcome = {
@@ -42,6 +42,31 @@ describe("lookup session", () => {
       query: "",
       libraryWords: [val1, val2, katt],
       expandedCard: "val#1",
+      opens: 1,
+    });
+  });
+
+  it("extends the card of the first word a result opens, not of its headword", () => {
+    const session = startLookupSession({ query: "valurna", libraryWords: [katt] });
+    const second: LookupOutcome = { ...result, senses: [entries.val[1]] };
+    expect(run(session, { kind: "submitted", outcome: second })).toEqual({
+      query: "",
+      libraryWords: [val2, katt],
+      expandedCard: "val#2",
+      opens: 1,
+    });
+  });
+
+  it("submits a Swedish spelling several headwords hold by opening every word it names", () => {
+    const session = startLookupSession({ query: "valfika", libraryWords: [katt] });
+    const outcome: LookupOutcome = {
+      kind: "choices",
+      choices: [choice(val2, true), choice(fika, true), { ...choice(katt, true), language: "ru" }, choice(val1, false)],
+    };
+    expect(run(session, { kind: "submitted", outcome })).toEqual({
+      query: "",
+      libraryWords: [val2, fika, katt],
+      expandedCard: "val#2",
       opens: 1,
     });
   });

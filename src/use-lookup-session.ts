@@ -1,6 +1,5 @@
 import { flushSync } from "react-dom";
 import { useRef, useState } from "react";
-import type { DictionaryAsset } from "./dictionary-contract";
 import { readLookupLibrary, writeLookupLibrary } from "./lookup-library";
 import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "./lookup-session";
 
@@ -28,15 +27,11 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
     expandedCard: null,
     opens: 0,
   }));
-  const latest = useRef({ session, entries: null as DictionaryAsset["entries"] | null });
+  const latest = useRef({ session });
 
   function dispatch(event: LookupSessionEvent) {
     const { session: current } = latest.current;
-    if (event.kind === "dictionary-loaded") {
-      latest.current.entries = event.dictionary.entries;
-    }
-
-    const next = reduceLookupSession({ session: current, event, entries: latest.current.entries });
+    const next = reduceLookupSession({ session: current, event });
     latest.current.session = next;
     if (next.libraryWords === current.libraryWords) {
       setSession(next);

@@ -85,6 +85,12 @@ const dictionary = {
     "недоносить": ["113"],
     "хотя": ["3918"],
   },
+  relatedIndex: {
+    basarstånd: ["136"],
+    bokhylla: ["101"],
+    hemvist: ["103"],
+    husvagn: ["102"],
+  },
   wordAliases: {},
 } satisfies DictionaryAsset;
 
@@ -117,6 +123,46 @@ describe("dictionary lookup", () => {
           exact: false,
           form: "arrangemang",
         },
+      ],
+    });
+  });
+
+  it("opens the word that lists a compound the query spells in full", () => {
+    expect(search("husvagn")).toEqual({
+      kind: "result",
+      headword: "hus",
+      senses: dictionary.entries.hus,
+      suggestions: [
+        { displayWord: "hus", word: { headword: "hus", word: "102" }, language: "sv", exact: true, form: "husvagn" },
+      ],
+    });
+  });
+
+  it("opens only the word of a spelling that lists the compound the query spells", () => {
+    expect(search("basarstånd")).toMatchObject({
+      kind: "result",
+      headword: "basar",
+      senses: [dictionary.entries.basar[0]],
+    });
+  });
+
+  it("offers a word whose compound the query begins after every word whose forms contain it", () => {
+    expect(choicesOf(search("hemv"))).toEqual([
+      { displayWord: "hemvist", word: { headword: "hemvist", word: "109" }, language: "sv", exact: false, form: "hemvist" },
+      { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist" },
+    ]);
+    // A substring that only a compound holds finds nothing.
+    expect(search("vagn")).toEqual({ kind: "no-match" });
+  });
+
+  it("opens the word a query spells before one that lists it as a compound", () => {
+    expect(search("hemvist")).toEqual({
+      kind: "result",
+      headword: "hemvist",
+      senses: dictionary.entries.hemvist,
+      suggestions: [
+        { displayWord: "hemvist", word: { headword: "hemvist", word: "109" }, language: "sv", exact: true, form: "hemvist" },
+        { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist" },
       ],
     });
   });

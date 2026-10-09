@@ -62,7 +62,7 @@ function childText(
 
 function childTexts(
   value: string | Record<string, unknown> | undefined,
-  child: "Explanation" | "Index" | "Reference" | "Synonym",
+  child: "Alternate" | "Explanation" | "Index" | "Reference" | "Synonym",
 ): unknown[] {
   if (typeof value !== "object" || value === null || !(child in value)) {
     return [];
@@ -522,6 +522,26 @@ function wordIndex({
   return words;
 }
 
+// A related spelling another sense of the word already spells as its own form
+// leads there through the Swedish index, so only the rest stays related.
+function relatedWordIndex({
+  related,
+  indexedForms,
+}: {
+  related: Readonly<Record<string, readonly string[]>>;
+  indexedForms: Readonly<Record<string, readonly string[]>>;
+}): Record<string, string[]> {
+  const words: Record<string, string[]> = {};
+  for (const [form, keys] of Object.entries(related)) {
+    const own = new Set(Object.hasOwn(indexedForms, form) ? indexedForms[form] : []);
+    const rest = keys.filter((key) => !own.has(key));
+    if (rest.length > 0) {
+      words[form] = rest;
+    }
+  }
+  return words;
+}
+
 function childValues(
   value: string | Record<string, unknown> | undefined,
   child: "Compound" | "Example",
@@ -585,6 +605,13 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   const detailEntries: DictionaryDetailsAsset["entries"] = {};
   const swedishIndex = new Map<string, IndexedSense[]>();
   const russianIndex = new Map<string, IndexedSense[]>();
+  // Lexin indexes the compounds and derivations it lists under a word, and
+  // their forms, beside the word's own: `beroendeframkallande` finds
+  // `beroende`, `abdikation` finds `abdikerar`.
+  const relatedIndex = new Map<string, IndexedSense[]>();
+  // Lexin spells some words two ways, `juice` and `jos`, and often gives the
+  // other spelling a headword of its own that leads to the word already.
+  const alternateIndex = new Map<string, IndexedSense[]>();
   const wordAliases: DictionaryAsset["wordAliases"] = {};
   const crossReferences: CrossReference[] = [];
   const variants: Record<string, string[]> = {};
@@ -640,24 +667,31 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     entries[headword] = senses;
     detailEntries[headword] = wordDetails;
 
-    for (const form of [
+    const ownForms = [
       headword,
       ...indexedInflections,
       ...verbPhraseForms({ headword, partOfSpeech, inflectionTexts }),
       ...comparativeTexts({ partOfSpeech, inflections, usage }),
-    ]) {
+    ];
+    for (const form of ownForms) {
       addToIndex({ index: swedishIndex, form, sense });
     }
 
     if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
     }
+    const alternates = new Set(childTexts(word.BaseLang, "Alternate")
+      .flatMap((alternate) => text(alternate).split(",").map(normalizeSwedishLookupText)));
     const forms = new Set(indexedInflections.map(normalizeSwedishLookupText));
+    const spelledForms = new Set(ownForms.map(normalizeSwedishLookupText));
     for (const index of childTexts(word.BaseLang, "Index")) {
       if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
         const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
         forms.add(spelling);
         indexSpellings.set(spelling, [...new Set([...(indexSpellings.get(spelling) ?? []), headword])]);
+        if (!spelledForms.has(spelling) && partOfSpeech !== crossReferenceType) {
+          addToIndex({ index: alternates.has(spelling) ? alternateIndex : relatedIndex, form: text(index["@_Value"]), sense });
+        }
       }
     }
     senseForms[headword] = [...(senseForms[headword] ?? []), [...forms]];
@@ -674,7 +708,14 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   }
   borrowTranslations({ entries, senseForms, variants, indexSpellings, crossReferences });
   indexCrossReferences({ entries, crossReferences, russianIndex });
+  const headwordSpellings = new Set(Object.keys(entries).map(normalizeSwedishLookupText));
+  for (const [form, senses] of alternateIndex) {
+    if (!headwordSpellings.has(normalizeSwedishLookupText(form))) {
+      relatedIndex.set(form, [...(relatedIndex.get(form) ?? []), ...senses]);
+    }
+  }
   const shared = sharedWordNumbers(entries);
+  const indexedForms = wordIndex({ index: swedishIndex, entries, shared });
 
   return {
     dictionary: {
@@ -684,8 +725,12 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
         license: "CC BY 4.0",
       },
       entries,
-      swedishIndex: wordIndex({ index: swedishIndex, entries, shared }),
+      swedishIndex: indexedForms,
       russianIndex: wordIndex({ index: russianIndex, entries, shared }),
+      relatedIndex: relatedWordIndex({
+        related: wordIndex({ index: relatedIndex, entries, shared }),
+        indexedForms,
+      }),
       wordAliases,
     },
     details: {
