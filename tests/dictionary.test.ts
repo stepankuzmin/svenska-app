@@ -86,6 +86,7 @@ const dictionary = {
     "хотя": ["3918"],
   },
   relatedIndex: {
+    basarstånd: ["136"],
     bokhylla: ["101"],
     hemvist: ["103"],
     husvagn: ["102"],
@@ -134,6 +135,14 @@ describe("dictionary lookup", () => {
       suggestions: [
         { displayWord: "hus", word: { headword: "hus", word: "102" }, language: "sv", exact: true, form: "husvagn" },
       ],
+    });
+  });
+
+  it("opens only the word of a spelling that lists the compound the query spells", () => {
+    expect(search("basarstånd")).toMatchObject({
+      kind: "result",
+      headword: "basar",
+      senses: [dictionary.entries.basar[0]],
     });
   });
 

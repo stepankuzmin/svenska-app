@@ -108,6 +108,7 @@ describe("Lexin source edition import", () => {
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
       "суд": ["49"],
+      "сок": ["92", "93"],
       "сообщать": ["4"],
       "такси": ["8", "27"],
       "техосмотр": ["32", "31"],
@@ -286,6 +287,15 @@ describe("Lexin source edition import", () => {
       language: "sv",
       exact: true,
       form: "beroendeframkallande",
+    });
+  });
+
+  it("leaves an alternate spelling Lexin gives a headword of its own to that headword", () => {
+    expect(assets.dictionary.relatedIndex).not.toHaveProperty("jos");
+    expect(search("jos")).toMatchObject({
+      kind: "result",
+      headword: "jos",
+      suggestions: [{ displayWord: "jos", exact: true }],
     });
   });
 

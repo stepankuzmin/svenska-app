@@ -313,6 +313,20 @@
       <Compound ID="90">вызывающий привыкание</Compound>
     </TargetLang>
   </Word>
+  <Word ID="92" MatchingID="192" Type="subst." Value="juice">
+    <BaseLang>
+      <Inflection>juicen</Inflection>
+      <Alternate>jos</Alternate>
+      <Index Value="juice" />
+      <Index Value="jos" />
+      <Index Value="juicen" />
+    </BaseLang>
+    <TargetLang><Translation>сок</Translation></TargetLang>
+  </Word>
+  <Word ID="93" Type="se" Value="jos">
+    <BaseLang><Meaning /><Reference TYPE="see" VALUE="juice" /><Index Value="jos" /></BaseLang>
+    <TargetLang />
+  </Word>
   <Word ID="48" MatchingID="148" Type="subst." Value="rätt" Variant="1">
     <BaseLang>
       <Inflection>rätten</Inflection>

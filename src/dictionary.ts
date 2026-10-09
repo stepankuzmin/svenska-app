@@ -264,16 +264,19 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
         ? russianHeadwords[0]
         : undefined;
     // A cited query opens only the words of the type it names: `en basar`
-    // the market, not the verb Lexin spells alike.
+    // the market, not the verb Lexin spells alike. A related spelling opens
+    // only the word that lists it: `vigselakt` the act of `akt`, not the
+    // other `akt`.
     const citedWords = new Set(choices
       .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
       .map(({ word }) => word.word));
+    const opensNamedWords = citedForm !== undefined || (!spellsForm && swedishHeadwords.length === 1);
     if (resultHeadword !== undefined) {
       return {
         kind: "result",
         headword: resultHeadword,
         senses: dictionary.entries[resultHeadword].filter((sense) =>
-          citedForm === undefined || citedWords.has(sense.word)),
+          !opensNamedWords || citedWords.has(sense.word)),
         suggestions: choices,
       };
     }

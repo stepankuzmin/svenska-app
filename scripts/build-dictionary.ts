@@ -62,7 +62,7 @@ function childText(
 
 function childTexts(
   value: string | Record<string, unknown> | undefined,
-  child: "Explanation" | "Index" | "Reference" | "Synonym",
+  child: "Alternate" | "Explanation" | "Index" | "Reference" | "Synonym",
 ): unknown[] {
   if (typeof value !== "object" || value === null || !(child in value)) {
     return [];
@@ -523,16 +523,23 @@ function wordIndex({
 }
 
 // A related spelling another sense of the word already spells as its own form
-// leads there through the Swedish index, so only the rest stays related.
+// leads there through the Swedish index, and an alternate spelling Lexin gives
+// a headword leads there through that headword, so only the rest stays related.
 function relatedWordIndex({
   related,
   indexedForms,
+  headwordAlternates,
 }: {
   related: Readonly<Record<string, readonly string[]>>;
   indexedForms: Readonly<Record<string, readonly string[]>>;
+  headwordAlternates: ReadonlySet<string>;
 }): Record<string, string[]> {
   const words: Record<string, string[]> = {};
   for (const [form, keys] of Object.entries(related)) {
+    if (headwordAlternates.has(normalizeSwedishLookupText(form))) {
+      continue;
+    }
+
     const own = new Set(Object.hasOwn(indexedForms, form) ? indexedForms[form] : []);
     const rest = keys.filter((key) => !own.has(key));
     if (rest.length > 0) {
@@ -609,6 +616,9 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
   // their forms, beside the word's own: `beroendeframkallande` finds
   // `beroende`, `abdikation` finds `abdikerar`.
   const relatedIndex = new Map<string, IndexedSense[]>();
+  // Lexin spells some words two ways, `juice` and `jos`, and gives the
+  // other spelling a headword of its own that leads to the word already.
+  const alternateSpellings = new Set<string>();
   const wordAliases: DictionaryAsset["wordAliases"] = {};
   const crossReferences: CrossReference[] = [];
   const variants: Record<string, string[]> = {};
@@ -677,6 +687,11 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
     }
+    for (const alternate of childTexts(word.BaseLang, "Alternate")) {
+      for (const spelling of text(alternate).split(",")) {
+        alternateSpellings.add(normalizeSwedishLookupText(spelling));
+      }
+    }
     const forms = new Set(indexedInflections.map(normalizeSwedishLookupText));
     const spelledForms = new Set(ownForms.map(normalizeSwedishLookupText));
     for (const index of childTexts(word.BaseLang, "Index")) {
@@ -719,6 +734,8 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
       relatedIndex: relatedWordIndex({
         related: wordIndex({ index: relatedIndex, entries, shared }),
         indexedForms,
+        headwordAlternates: new Set(Object.keys(entries).map(normalizeSwedishLookupText)
+          .filter((spelling) => alternateSpellings.has(spelling))),
       }),
       wordAliases,
     },
