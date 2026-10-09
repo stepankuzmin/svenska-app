@@ -15,6 +15,7 @@
     "typecheck": "npm run dictionary:build && tsc -b --pretty false",
     "lint": "oxlint --deny-warnings",
     "check:floor": "tsx scripts/constraints/floor-guard.ts",
+    "check:complexity": "sh scripts/cccc.sh .",
     "check:coverage": "vitest run --coverage && tsx scripts/constraints/changed-coverage.ts",
     "check:size": "size-limit",
     "check:fast": "npm run typecheck && npm run lint && npm run check:floor",

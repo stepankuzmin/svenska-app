@@ -59,7 +59,7 @@ Commit with the repository's configured Git identity, and end each commit messag
 
 Run `npm run lint` before reporting completion.
 
-Run `cccc .` before reporting completion and make it exit 0. It reads its complexity limits from `cccc.toml`.
+Run `npm run check:complexity` before reporting completion and make it exit 0. It runs the pinned, checksum-verified `cccc` release (`scripts/cccc.sh`), which reads its complexity limits from `cccc.toml`.
 
 ## Browser verification
 
