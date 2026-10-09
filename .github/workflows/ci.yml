@@ -34,6 +34,8 @@ jobs:
         run: npm run lint
       - name: Check complexity
         run: npm run check:complexity
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
       - name: Check the constraints floor
         run: npm run check:floor
         env:

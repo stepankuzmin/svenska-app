@@ -2,6 +2,8 @@
 # Runs cccc (https://github.com/moznion/cccc) at the pinned version.
 # Downloads the release archive once, checks it against the SHA-256 below,
 # and caches the binary in node_modules/.cache. Arguments go to cccc.
+# Set GITHUB_TOKEN to authenticate the download, as CI does, so shared
+# runner egress doesn't hit GitHub's unauthenticated rate limit.
 set -eu
 
 version=v1.7.0
@@ -20,7 +22,12 @@ bin="$dir/cccc"
 if [ ! -x "$bin" ]; then
   mkdir -p "$dir"
   archive="$dir/cccc.tar.gz"
-  curl -sSfL -o "$archive" "https://github.com/moznion/cccc/releases/download/$version/cccc-$version-$target.tar.gz"
+  url="https://github.com/moznion/cccc/releases/download/$version/cccc-$version-$target.tar.gz"
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    curl -sSfL -H "Authorization: Bearer $GITHUB_TOKEN" -o "$archive" "$url"
+  else
+    curl -sSfL -o "$archive" "$url"
+  fi
   if command -v sha256sum >/dev/null; then
     actual=$(sha256sum "$archive" | cut -d' ' -f1)
   else
