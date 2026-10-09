@@ -108,6 +108,7 @@ describe("Lexin source edition import", () => {
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
       "суд": ["49"],
+      "напиток": ["94"],
       "сок": ["92", "93"],
       "сообщать": ["4"],
       "такси": ["8", "27"],
@@ -291,11 +292,13 @@ describe("Lexin source edition import", () => {
   });
 
   it("leaves an alternate spelling Lexin gives a headword of its own to that headword", () => {
-    expect(assets.dictionary.relatedIndex).not.toHaveProperty("jos");
+    // Only the word that spells it so leaves it out: another that lists it as
+    // a compound keeps it.
+    expect(assets.dictionary.relatedIndex.jos).toEqual(["94"]);
     expect(search("jos")).toMatchObject({
       kind: "result",
       headword: "jos",
-      suggestions: [{ displayWord: "jos", exact: true }],
+      suggestions: [{ displayWord: "jos", exact: true }, { displayWord: "dryck", exact: false }],
     });
   });
 

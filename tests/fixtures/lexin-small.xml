@@ -323,6 +323,15 @@
     </BaseLang>
     <TargetLang><Translation>сок</Translation></TargetLang>
   </Word>
+  <Word ID="94" MatchingID="194" Type="subst." Value="dryck">
+    <BaseLang>
+      <Inflection>drycken</Inflection>
+      <Compound ID="94">jos</Compound>
+      <Index Value="dryck" />
+      <Index Value="jos" />
+    </BaseLang>
+    <TargetLang><Translation>напиток</Translation></TargetLang>
+  </Word>
   <Word ID="93" Type="se" Value="jos">
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="juice" /><Index Value="jos" /></BaseLang>
     <TargetLang />
