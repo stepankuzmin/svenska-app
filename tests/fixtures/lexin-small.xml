@@ -295,6 +295,24 @@
     <BaseLang><Meaning /><Reference TYPE="see" VALUE="får" /></BaseLang>
     <TargetLang />
   </Word>
+  <Word ID="90" MatchingID="190" Type="subst." Value="beroende">
+    <BaseLang>
+      <Meaning>det att vara beroende, bundenhet</Meaning>
+      <Inflection>beroendet</Inflection>
+      <Compound ID="90">beroende|framkallande</Compound>
+      <Derivation ID="91">beroendeskap</Derivation>
+      <Index Value="beroende" />
+      <Index Value="beroendeframkallande" />
+      <Index Value="beroendeskap" />
+      <Index Value="beroendet" />
+      <Index Value="beroendefram" type="prefix" />
+      <Index Value="kallande" type="suffix" />
+    </BaseLang>
+    <TargetLang>
+      <Translation>зависимость</Translation>
+      <Compound ID="90">вызывающий привыкание</Compound>
+    </TargetLang>
+  </Word>
   <Word ID="48" MatchingID="148" Type="subst." Value="rätt" Variant="1">
     <BaseLang>
       <Inflection>rätten</Inflection>

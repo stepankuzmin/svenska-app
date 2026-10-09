@@ -119,6 +119,12 @@ function indexEntries({
   }));
 }
 
+// Ranks run from a headword the query spells (0) through its other forms (1),
+// prefixes (2) and other substrings (3); a related spelling sits after each
+// of the first two kinds it matches.
+const relatedRank = 1.5;
+const relatedPrefixRank = 3.5;
+
 // A card names a verb by its infinitive, `att minska`, a noun by its article,
 // `en val`, and spells the supine after `har`, so a query that opens the same
 // way also looks the rest up among the words of that type.
@@ -136,6 +142,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     byKey,
     normalize: normalizeLookupText,
   });
+  const relatedIndexEntries = indexEntries({
+    index: dictionary.relatedIndex,
+    byKey,
+    normalize: normalizeSwedishLookupText,
+  });
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
@@ -150,7 +161,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       const offered = rankedChoices.get(key);
       if (offered === undefined || rank < offered.rank ||
         (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {
-        rankedChoices.set(key, { choice: { ...choice, exact: rank <= 1 }, rank });
+        rankedChoices.set(key, { choice: { ...choice, exact: rank < 2 }, rank });
       }
     }
 
@@ -198,6 +209,29 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
             );
           }
         }
+      }
+    }
+
+    // A compound or derivation Lexin lists under a word offers that word below
+    // its own forms: spelled in full, `beroendeframkallande` offers `beroende`
+    // just after the words whose forms the query spells, and begun, after every
+    // word whose forms contain it. Only one spelled in full opens a lookup, and
+    // only where no form does.
+    for (const { displayWord: form, normalizedDisplayWord, words } of relatedIndexEntries) {
+      if (!normalizedSwedishQuery || !normalizedDisplayWord.startsWith(normalizedSwedishQuery)) {
+        continue;
+      }
+
+      const rank = normalizedDisplayWord === normalizedSwedishQuery ? relatedRank : relatedPrefixRank;
+      for (const word of words) {
+        offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) }, rank);
+      }
+    }
+    const spellsForm = [...rankedChoices.values()].some(({ choice, rank }) =>
+      choice.language === "sv" && rank < relatedRank);
+    for (const offered of rankedChoices.values()) {
+      if (spellsForm && offered.rank === relatedRank) {
+        offered.choice = { ...offered.choice, exact: false };
       }
     }
 
@@ -284,7 +318,8 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
     hasMetadataShape(asset.metadata) &&
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
-    looksLikeRecordOfArrays(asset.russianIndex)
+    looksLikeRecordOfArrays(asset.russianIndex) &&
+    looksLikeRecordOfArrays(asset.relatedIndex)
   );
 }
 

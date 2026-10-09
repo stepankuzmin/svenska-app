@@ -37,6 +37,9 @@ export const dictionaryAssetSchema = /* @__PURE__ */ z.object({
   // two spellings.
   swedishIndex: z.record(z.string(), z.array(z.string()).min(1)),
   russianIndex: z.record(z.string(), z.array(z.string()).min(1)),
+  // The compounds and derivations Lexin lists under a word, and their forms,
+  // lead to that word the same way.
+  relatedIndex: z.record(z.string(), z.array(z.string()).min(1)),
   // A Lexin number that joined an earlier word of its spelling, written
   // `headword#number`, leads to the number of the word it joined.
   wordAliases: z.record(z.string(), z.string()),
