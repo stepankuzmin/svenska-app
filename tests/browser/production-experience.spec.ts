@@ -69,6 +69,7 @@ const dictionary = {
     "жилой дом": ["114"],
     ...Object.fromEntries(manyRussianHeadwords.map((headword) => [`яц-${headword}`, [manyRussianWord(headword)]])),
   },
+  relatedIndex: { husvagn: ["109"] },
   wordAliases: {},
 };
 
@@ -157,6 +158,22 @@ test("a query the dictionary cannot place says so", async ({ page }) => {
   await query.fill("fik");
   await expect(page.getByText("No matches")).toHaveCount(0);
   await expect(page.getByRole("option")).toHaveCount(2);
+});
+
+test("a compound Lexin lists under a word finds that word", async ({ page }) => {
+  await openReadyApp(page);
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("husvag");
+  // The compound follows the word's own forms after a dot.
+  await expect(page.getByRole("option")).toHaveText(["hus substantiv дом hus · husvagn"]);
+
+  await query.fill("husvagn");
+  await expect(page.getByRole("option")).toHaveCount(1);
+  await query.press("Enter");
+  await expect(query).toHaveValue("");
+  // The card settles on the article once the word details load.
+  await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["ett hus"]);
 });
 
 test("tabbing out of the field closes the suggestions", async ({ page }) => {
