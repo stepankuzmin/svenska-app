@@ -593,6 +593,40 @@ function pairedTexts({
   });
 }
 
+// Indexes the spellings Lexin lists under a word beside its own forms: an
+// alternate spelling, or a compound or derivation. Returns the word's forms,
+// these spellings included.
+function indexOtherSpellings({ base, headword, partOfSpeech, sense, indexedInflections, ownForms, indexes }: {
+  base: Parameters<typeof childTexts>[0];
+  headword: string;
+  partOfSpeech: string;
+  sense: IndexedSense;
+  indexedInflections: readonly string[];
+  ownForms: readonly string[];
+  indexes: {
+    indexSpellings: Map<string, string[]>;
+    alternateIndex: Map<string, IndexedSense[]>;
+    relatedIndex: Map<string, IndexedSense[]>;
+  };
+}): Set<string> {
+  const { indexSpellings, alternateIndex, relatedIndex } = indexes;
+  const alternates = new Set(childTexts(base, "Alternate")
+    .flatMap((alternate) => text(alternate).split(",").map(normalizeSwedishLookupText)));
+  const forms = new Set(indexedInflections.map(normalizeSwedishLookupText));
+  const spelledForms = new Set(ownForms.map(normalizeSwedishLookupText));
+  for (const index of childTexts(base, "Index")) {
+    if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
+      const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
+      forms.add(spelling);
+      indexSpellings.set(spelling, [...new Set([...(indexSpellings.get(spelling) ?? []), headword])]);
+      if (!spelledForms.has(spelling) && partOfSpeech !== crossReferenceType) {
+        addToIndex({ index: alternates.has(spelling) ? alternateIndex : relatedIndex, form: text(index["@_Value"]), sense });
+      }
+    }
+  }
+  return forms;
+}
+
 export function buildDictionaryAssets({ xml }: { xml: string }): {
   dictionary: DictionaryAsset;
   details: DictionaryDetailsAsset;
@@ -680,20 +714,15 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     if (indexed && partOfSpeech !== crossReferenceType) {
       addToIndex({ index: russianIndex, form: translation, sense });
     }
-    const alternates = new Set(childTexts(word.BaseLang, "Alternate")
-      .flatMap((alternate) => text(alternate).split(",").map(normalizeSwedishLookupText)));
-    const forms = new Set(indexedInflections.map(normalizeSwedishLookupText));
-    const spelledForms = new Set(ownForms.map(normalizeSwedishLookupText));
-    for (const index of childTexts(word.BaseLang, "Index")) {
-      if (typeof index === "object" && index !== null && "@_Value" in index && !("@_type" in index)) {
-        const spelling = normalizeSwedishLookupText(text(index["@_Value"]));
-        forms.add(spelling);
-        indexSpellings.set(spelling, [...new Set([...(indexSpellings.get(spelling) ?? []), headword])]);
-        if (!spelledForms.has(spelling) && partOfSpeech !== crossReferenceType) {
-          addToIndex({ index: alternates.has(spelling) ? alternateIndex : relatedIndex, form: text(index["@_Value"]), sense });
-        }
-      }
-    }
+    const forms = indexOtherSpellings({
+      base: word.BaseLang,
+      headword,
+      partOfSpeech,
+      sense,
+      indexedInflections,
+      ownForms,
+      indexes: { indexSpellings, alternateIndex, relatedIndex },
+    });
     senseForms[headword] = [...(senseForms[headword] ?? []), [...forms]];
   }
 

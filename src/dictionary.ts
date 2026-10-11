@@ -155,7 +155,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     }
 
     const normalizedSwedishQuery = normalizeSwedishLookupText(query);
-    const rankedChoices = new Map<string, { choice: LookupChoice; rank: number }>();
+    const rankedChoices = new Map<string, RankedChoice>();
     function offer(choice: Omit<LookupChoice, "exact">, rank: number) {
       const key = wordKey(choice.word);
       const offered = rankedChoices.get(key);
@@ -212,77 +212,102 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
     }
 
-    // A compound or derivation Lexin lists under a word offers that word below
-    // its own forms: spelled in full, `beroendeframkallande` offers `beroende`
-    // just after the words whose forms the query spells, and begun, after every
-    // word whose forms contain it. Only one spelled in full opens a lookup, and
-    // only where no form does.
-    for (const { displayWord: form, normalizedDisplayWord, words } of relatedIndexEntries) {
-      if (!normalizedSwedishQuery || !normalizedDisplayWord.startsWith(normalizedSwedishQuery)) {
-        continue;
-      }
+    offerRelatedWords({ entries: relatedIndexEntries, swedishQuery: normalizedSwedishQuery, offer });
+    const spellsForm = demoteRelatedSpellings(rankedChoices);
 
-      const rank = normalizedDisplayWord === normalizedSwedishQuery ? relatedRank : relatedPrefixRank;
-      for (const word of words) {
-        offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) }, rank);
-      }
-    }
-    const spellsForm = [...rankedChoices.values()].some(({ choice, rank }) =>
-      choice.language === "sv" && rank < relatedRank);
-    for (const offered of rankedChoices.values()) {
-      if (spellsForm && offered.rank === relatedRank) {
-        offered.choice = { ...offered.choice, exact: false };
-      }
-    }
-
-    const sortedChoices = [...rankedChoices.values()].sort((left, right) => {
-      const rankDifference = left.rank - right.rank;
-      if (rankDifference !== 0) {
-        return rankDifference;
-      }
-
-      const lengthDifference = left.choice.displayWord.length - right.choice.displayWord.length;
-      return lengthDifference !== 0
-        ? lengthDifference
-        : left.choice.displayWord.localeCompare(
-            right.choice.displayWord,
-            left.choice.language,
-          );
-    });
-    const choices = sortedChoices.map(({ choice }) => choice);
-
-    // A query names a result when it spells the forms of one Swedish headword,
-    // or one Russian translation that no other word shares.
-    const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
-      .filter((choice) => choice.exact && choice.language === language)
-      .map(({ word }) => word.headword))];
-    const swedishHeadwords = exactHeadwords("sv");
-    const russianHeadwords = exactHeadwords("ru");
-    const resultHeadword = swedishHeadwords.length === 1
-      ? swedishHeadwords[0]
-      : russianHeadwords.length === 1 && choices.length === 1
-        ? russianHeadwords[0]
-        : undefined;
-    // A cited query opens only the words of the type it names: `en basar`
-    // the market, not the verb Lexin spells alike. A related spelling opens
-    // only the word that lists it: `vigselakt` the act of `akt`, not the
-    // other `akt`.
-    const citedWords = new Set(choices
-      .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
-      .map(({ word }) => word.word));
-    const opensNamedWords = citedForm !== undefined || (!spellsForm && swedishHeadwords.length === 1);
-    if (resultHeadword !== undefined) {
-      return {
-        kind: "result",
-        headword: resultHeadword,
-        senses: dictionary.entries[resultHeadword].filter((sense) =>
-          !opensNamedWords || citedWords.has(sense.word)),
-        suggestions: choices,
-      };
-    }
-
-    return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
+    const choices = [...rankedChoices.values()].sort(byRank).map(({ choice }) => choice);
+    return outcomeOf({ choices, dictionary, cited: citedForm !== undefined, spellsForm });
   };
+}
+
+type RankedChoice = { choice: LookupChoice; rank: number };
+
+// A compound or derivation Lexin lists under a word offers that word below
+// its own forms: spelled in full, `beroendeframkallande` offers `beroende`
+// just after the words whose forms the query spells, and begun, after every
+// word whose forms contain it.
+function offerRelatedWords({ entries, swedishQuery, offer }: {
+  entries: readonly IndexEntry[];
+  swedishQuery: string;
+  offer: (choice: Omit<LookupChoice, "exact">, rank: number) => void;
+}): void {
+  for (const { displayWord: form, normalizedDisplayWord, words } of entries) {
+    if (!swedishQuery || !normalizedDisplayWord.startsWith(swedishQuery)) {
+      continue;
+    }
+
+    const rank = normalizedDisplayWord === swedishQuery ? relatedRank : relatedPrefixRank;
+    for (const word of words) {
+      offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) }, rank);
+    }
+  }
+}
+
+// Only a related word spelled in full opens a lookup, and only where no form
+// does. Returns whether the query spells a Swedish form.
+function demoteRelatedSpellings(rankedChoices: Map<string, RankedChoice>): boolean {
+  const spellsForm = [...rankedChoices.values()].some(({ choice, rank }) =>
+    choice.language === "sv" && rank < relatedRank);
+  for (const offered of rankedChoices.values()) {
+    if (spellsForm && offered.rank === relatedRank) {
+      offered.choice = { ...offered.choice, exact: false };
+    }
+  }
+  return spellsForm;
+}
+
+function byRank(left: RankedChoice, right: RankedChoice): number {
+  const rankDifference = left.rank - right.rank;
+  if (rankDifference !== 0) {
+    return rankDifference;
+  }
+
+  const lengthDifference = left.choice.displayWord.length - right.choice.displayWord.length;
+  return lengthDifference !== 0
+    ? lengthDifference
+    : left.choice.displayWord.localeCompare(
+        right.choice.displayWord,
+        left.choice.language,
+      );
+}
+
+function outcomeOf({ choices, dictionary, cited, spellsForm }: {
+  choices: readonly LookupChoice[];
+  dictionary: DictionaryAsset;
+  cited: boolean;
+  spellsForm: boolean;
+}): LookupOutcome {
+  // A query names a result when it spells the forms of one Swedish headword,
+  // or one Russian translation that no other word shares.
+  const exactHeadwords = (language: LookupChoice["language"]) => [...new Set(choices
+    .filter((choice) => choice.exact && choice.language === language)
+    .map(({ word }) => word.headword))];
+  const swedishHeadwords = exactHeadwords("sv");
+  const russianHeadwords = exactHeadwords("ru");
+  const resultHeadword = swedishHeadwords.length === 1
+    ? swedishHeadwords[0]
+    : russianHeadwords.length === 1 && choices.length === 1
+      ? russianHeadwords[0]
+      : undefined;
+  // A cited query opens only the words of the type it names: `en basar`
+  // the market, not the verb Lexin spells alike. A related spelling opens
+  // only the word that lists it: `vigselakt` the act of `akt`, not the
+  // other `akt`.
+  const citedWords = new Set(choices
+    .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
+    .map(({ word }) => word.word));
+  const opensNamedWords = cited || (!spellsForm && swedishHeadwords.length === 1);
+  if (resultHeadword !== undefined) {
+    return {
+      kind: "result",
+      headword: resultHeadword,
+      senses: dictionary.entries[resultHeadword].filter((sense) =>
+        !opensNamedWords || citedWords.has(sense.word)),
+      suggestions: choices,
+    };
+  }
+
+  return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
 }
 
 function looksLikeRecordOfArrays(value: unknown): boolean {
