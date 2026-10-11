@@ -10,6 +10,7 @@ const dictionary = {
   },
   swedishIndex: { fika: ["101"], fikapaus: ["102"] },
   russianIndex: { "перерыв на кофе": ["101", "102"] },
+  relatedIndex: {},
   wordAliases: {},
 };
 

@@ -88,6 +88,7 @@ describe("Lexin source edition import", () => {
       "дом": ["2", "3", "27"],
       "ездить": ["25"],
       "жопа": ["6"],
+      "зависимость": ["90"],
       "книга": ["1"],
       "кооператив": ["33", "34"],
       "крутой": ["hårdkokt#16"],
@@ -107,6 +108,8 @@ describe("Lexin source edition import", () => {
       "сентиментальная ценность": ["10"],
       "совместимый": ["9"],
       "суд": ["49"],
+      "напиток": ["94"],
+      "сок": ["92", "93"],
       "сообщать": ["4"],
       "такси": ["8", "27"],
       "техосмотр": ["32", "31"],
@@ -266,6 +269,47 @@ describe("Lexin source edition import", () => {
     expect(closestSuggestion("ао")).toEqual({ displayWord: "АО", word: ab, language: "ru", exact: true });
   });
 
+  it("indexes the compounds and derivations Lexin lists under a word as related spellings", () => {
+    expect(assets.dictionary.relatedIndex).toMatchObject({
+      beroendeframkallande: ["90"],
+      beroendeskap: ["90"],
+      maträtt: ["48"],
+      tingsrätt: ["49"],
+    });
+    // The word's own forms stay in the Swedish index alone, and Lexin's
+    // prefix and suffix spellings, which only split a compound, stay out.
+    for (const spelling of ["beroende", "beroendet", "beroendefram", "kallande"]) {
+      expect(assets.dictionary.relatedIndex).not.toHaveProperty(spelling);
+    }
+    expect(search("beroendeframkallande")).toMatchObject({ kind: "result", headword: "beroende" });
+    expect(closestSuggestion("beroendeframkallande")).toEqual({
+      displayWord: "beroende",
+      word: { headword: "beroende", word: "90" },
+      language: "sv",
+      exact: true,
+      form: "beroendeframkallande",
+    });
+  });
+
+  it("leaves an alternate spelling Lexin gives a headword of its own to that headword", () => {
+    // Only the word that spells it so leaves it out: another that lists it as
+    // a compound keeps it.
+    expect(assets.dictionary.relatedIndex.jos).toEqual(["94"]);
+    expect(search("jos")).toMatchObject({
+      kind: "result",
+      headword: "jos",
+      suggestions: [{ displayWord: "jos", exact: true }, { displayWord: "dryck", exact: false }],
+    });
+  });
+
+  it("opens the word a query spells before the word that lists it as a compound", () => {
+    // `mat|rätt` points at `rätt` the dish, which lists `maträtt` as well.
+    const outcome = search("maträtt");
+    expect(outcome).toMatchObject({ kind: "result", headword: "mat|rätt" });
+    expect(outcome.kind === "result" && outcome.suggestions.map(({ word, exact }) => [word.headword, exact]))
+      .toEqual([["mat|rätt", true], ["rätt", false]]);
+  });
+
   it("accepts a shaped asset at startup without inspecting every sense", () => {
     const metadata = { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" };
 
@@ -274,13 +318,17 @@ describe("Lexin source edition import", () => {
       entries: { bok: [{}] },
       swedishIndex: { bok: ["bok"] },
       russianIndex: { "книга": ["bok"] },
+      relatedIndex: { bokhylla: ["bok"] },
       wordAliases: { "bok#2": "1" },
     })).toBe(true);
-    const indexes = { swedishIndex: {}, russianIndex: {}, wordAliases: {} };
+    const indexes = { swedishIndex: {}, russianIndex: {}, relatedIndex: {}, wordAliases: {} };
     expect(hasDictionaryAssetShape({ metadata, entries: { bok: {} }, ...indexes })).toBe(false);
     expect(hasDictionaryAssetShape({ metadata: {}, entries: {}, ...indexes })).toBe(false);
     // Resolving the library reads the aliases, so an asset without them fails here.
-    expect(hasDictionaryAssetShape({ metadata, entries: {}, swedishIndex: {}, russianIndex: {} })).toBe(false);
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, swedishIndex: {}, russianIndex: {}, relatedIndex: {} }))
+      .toBe(false);
+    expect(hasDictionaryAssetShape({ metadata, entries: {}, swedishIndex: {}, russianIndex: {}, wordAliases: {} }))
+      .toBe(false);
     expect(hasDictionaryAssetShape({ metadata, entries: {}, ...indexes, wordAliases: null })).toBe(false);
   });
 

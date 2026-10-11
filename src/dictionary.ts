@@ -119,6 +119,12 @@ function indexEntries({
   }));
 }
 
+// Ranks run from a headword the query spells (0) through its other forms (1),
+// prefixes (2) and other substrings (3); a related spelling sits after each
+// of the first two kinds it matches.
+const relatedRank = 1.5;
+const relatedPrefixRank = 3.5;
+
 // A card names a verb by its infinitive, `att minska`, a noun by its article,
 // `en val`, and spells the supine after `har`, so a query that opens the same
 // way also looks the rest up among the words of that type.
@@ -136,6 +142,11 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
     byKey,
     normalize: normalizeLookupText,
   });
+  const relatedIndexEntries = indexEntries({
+    index: dictionary.relatedIndex,
+    byKey,
+    normalize: normalizeSwedishLookupText,
+  });
 
   return (query) => {
     const normalizedQuery = normalizeLookupText(query);
@@ -150,7 +161,7 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       const offered = rankedChoices.get(key);
       if (offered === undefined || rank < offered.rank ||
         (rank === offered.rank && choice.displayWord.length < offered.choice.displayWord.length)) {
-        rankedChoices.set(key, { choice: { ...choice, exact: rank <= 1 }, rank });
+        rankedChoices.set(key, { choice: { ...choice, exact: rank < 2 }, rank });
       }
     }
 
@@ -201,12 +212,49 @@ export function createSearch({ dictionary }: { dictionary: DictionaryAsset }): (
       }
     }
 
+    offerRelatedWords({ entries: relatedIndexEntries, swedishQuery: normalizedSwedishQuery, offer });
+    const spellsForm = demoteRelatedSpellings(rankedChoices);
+
     const choices = [...rankedChoices.values()].sort(byRank).map(({ choice }) => choice);
-    return outcomeOf({ choices, dictionary, cited: citedForm !== undefined });
+    return outcomeOf({ choices, dictionary, cited: citedForm !== undefined, spellsForm });
   };
 }
 
 type RankedChoice = { choice: LookupChoice; rank: number };
+
+// A compound or derivation Lexin lists under a word offers that word below
+// its own forms: spelled in full, `beroendeframkallande` offers `beroende`
+// just after the words whose forms the query spells, and begun, after every
+// word whose forms contain it.
+function offerRelatedWords({ entries, swedishQuery, offer }: {
+  entries: readonly IndexEntry[];
+  swedishQuery: string;
+  offer: (choice: Omit<LookupChoice, "exact">, rank: number) => void;
+}): void {
+  for (const { displayWord: form, normalizedDisplayWord, words } of entries) {
+    if (!swedishQuery || !normalizedDisplayWord.startsWith(swedishQuery)) {
+      continue;
+    }
+
+    const rank = normalizedDisplayWord === swedishQuery ? relatedRank : relatedPrefixRank;
+    for (const word of words) {
+      offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) }, rank);
+    }
+  }
+}
+
+// Only a related word spelled in full opens a lookup, and only where no form
+// does. Returns whether the query spells a Swedish form.
+function demoteRelatedSpellings(rankedChoices: Map<string, RankedChoice>): boolean {
+  const spellsForm = [...rankedChoices.values()].some(({ choice, rank }) =>
+    choice.language === "sv" && rank < relatedRank);
+  for (const offered of rankedChoices.values()) {
+    if (spellsForm && offered.rank === relatedRank) {
+      offered.choice = { ...offered.choice, exact: false };
+    }
+  }
+  return spellsForm;
+}
 
 function byRank(left: RankedChoice, right: RankedChoice): number {
   const rankDifference = left.rank - right.rank;
@@ -223,10 +271,11 @@ function byRank(left: RankedChoice, right: RankedChoice): number {
       );
 }
 
-function outcomeOf({ choices, dictionary, cited }: {
+function outcomeOf({ choices, dictionary, cited, spellsForm }: {
   choices: readonly LookupChoice[];
   dictionary: DictionaryAsset;
   cited: boolean;
+  spellsForm: boolean;
 }): LookupOutcome {
   // A query names a result when it spells the forms of one Swedish headword,
   // or one Russian translation that no other word shares.
@@ -241,16 +290,19 @@ function outcomeOf({ choices, dictionary, cited }: {
       ? russianHeadwords[0]
       : undefined;
   // A cited query opens only the words of the type it names: `en basar`
-  // the market, not the verb Lexin spells alike.
+  // the market, not the verb Lexin spells alike. A related spelling opens
+  // only the word that lists it: `vigselakt` the act of `akt`, not the
+  // other `akt`.
   const citedWords = new Set(choices
     .filter((choice) => choice.exact && choice.word.headword === resultHeadword)
     .map(({ word }) => word.word));
+  const opensNamedWords = cited || (!spellsForm && swedishHeadwords.length === 1);
   if (resultHeadword !== undefined) {
     return {
       kind: "result",
       headword: resultHeadword,
       senses: dictionary.entries[resultHeadword].filter((sense) =>
-        !cited || citedWords.has(sense.word)),
+        !opensNamedWords || citedWords.has(sense.word)),
       suggestions: choices,
     };
   }
@@ -294,7 +346,8 @@ export function hasDictionaryAssetShape(value: unknown): value is DictionaryAsse
     hasMetadataShape(asset.metadata) &&
     looksLikeRecordOfArrays(asset.entries) &&
     looksLikeRecordOfArrays(asset.swedishIndex) &&
-    looksLikeRecordOfArrays(asset.russianIndex)
+    looksLikeRecordOfArrays(asset.russianIndex) &&
+    looksLikeRecordOfArrays(asset.relatedIndex)
   );
 }
 

@@ -1,7 +1,6 @@
 import type { LookupChoice, LookupOutcome } from "./dictionary";
 import type { DictionaryAsset } from "./dictionary-contract";
 import { addToLookupLibrary } from "./lookup-library";
-import { firstCardOf } from "./word-cards";
 import { resolveLibraryWords, wordKey, wordsOf, type LibraryWord } from "./words";
 
 // What a lookup leaves behind: the field, the lookup library, and the one word
@@ -40,14 +39,18 @@ function open(
   };
 }
 
+// A lookup can open fewer words than its headword holds, `vigselakt` the act
+// of `akt` alone, so the card it extends is the first it opened.
+function firstCardOpened(words: readonly LibraryWord[]): string | null {
+  return words.length === 0 ? null : wordKey(words[0]);
+}
+
 export function reduceLookupSession({
   session,
   event,
-  entries,
 }: {
   session: LookupSession;
   event: LookupSessionEvent;
-  entries: DictionaryAsset["entries"] | null;
 }): LookupSession {
   switch (event.kind) {
     case "query-changed":
@@ -64,17 +67,21 @@ export function reduceLookupSession({
       if (outcome?.kind === "result") {
         const { headword } = outcome;
         const words = wordsOf({ headword, senses: outcome.senses }).map(({ word }) => ({ headword, word }));
-        return open(session, words, firstCardOf({ headword, entries }), query);
+        return open(session, words, firstCardOpened(words), query);
       }
 
       // A word like "fika" indexes several words, so an exact link opens all of
-      // them rather than the one a suggestion would.
-      const words = event.kind === "deep-linked" && outcome?.kind === "choices"
-        ? outcome.choices.filter((choice) => choice.exact).map(({ word }) => word)
+      // them rather than the one a suggestion would. Submitting does the same
+      // for a Swedish spelling several headwords hold, such as a compound
+      // Lexin lists under each of its parts: `tobaksaffär`.
+      const words = outcome?.kind === "choices"
+        ? outcome.choices
+          .filter((choice) => choice.exact && (event.kind === "deep-linked" || choice.language === "sv"))
+          .map(({ word }) => word)
         : [];
       return words.length === 0
         ? session
-        : open(session, words, firstCardOf({ headword: words[0].headword, entries }), query);
+        : open(session, words, firstCardOpened(words), query);
     }
     case "picked":
       return open(session, [event.choice.word], wordKey(event.choice.word), "");
