@@ -202,16 +202,3 @@ export function suggestionRow({
     forms: (forms.length > 0 ? forms : [cleanHeadword]).join(", "),
   };
 }
-
-// A lookup opens the first word its spelling holds.
-export function firstCardOf({
-  headword,
-  entries,
-}: {
-  headword: string;
-  entries: DictionaryEntries | null;
-}): string | null {
-  const senses = entries?.[headword];
-  const [firstWord] = senses === undefined ? [] : wordsOf({ headword, senses });
-  return firstWord === undefined ? null : wordKey(firstWord);
-}

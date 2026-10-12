@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
-import { firstCardOf, suggestionRow, wordCards } from "../src/word-cards.ts";
+import { suggestionRow, wordCards } from "../src/word-cards.ts";
 
 function sense(word: string, partOfSpeech: string, meaning: string, translation: string) {
   return { word, partOfSpeech, meaning, translation };
@@ -94,6 +94,21 @@ describe("word cards", () => {
     });
 
     expect(conjunction).toMatchObject({ headword: "och", translation: "и", extendable: false });
+  });
+
+  it("joins the senses that carry one word number into one card", () => {
+    const cards = wordCards({
+      libraryWords: [{ headword: "val", word: "18439" }, { headword: "val", word: "18440" }],
+      entries,
+      details: null,
+    });
+
+    expect(cards.map(({ card }) => card)).toEqual(["val#18439", "val#18440"]);
+    expect(cards.map(({ senses }) => senses.length)).toEqual([1, 2]);
+    expect(cards.map(({ senses }) => senses.map(({ translation }) => translation))).toEqual([
+      ["кит"],
+      ["выбор", "выборы"],
+    ]);
   });
 
   it("shows no card for a word the dictionary does not carry", () => {
@@ -261,16 +276,5 @@ describe("a cross reference that joined a word", () => {
   it("still reads as a spelling that holds nothing else", () => {
     expect(suggestionRow({ word: { headword: "bör", word: "2489" }, entries: joined, details: null }))
       .toMatchObject({ partsOfSpeech: "se" });
-  });
-});
-
-describe("the card a lookup opens", () => {
-  it("opens the first word its spelling holds", () => {
-    expect(firstCardOf({ headword: "val", entries })).toBe("val#18439");
-  });
-
-  it("opens nothing for a spelling the dictionary does not carry", () => {
-    expect(firstCardOf({ headword: "saknas", entries })).toBeNull();
-    expect(firstCardOf({ headword: "val", entries: null })).toBeNull();
   });
 });
