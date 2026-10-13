@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/query-core";
-import { SnapshotValidationError, type LibrarySnapshot } from "./model";
+import type { LibrarySnapshot } from "./model";
 import type { LibraryStore, Remote } from "./store";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, networkMode: "always", staleTime: 0 } } });
@@ -24,6 +24,7 @@ export function createRemote(store: LibraryStore): Remote {
   let running: Promise<void> | null = null;
   let retryDelay = 1000;
   let rerun = false;
+  let refreshed = false;
 
   function schedule(delay: number): void {
     if (timer) clearTimeout(timer);
@@ -42,7 +43,7 @@ export function createRemote(store: LibraryStore): Remote {
       if (store.remoteRevoked(remote)) store.setStatus("revoked", "This device is disconnected. Your local words are kept.");
       return;
     }
-    if (error instanceof SnapshotValidationError) {
+    if (error instanceof Error && error.name === "SnapshotValidationError") {
       stopped = true; socket?.close(); store.setStatus("error", error.message); return;
     }
     if (error instanceof SyncError && [400, 403, 409, 410, 415, 422].includes(error.status)) {
@@ -67,16 +68,31 @@ export function createRemote(store: LibraryStore): Remote {
       else schedule(1000);
     };
   }
+  function settled(): void {
+    retryDelay = 1000;
+    store.setStatus("synced");
+    listen();
+    schedule(30_000);
+  }
   async function reconcile(): Promise<void> {
     if (!store.getSnapshot().durable) return;
     await store.reload();
     if (!store.state().snapshot.libraryId || stopped) return;
     const libraryId = store.state().snapshot.libraryId;
+    if (refreshed && store.state().pending.length === 0) {
+      const revision = await syncRequest<Pick<LibrarySnapshot, "protocol" | "revision" | "acknowledged">>("revision");
+      if (stopped) return;
+      const current = store.state().snapshot;
+      if (revision.protocol === current.protocol && revision.revision === current.revision && revision.acknowledged === current.acknowledged) {
+        settled(); return;
+      }
+    }
     const snapshot = await queryClient.fetchQuery({
       queryKey: ["library", libraryId], queryFn: () => syncRequest<LibrarySnapshot>("library"),
     });
     if (stopped) return;
     await store.accept(snapshot);
+    refreshed = true;
     while (true) {
       if (stopped) return;
       const state = await store.reload();
@@ -88,10 +104,7 @@ export function createRemote(store: LibraryStore): Remote {
       await store.accept(confirmed);
       queryClient.setQueryData(["library", libraryId], confirmed);
     }
-    retryDelay = 1000;
-    store.setStatus("synced");
-    listen();
-    schedule(30_000);
+    settled();
   }
   async function flush(): Promise<void> {
     if (stopped) return;

@@ -33,13 +33,17 @@ export class LookupLibrary extends DurableObject<Env> {
     }
   }
 
-  private load(): StoredLibrary {
+  private metadata(): Omit<StoredLibrary, "records"> {
     const rows = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_state WHERE id = 1").toArray();
     if (rows.length === 0) throw new Error("404:This library does not exist.");
+    return JSON.parse(rows[0].data) as Omit<StoredLibrary, "records">;
+  }
+  private load(): StoredLibrary {
+    const metadata = this.metadata();
     const records = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_records").toArray()
       .map((row) => JSON.parse(row.data) as WordRecord);
     this.savedRecords = new Map(records.map((record) => [wordKey(record), record]));
-    return { ...JSON.parse(rows[0].data), records } as StoredLibrary;
+    return { ...metadata, records };
   }
   private save(state: StoredLibrary): void {
     this.ctx.storage.transactionSync(() => {
@@ -53,7 +57,7 @@ export class LookupLibrary extends DurableObject<Env> {
     });
     this.savedRecords = new Map(state.records.map((record) => [wordKey(record), record]));
   }
-  private device(state: StoredLibrary, id: string, hash: string): Device {
+  private device(state: Pick<StoredLibrary, "devices">, id: string, hash: string): Device {
     const device = state.devices.find((item) => item.id === id && sameHash(item.hash, hash));
     if (!device) throw new Error("401:This device is no longer connected.");
     return device;
@@ -84,6 +88,11 @@ export class LookupLibrary extends DurableObject<Env> {
   read(id: string, hash: string): LibrarySnapshot {
     const state = this.load();
     return this.snapshot(state, this.device(state, id, hash));
+  }
+  revision(id: string, hash: string): Pick<LibrarySnapshot, "protocol" | "revision" | "acknowledged"> {
+    const state = this.metadata();
+    const device = this.device(state, id, hash);
+    return { protocol: 1, revision: state.revision, acknowledged: device.acknowledged };
   }
 
   apply(id: string, hash: string, operations: SyncOperation[]): LibrarySnapshot {

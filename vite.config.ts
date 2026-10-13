@@ -1,8 +1,7 @@
-import { defineConfig } from "vite";
+import { build, defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { fileURLToPath } from "node:url";
-import { readFileSync } from "node:fs";
 import { createHash } from "node:crypto";
 
 const transportPath = fileURLToPath(new URL("./src/sync/remote.ts", import.meta.url));
@@ -15,10 +14,19 @@ export default defineConfig({
     {
       name: "sync-transport-url",
       apply: "build",
-      buildStart() {
-        transportVersion = createHash("sha256").update(readFileSync(transportPath))
-          .update(readFileSync(new URL("./package-lock.json", import.meta.url))).digest("hex");
-        this.emitFile({ type: "chunk", id: transportPath, preserveSignature: "allow-extension" });
+      async buildStart() {
+        const output = await build({
+          configFile: false, logLevel: "silent",
+          build: {
+            target: "esnext", write: false,
+            rollupOptions: { input: transportPath, preserveEntrySignatures: "strict", output: { inlineDynamicImports: true } },
+          },
+        });
+        const files = (Array.isArray(output) ? output : [output]).flatMap((result) => "output" in result ? result.output : []);
+        const transport = files.find((file) => file.type === "chunk");
+        if (!transport || transport.imports.length || transport.dynamicImports.length) throw new Error("Sync transport must be self-contained.");
+        transportVersion = createHash("sha256").update(transport.code).digest("hex");
+        this.emitFile({ type: "asset", fileName: `assets/remote-${transportVersion.slice(0, 12)}.js`, source: transport.code });
       },
       transform(_code, id) {
         if (!id.endsWith("/src/sync/transport-url.ts")) return;
@@ -30,20 +38,8 @@ export default defineConfig({
       generateBundle(_options, bundle) {
         const chunks = Object.values(bundle).filter((file) => file.type === "chunk");
         const entry = chunks.find((file) => file.isEntry && file.name === "index");
-        const transport = chunks.find((file) => file.modules[transportPath]);
-        const facade = chunks.find((file) => file.isEntry && file.facadeModuleId === transportPath);
-        if (!entry || !transport || !facade) throw new Error("Cannot resolve the sync transport build.");
-        const bindings = transport === facade ? Object.fromEntries(facade.exports.map((name) => [name, name]))
-          : Object.fromEntries(this.parse(facade.code).body.flatMap((node) => {
-            if (node.type !== "ExportNamedDeclaration" || !node.source) return [];
-            return node.specifiers.map((specifier) => {
-              if (specifier.type !== "ExportSpecifier" || specifier.local.type !== "Identifier" || specifier.exported.type !== "Identifier") {
-                throw new Error("Unexpected sync transport export.");
-              }
-              return [specifier.exported.name, specifier.local.name];
-            });
-          }));
-        this.emitFile({ type: "asset", fileName: `${entry.fileName}.sync.json`, source: JSON.stringify({ file: transport.fileName, bindings }) });
+        if (!entry) throw new Error("Cannot resolve the application entry.");
+        this.emitFile({ type: "asset", fileName: `${entry.fileName}.sync.json`, source: JSON.stringify({ file: `assets/remote-${transportVersion.slice(0, 12)}.js` }) });
       },
     },
     react(),

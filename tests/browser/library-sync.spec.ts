@@ -139,6 +139,10 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
   expect(snapshot.records).toHaveLength(20_000);
   expect(JSON.stringify(snapshot.records).length).toBeGreaterThan(2 * 1024 * 1024);
+  const revision = await context.request.get("/api/sync/revision");
+  expect(revision.ok()).toBe(true);
+  expect(await revision.json()).toEqual({ protocol: 1, revision: snapshot.revision, acknowledged: snapshot.acknowledged });
+  expect((await revision.body()).byteLength).toBeLessThan(100);
   const remove = await context.request.post("/api/sync/operations", {
     headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "remove", words: [words[0]] }] },
   });

@@ -87,6 +87,7 @@ async function connect(request: Request, env: Env, path: string): Promise<Respon
 async function authenticated(request: Request, env: Env, path: string): Promise<Response> {
   const { stub, libraryId, deviceId, hash } = await sessionOf(request, env);
   if (request.method === "GET" && path === "library") return json(await stub.read(deviceId, hash));
+  if (request.method === "GET" && path === "revision") return json(await stub.revision(deviceId, hash));
   if (request.method === "GET" && path === "devices") return json(await stub.devices(deviceId, hash));
   if (request.method === "GET" && path === "events" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     return stub.fetch(new Request("https://library/events", { headers: { Upgrade: "websocket", "X-Sync-Device": deviceId, "X-Sync-Hash": hash } }));

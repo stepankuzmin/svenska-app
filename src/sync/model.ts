@@ -4,7 +4,7 @@ const wordNumberPattern = /^\d{0,12}$/;
 
 export const protocolVersion = 1;
 export const maximumWords = 20_000;
-export class SnapshotValidationError extends Error {}
+export class SnapshotValidationError extends Error { name = "SnapshotValidationError"; }
 
 export type WordRecord = LibraryWord & {
   present: boolean;

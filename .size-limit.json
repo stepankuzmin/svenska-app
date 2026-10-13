@@ -4,7 +4,15 @@
     "path": [
       "dist/assets/index-*.js",
       "dist/assets/words-*.js",
-      "dist/assets/jsx-runtime-*.js"
+      "dist/assets/jsx-runtime-*.js",
+      "dist/assets/dictionary-search-*.js",
+      "dist/assets/session-bridge-*.js",
+      "dist/assets/store-*.js",
+      "dist/assets/model-*.js",
+      "dist/assets/load-transport-*.js",
+      "dist/assets/sync-control-*.js",
+      "dist/assets/status-*.js",
+      "dist/assets/word-card-details-*.js"
     ],
     "limit": "65 kB"
   },
