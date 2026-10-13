@@ -4,6 +4,7 @@ import { defineConfig, devices } from "@playwright/test";
 // and the desktop profiles skip it.
 const chromiumLaunch = { executablePath: process.env.CHROMIUM_EXECUTABLE_PATH };
 const touchSpec = "**/mobile-touch.spec.ts";
+const deployedURL = process.env.SYNC_TEST_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests/browser",
@@ -14,9 +15,9 @@ export default defineConfig({
     { name: "mobile-safari", testMatch: [touchSpec, "**/library-sync.spec.ts"], use: { ...devices["iPhone 13"] } },
   ],
   use: {
-    baseURL: "http://127.0.0.1:4173/",
+    baseURL: deployedURL ?? "http://127.0.0.1:4173/",
   },
-  webServer: {
+  webServer: deployedURL ? undefined : {
     command: "npm run worker:dev",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: !process.env.CI,

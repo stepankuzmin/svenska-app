@@ -47,3 +47,5 @@ The built app and its SQLite-backed sync service run together at `http://127.0.0
 The browser tests run the built application against local Wrangler. CI deploys each eligible pull request to a separate `svenska-app-pr-N` Worker, giving it a separate Durable Object namespace. These preview URLs are public, as the earlier version previews were. Production keeps the `svenska-app` Worker. Preview Workers retain their data until removed through Cloudflare.
 
 See [the sync design](docs/lookup-library-sync.md) for protocol and recovery behaviour.
+
+CI also runs the sync browser tests against each deployed PR preview in Chromium and WebKit. To repeat these tests against an isolated preview, set `SYNC_TEST_BASE_URL` to its HTTPS URL and run `npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit`. This creates test libraries on that deployment; use a preview rather than the production site.

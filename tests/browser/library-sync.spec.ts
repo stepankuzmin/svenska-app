@@ -2,7 +2,7 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import type { LibrarySnapshot } from "../../src/sync/model";
 const pairFragment = /pair=/;
-const origin = "http://127.0.0.1:4173";
+const origin = new URL(process.env.SYNC_TEST_BASE_URL ?? "http://127.0.0.1:4173").origin;
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 test.describe.configure({ mode: "serial" });

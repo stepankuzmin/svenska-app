@@ -132,3 +132,13 @@ jobs:
         env:
           URL: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
         run: echo "[$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install preview test browsers
+        if: github.event_name == 'pull_request'
+        run: npx playwright install --with-deps chromium webkit
+      - name: Test deployed preview pairing and sync
+        if: github.event_name == 'pull_request'
+        env:
+          SYNC_TEST_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: |
+          test -n "$SYNC_TEST_BASE_URL"
+          npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit
