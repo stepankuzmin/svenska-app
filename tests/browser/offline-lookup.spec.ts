@@ -48,7 +48,7 @@ test("lookup remains available after an online visit and offline reload", async 
   await page.waitForFunction("navigator.serviceWorker?.controller !== null");
 
   await context.setOffline(true);
-  await page.evaluate("location.reload()");
+  await page.reload();
   await expect(page.getByRole("status")).toBeEmpty();
 
   await searchFor(page, "bok");
@@ -74,6 +74,16 @@ test("a first offline visit explains that one connection is required", async ({ 
 
   await expect(page.getByRole("status")).toHaveText(connectOnce);
   await expect(page.getByLabel("Swedish or Russian word")).toBeFocused();
+});
+
+test("lookup works when optional sync code cannot download", async ({ page }) => {
+  await page.route("**/assets/sync-control-*.js", (route) => route.abort("internetdisconnected"));
+  await page.goto(".");
+  await expect(page.getByRole("status")).toBeEmpty();
+  await searchFor(page, "bok");
+  await expect(
+    page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: bokHeadword }),
+  ).toHaveCount(2);
 });
 
 test("a dictionary that fails to load online says so", async ({ page }) => {

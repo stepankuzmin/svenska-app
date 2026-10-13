@@ -1,0 +1,31 @@
+.sync-panel {
+  background: var(--lookup-card);
+  color: var(--lookup-ink);
+  border: 1px solid var(--lookup-line);
+  border-radius: .65rem;
+  padding: 1.2rem;
+  inline-size: min(34rem, calc(100vw - 2rem));
+  max-block-size: calc(100dvh - 2rem);
+  overflow: auto;
+  font-size: var(--text-body);
+}
+.sync-panel::backdrop { background: color-mix(in srgb, var(--lookup-ink) 35%, transparent); }
+.sync-panel header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+.sync-panel h2, .sync-panel h3 { font-size: var(--text-headword); margin: .5rem 0; }
+.sync-panel label { display: block; margin-block: 1rem; }
+.sync-panel input { display: block; margin-block-start: .4rem; padding: .6rem; }
+.sync-panel button { margin: .3rem .4rem .3rem 0; }
+.sync-panel button, .lookup-attribution button {
+  font: inherit;
+  color: var(--lookup-blue);
+  background: transparent;
+  border: 1px solid var(--lookup-line);
+  border-radius: .4rem;
+  padding: .5rem .7rem;
+  cursor: pointer;
+}
+.sync-panel button:disabled { color: var(--lookup-muted); cursor: default; }
+.sync-panel :focus-visible { outline: 2px solid var(--lookup-blue); outline-offset: 2px; }
+.sync-panel img { display: block; max-inline-size: 100%; height: auto; }
+.sync-panel details { margin-block: 1rem; }
+.sync-panel li { margin-block: .5rem; }

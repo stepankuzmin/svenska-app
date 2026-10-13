@@ -63,6 +63,8 @@ jobs:
         run: npm run build
       - name: Validate dictionary release
         run: npm run release:check
+      - name: Validate Worker packaging
+        run: npm run worker:check
       - name: Check size budgets
         run: npm run check:size
       - name: Run built PWA journey
@@ -91,26 +93,39 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          sparse-checkout: wrangler.jsonc
-          sparse-checkout-cone-mode: false
+          node-version: 26
+          cache: npm
+      - name: Install deployment dependencies
+        run: npm ci
       - name: Download validated site
         uses: actions/download-artifact@v8
         with:
           name: site
           path: dist
-      - name: Upload a preview version
+      - name: Deploy an isolated preview Worker
         if: github.event_name == 'pull_request'
         id: preview
+        env:
+          PREVIEW_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          npx --yes wrangler@4 versions upload --preview-alias "pr-${{ github.event.pull_request.number }}"
-          jq -r 'select(.type == "version-upload") | "url=" + .preview_alias_url' \
+          node --input-type=module - <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
+          config.name += `-pr-${process.env.PREVIEW_NUMBER}`;
+          config.preview_urls = false;
+          writeFileSync('wrangler.preview.json', JSON.stringify(config));
+          JS
+          npx wrangler deploy --config wrangler.preview.json
+          jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
             "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Deploy to production
         if: github.event_name != 'pull_request'
         id: production
         run: |
-          npx --yes wrangler@4 deploy
+          npx wrangler deploy
           jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
             "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Link the deployment

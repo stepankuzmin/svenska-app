@@ -1,8 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import {
-  createSearch,
   hasDictionaryAssetShape,
   hasDictionaryDetailsShape,
   type LookupOutcome,
@@ -10,6 +9,7 @@ import {
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
 import { useLookupSession } from "./use-lookup-session";
+const SyncControl = lazy(() => import("./sync-control").catch(() => ({ default: () => <></> })));
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -54,7 +54,7 @@ function LookupApp() {
 
     async function load() {
       const detailsRequest = loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
-      const asset = await loadAsset(dictionaryAssetUrl);
+      const [asset, { createSearch }] = await Promise.all([loadAsset(dictionaryAssetUrl), import("./dictionary-search")]);
       if (!hasDictionaryAssetShape(asset)) {
         throw new Error("Dictionary asset has an invalid format.");
       }
@@ -98,6 +98,7 @@ function LookupApp() {
 
   return (
     <LookupExperience
+      syncControl={<Suspense fallback={null}><SyncControl /></Suspense>}
       query={query}
       status={lookupState.kind}
       outcome={outcome}

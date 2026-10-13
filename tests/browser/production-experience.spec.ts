@@ -161,12 +161,19 @@ test("a query the dictionary cannot place says so", async ({ page }) => {
 });
 
 test("a compound Lexin lists under a word finds that word", async ({ page }) => {
+  let releaseDetails = () => {};
+  const detailsReady = new Promise<void>((resolve) => { releaseDetails = resolve; });
+  await page.route("**/lexin-details.*.json", async (route) => {
+    await detailsReady;
+    await route.continue();
+  });
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("husvag");
   // The compound follows the word's own forms after a dot.
   await expect(page.getByRole("option")).toHaveText(["hus substantiv дом hus · husvagn"]);
+  releaseDetails();
 
   await query.fill("husvagn");
   await expect(page.getByRole("option")).toHaveCount(1);
@@ -349,7 +356,8 @@ test("the minimal layout fits a narrow zoomed viewport and keeps visible focus",
   const query = page.getByLabel("Swedish or Russian word");
   await query.focus();
   await expect(query).not.toHaveCSS("outline-style", "none");
-  await expect(page.locator("header, footer, main button")).toHaveCount(0);
+  await expect(page.locator("header, footer, main button").filter({ hasNotText: "Sync devices" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Sync devices", exact: true })).toHaveCount(1);
 });
 
 test("a q link opens every headword an exact word indexes", async ({ page }) => {

@@ -1,8 +1,8 @@
+import { createSearch } from "../src/dictionary-search";
 import { readFile } from "node:fs/promises";
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildDictionaryAssets } from "../scripts/build-dictionary.ts";
 import {
-  createSearch,
   hasDictionaryAssetShape,
   hasDictionaryDetailsShape,
 } from "../src/dictionary.ts";

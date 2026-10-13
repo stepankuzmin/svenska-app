@@ -1,0 +1,17 @@
+# Lookup library sync
+
+The browser owns the visible library. IndexedDB stores a confirmed snapshot and an outbox in a single transaction. TanStack Query fetches remote snapshots and device metadata. HTTPS sends outbox operations; hibernating WebSockets announce new revisions. One SQLite-backed `LookupLibrary` Durable Object coordinates each library.
+
+Implement in this order: protocol and local migration; persistent service; browser reconciliation; account-free pairing; real-runtime and browser verification; deployment isolation.
+
+An operation has a device sequence, an observed server revision, and an ordered group of words. Opening moves that group to the top. Removal wins concurrent opening; opening after observing a removal (or after this device's own queued removal) brings the word back. Import adds only identities the shared library has never recorded. Server revisions determine ordering. Retries cannot repeat an acknowledged operation.
+
+Store the existing spelling plus Lexin number. Dictionary aliases are resolved for presentation; dictionary loading is not a user opening. Retain removal records, since an offline device may return much later. A new device's initial library is resolved against its loaded dictionary before import, without reordering existing shared words or reviving removals. Removing one meaning from an older spelling-only record retains its other meanings atomically at their original position.
+
+Pairing invitations are random, hashed, expire after ten minutes, and redeem once. Each device receives a separate HttpOnly session cookie. Paired devices can revoke sessions; recovery uses a separate random code whose hash stays in the object. Secrets never appear in request paths, logs, or persisted browser records. The invitation is transferred in a fragment and cleared before redemption.
+
+A write is local before it is sent. A server commit is durable before acknowledgement or notification. Reconnection fetches a snapshot and replays the remaining outbox. Background sync is an optimisation, not a dependency: a suspended mobile app catches up when opened. Web Locks coordinates the sender across tabs; BroadcastChannel announces durable local changes.
+
+API responses are private and never cached by the service worker. Preview Workers have their own Durable Object namespace. Production deploys include Worker source, generated runtime types, assets, and the SQLite class migration.
+
+Validation covers localStorage migration, failed persistence, duplicate/out-of-order operations, concurrent remove/open, offline reload, two-device convergence, invitation races/expiry, revocation, recovery, and restart persistence. Existing type, coverage, lint, complexity, bundle, dictionary, and browser checks remain required.

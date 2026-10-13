@@ -19,7 +19,7 @@ _Avoid_: Installed dictionary, downloaded dictionary, permanent dictionary
 The application registers that service worker during startup. A first installation claims the page without interrupting it; when a later dictionary release takes control of an existing page, the page reloads once so it cannot remain on the previous application shell.
 
 **Lookup library**:
-The device-local collection of words opened by the user. Opening a word adds it automatically, and a lookup opens every word its spelling holds.
+The locally stored collection of words opened by the user. Devices optionally share it after one-time QR/link pairing; openings, removals, and ordering sync automatically, with offline changes reconciled after reconnecting. Opening a word adds it automatically, and a lookup opens every word its spelling holds.
 _Avoid_: Saved words, favourites
 
 **Word**:
@@ -76,4 +76,4 @@ Typing previews matching words in the lookup autocomplete without adding them to
 
 A swipe to the left across a word card removes that word from the lookup library, and nothing else does.
 
-The production interface contains only the lookup autocomplete and the lookup library. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.
+The lookup interface contains the lookup autocomplete and the lookup library. A compact Sync devices control beside the attribution opens optional pairing, device management, and recovery. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.

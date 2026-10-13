@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "npm run dictionary:build && tsc -b && vite build",
+    "build": "npm run dictionary:build && npm run worker:types && tsc -b && vite build",
     "dev": "npm run dictionary:build && vite",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
     "test:browser": "npm run build && playwright test",
@@ -12,7 +12,7 @@
     "release:check": "tsx scripts/validate-dictionary-release.ts",
     "test": "vitest run",
     "test:watch": "vitest",
-    "typecheck": "npm run dictionary:build && tsc -b --pretty false",
+    "typecheck": "npm run dictionary:build && npm run worker:types && tsc -b --pretty false",
     "lint": "oxlint --deny-warnings",
     "check:floor": "tsx scripts/constraints/floor-guard.ts",
     "check:complexity": "sh scripts/cccc.sh .",
@@ -20,11 +20,17 @@
     "check:size": "size-limit",
     "check:fast": "npm run typecheck && npm run lint && npm run check:floor",
     "check:task": "npm run check:fast && npm run check:coverage && npm run build && npm run check:size",
-    "check:full": "npm run check:task && npm run release:check && npm run test:browser:release"
+    "check:full": "npm run check:task && npm run release:check && npm run test:browser:release",
+    "worker:types": "wrangler types worker/env.d.ts",
+    "worker:dev": "wrangler dev --ip 127.0.0.1 --port 4173 --persist-to .wrangler/local",
+    "worker:check": "wrangler deploy --dry-run"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.104.2",
     "@vitejs/plugin-react": "latest",
     "fast-xml-parser": "latest",
+    "idb": "^8.0.4",
+    "qrcode": "^1.5.4",
     "react": "latest",
     "react-dom": "latest",
     "vite": "latest",
@@ -35,14 +41,17 @@
     "@playwright/test": "^1.64.0",
     "@size-limit/file": "^14.2.0",
     "@types/node": "latest",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "^5.0.3",
+    "fake-indexeddb": "^6.2.5",
     "oxlint": "^1.87.0",
     "size-limit": "^14.0.0",
     "tsx": "latest",
     "typescript": "latest",
     "vite-plugin-pwa": "^2.0.0",
-    "vitest": "latest"
+    "vitest": "latest",
+    "wrangler": "^4.149.0"
   }
 }

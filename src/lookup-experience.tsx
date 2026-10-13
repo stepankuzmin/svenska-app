@@ -10,6 +10,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type ReactElement,
+  type ReactNode,
   type UIEvent,
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
@@ -22,6 +23,7 @@ import { wordKey, type LibraryWord } from "./words";
 export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed";
 
 type LookupExperienceProps = {
+  syncControl?: ReactNode;
   query: string;
   status: LookupStatus;
   outcome: LookupOutcome | null;
@@ -499,13 +501,14 @@ export function LookupExperience(props: LookupExperienceProps) {
         </section>
       ) : null}
 
-      <p className="lookup-attribution">
+      <div className="lookup-attribution">
         <span>Lexin, ISOF</span>
         <span aria-hidden="true"> · </span>
         <a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
           CC BY 4.0
         </a>
-      </p>
+        {props.syncControl}
+      </div>
     </main>
   );
 }

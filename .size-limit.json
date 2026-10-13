@@ -1,10 +1,77 @@
 [
-  { "name": "App JS", "path": "dist/assets/index-*.js", "limit": "65 kB" },
-  { "name": "App CSS", "path": "dist/assets/index-*.css", "limit": "2.50 kB" },
-  { "name": "Dictionary release: lookup file", "path": "dist/lexin-dictionary.*.json" },
-  { "name": "Dictionary release: word-detail file", "path": "dist/lexin-details.*.json" },
-  { "name": "HTML", "path": "dist/index.html", "limit": "0.45 kB" },
-  { "name": "Web manifest", "path": "dist/manifest.webmanifest" },
-  { "name": "Service worker", "path": "dist/sw.js" },
-  { "name": "Workbox runtime", "path": "dist/workbox-*.js" }
+  {
+    "name": "App JS",
+    "path": "dist/assets/index-*.js",
+    "limit": "65 kB"
+  },
+  {
+    "name": "App CSS",
+    "path": "dist/assets/index-*.css",
+    "limit": "2.50 kB"
+  },
+  {
+    "name": "Dictionary release: lookup file",
+    "path": "dist/lexin-dictionary.*.json"
+  },
+  {
+    "name": "Dictionary release: word-detail file",
+    "path": "dist/lexin-details.*.json"
+  },
+  {
+    "name": "HTML",
+    "path": "dist/index.html",
+    "limit": "0.45 kB"
+  },
+  {
+    "name": "Web manifest",
+    "path": "dist/manifest.webmanifest"
+  },
+  {
+    "name": "Service worker",
+    "path": "dist/sw.js"
+  },
+  {
+    "name": "Workbox runtime",
+    "path": "dist/workbox-*.js"
+  },
+  {
+    "name": "Dictionary search engine",
+    "path": "dist/assets/dictionary-search-*.js",
+    "limit": "4 kB"
+  },
+  {
+    "name": "Local library storage",
+    "path": "dist/assets/store-*.js",
+    "limit": "4 kB"
+  },
+  {
+    "name": "Sync transport",
+    "path": "dist/assets/remote-*.js",
+    "limit": "10 kB"
+  },
+  {
+    "name": "Device pairing UI",
+    "path": "dist/assets/panel-*.js",
+    "limit": "15 kB"
+  },
+  {
+    "name": "Device pairing styles",
+    "path": "dist/assets/panel-*.css",
+    "limit": "0.6 kB"
+  },
+  {
+    "name": "Library session integration",
+    "path": "dist/assets/session-bridge-*.js",
+    "limit": "2 kB"
+  },
+  {
+    "name": "Local storage status",
+    "path": "dist/assets/status-*.js",
+    "limit": "0.5 kB"
+  },
+  {
+    "name": "Sync control",
+    "path": "dist/assets/sync-control-*.js",
+    "limit": "1.5 kB"
+  }
 ]

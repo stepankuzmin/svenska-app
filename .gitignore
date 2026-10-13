@@ -8,3 +8,6 @@ playwright-report/
 test-results/
 .wrangler/
 coverage/
+worker/env.d.ts
+.dev.vars*
+wrangler.preview.json

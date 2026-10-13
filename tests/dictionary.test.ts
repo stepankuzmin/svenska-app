@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { DictionaryAsset } from "../src/dictionary-contract.ts";
-import { choicesOf, createSearch } from "../src/dictionary.ts";
+import { choicesOf } from "../src/dictionary.ts";
+import { createSearch } from "../src/dictionary-search";
 
 function sense(word: string, partOfSpeech: string, meaning: string, translation: string) {
   return { word, partOfSpeech, meaning, translation };
