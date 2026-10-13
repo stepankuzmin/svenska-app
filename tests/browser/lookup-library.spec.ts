@@ -145,6 +145,7 @@ test("an extended card closes its heading across the card and keeps its details 
   await query.press("Enter");
 
   const card = page.locator(".word-card[open]");
+  await expect(card.getByText("[²fi:ka]", { exact: true })).toBeVisible();
   const heading = (await card.locator("summary").boundingBox())!;
   const details = (await card.locator(".word-card-details").boundingBox())!;
   const headword = (await card.locator("summary strong").boundingBox())!;

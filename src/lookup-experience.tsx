@@ -118,7 +118,7 @@ const WordCard = memo(function WordCard({
           {copy}
         </summary>
 
-        {expanded ? <Suspense fallback={<div className="word-card-details" />}><WordCardDetails item={item} /></Suspense> : null}
+        <Suspense fallback={<div className="word-card-details" />}><WordCardDetails item={item} /></Suspense>
       </details>
     ),
   );
