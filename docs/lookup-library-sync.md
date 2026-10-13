@@ -1,6 +1,6 @@
 # Lookup library sync
 
-The browser owns the visible library. IndexedDB stores a confirmed snapshot and an outbox in a single transaction. TanStack Query fetches remote snapshots and device metadata. HTTPS sends outbox operations; hibernating WebSockets announce new revisions. One SQLite-backed `LookupLibrary` Durable Object coordinates each library.
+The browser owns the visible library. IndexedDB stores a confirmed snapshot and an outbox in a single transaction. TanStack Query fetches remote snapshots and device metadata. HTTPS sends outbox operations; hibernating WebSockets announce new revisions. One SQLite-backed `LookupLibrary` Durable Object coordinates each library. Metadata and word records occupy separate SQLite rows, so the 20,000-word capacity does not depend on the per-row size limit; older aggregate records migrate on activation.
 
 Implement in this order: protocol and local migration; persistent service; browser reconciliation; account-free pairing; real-runtime and browser verification; deployment isolation.
 
@@ -8,10 +8,10 @@ An operation has a device sequence, an observed server revision, and an ordered 
 
 Store the existing spelling plus Lexin number. Dictionary aliases are resolved for presentation; dictionary loading is not a user opening. Retain removal records, since an offline device may return much later. A new device's initial library is resolved against its loaded dictionary before import, without reordering existing shared words or reviving removals. Removing one meaning from an older spelling-only record retains its other meanings atomically at their original position.
 
-Pairing invitations are random, hashed, expire after ten minutes, and redeem once. Each device receives a separate HttpOnly session cookie. Paired devices can revoke sessions; recovery uses a separate random code whose hash stays in the object. Secrets never appear in request paths, logs, or persisted browser records. The invitation is transferred in a fragment and cleared before redemption.
+Pairing invitations are random, hashed, expire after ten minutes, and redeem once. Each device receives a separate HttpOnly session cookie. A valid recovery code or fresh invitation can replace credentials stranded by a lost response, preserving the device acknowledgement. Connection attempts acquire a cross-tab Web Lock before checking the local state or setting cookies. Paired devices can revoke sessions; recovery uses a separate random code whose hash stays in the object. Secrets never appear in request paths, logs, or persisted browser records. The invitation is transferred in a fragment and cleared before redemption.
 
-A write is local before it is sent. A server commit is durable before acknowledgement or notification. Reconnection fetches a snapshot and replays the remaining outbox. Background sync is an optimisation, not a dependency: a suspended mobile app catches up when opened. Web Locks coordinates the sender across tabs; BroadcastChannel announces durable local changes.
+A write is local before it is sent. A server commit is durable before acknowledgement or notification. Reconnection fetches a snapshot and replays the remaining outbox. Background sync is an optimisation, not a dependency: a suspended mobile app catches up when opened. Existing tabs start reconciliation when another tab enables sync. A failed storage-module download displays a visible save warning. Web Locks coordinates the sender across tabs; BroadcastChannel announces durable local changes.
 
-API responses are private and never cached by the service worker. Preview Workers have their own Durable Object namespace. Production deploys include Worker source, generated runtime types, assets, and the SQLite class migration.
+API responses are private and never cached by the service worker. Preview Workers have their own Durable Object and rate-limit namespaces. Production deploys include Worker source, generated runtime types, assets, and the SQLite class migration.
 
 Validation covers localStorage migration, failed persistence, duplicate/out-of-order operations, concurrent remove/open, offline reload, two-device convergence, invitation races/expiry, revocation, recovery, and restart persistence. Existing type, coverage, lint, complexity, bundle, dictionary, and browser checks remain required.

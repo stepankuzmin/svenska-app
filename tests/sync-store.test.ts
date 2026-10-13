@@ -13,6 +13,18 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe("durable local library", () => {
+  it("starts remote reconciliation when another tab connects the stored library", async () => {
+    const name = crypto.randomUUID();
+    const local = new LibraryStore(name, [], false, true); stores.push(local);
+    await local.ready;
+    const remote = { flush: vi.fn(), connect: vi.fn(), disconnect: vi.fn() };
+    const start = vi.spyOn(local, "startRemote").mockResolvedValue(remote);
+    const connecting = create(name, []); await connecting.ready;
+    await connecting.accept({ ...connecting.state().snapshot, libraryId: "shared", revision: 1 });
+    await local.reload();
+    expect(start).toHaveBeenCalledOnce();
+    expect(local.getSnapshot().connected).toBe(true);
+  });
   it("migrates a legacy library once and ignores subsequent legacy edits", async () => {
     vi.stubGlobal("localStorage", { getItem: () => JSON.stringify(["val"]), setItem: vi.fn() });
     const name = crypto.randomUUID();

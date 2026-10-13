@@ -38,6 +38,103 @@ async function newDevice(context: BrowserContext) {
   return browser.newContext({ serviceWorkers: "allow" });
 }
 
+test("a tab opened before pairing keeps receiving changes after the pairing tab closes", async ({ page, context }) => {
+  const otherContext = await newDevice(context);
+  try {
+    await page.goto(".");
+    const existing = await context.newPage(); await existing.goto(".");
+    await expect(existing.getByRole("status")).toBeEmpty();
+    const other = await otherContext.newPage();
+    await pair(page, other);
+    await page.close();
+    await openWord(other, "hund");
+    await expect(existing.locator(".word-card-list > li")).toHaveCount(1);
+    await expect(existing.locator(".word-card-list > li")).toContainText("hund");
+  } finally { await otherContext.close(); }
+});
+
+test("simultaneous connection attempts in two tabs create only one shared library", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: origin, serviceWorkers: "block" });
+  try {
+    const page = await context.newPage();
+    await page.goto(".");
+    const second = await context.newPage(); await second.goto(".");
+    await openSync(page); await openSync(second);
+    await expect(page.getByRole("button", { name: "Enable sync", exact: true })).toBeEnabled();
+    await expect(second.getByRole("button", { name: "Enable sync", exact: true })).toBeEnabled();
+    let release = () => {};
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    let requests = 0;
+    await context.route("**/api/sync/libraries", async (route) => {
+      requests++; await gate; await route.continue();
+    });
+    await Promise.all([page, second].map((tab) => tab.getByRole("button", { name: "Enable sync", exact: true }).evaluate((button: HTMLButtonElement) => button.click())));
+    release();
+    await expect(page.getByRole("button", { name: "Connect another device", exact: true })).toBeVisible();
+    await expect(second.getByRole("button", { name: "Connect another device", exact: true })).toBeVisible();
+    expect(requests).toBe(1);
+    await page.getByRole("button", { name: "Close sync" }).click();
+    await second.getByRole("button", { name: "Close sync" }).click();
+    await openWord(second, "katt");
+    await expect(page.locator(".word-card-list > li")).toHaveCount(1);
+    await expect.poll(async () => {
+      const response = await page.request.get("/api/sync/library");
+      expect(response.ok()).toBe(true);
+      return (await response.json() as LibrarySnapshot).records.filter((record) => record.present).length;
+    }).toBe(1);
+  } finally { await context.close(); }
+});
+
+test("recovery or a fresh invitation replaces a credential stranded by a lost connection response", async ({ context }) => {
+  const create = await context.request.post("/api/sync/libraries", {
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Primary", sequence: 0, words: [whale] },
+  });
+  const { recoveryCode } = await create.json() as { recoveryCode: string };
+  const invitation = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
+  const secondContext = await newDevice(context);
+  try {
+    const deviceId = randomUUID();
+    const details = { deviceId, label: "Returning", sequence: 0, words: [] };
+    const joined = await secondContext.request.post(`${origin}/api/sync/join`, { headers: { Origin: origin }, data: { ...invitation, ...details } });
+    expect(joined.ok()).toBe(true);
+    const first = (await joined.json() as { snapshot: LibrarySnapshot }).snapshot;
+    const saved = await secondContext.request.post(`${origin}/api/sync/operations`, {
+      headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: first.revision, kind: "open", words: [election] }] },
+    });
+    expect(saved.ok()).toBe(true);
+    // Discarding cookies models a response that committed before reaching the browser.
+    await secondContext.clearCookies();
+    const fresh = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
+    const retried = await secondContext.request.post(`${origin}/api/sync/join`, { headers: { Origin: origin }, data: { ...fresh, ...details } });
+    expect(retried.ok()).toBe(true);
+    expect((await retried.json() as { snapshot: LibrarySnapshot }).snapshot.acknowledged).toBe(1);
+    await secondContext.clearCookies();
+    const [libraryId, token] = recoveryCode.split(".");
+    const recovered = await secondContext.request.post(`${origin}/api/sync/recover`, { headers: { Origin: origin }, data: { ...details, libraryId, token } });
+    expect(recovered.ok()).toBe(true);
+    expect((await recovered.json() as { snapshot: LibrarySnapshot }).snapshot.acknowledged).toBe(1);
+    expect((await (await context.request.get("/api/sync/devices")).json() as { id: string }[]).filter((device) => device.id === deviceId)).toHaveLength(1);
+  } finally { await secondContext.close(); }
+});
+
+test("a full 20000-word library persists beyond SQLite's per-row size limit", async ({ context }) => {
+  const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
+  const create = await context.request.post("/api/sync/libraries", {
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Large library", sequence: 0, words },
+  });
+  expect(create.ok()).toBe(true);
+  const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
+  expect(snapshot.records).toHaveLength(20_000);
+  expect(JSON.stringify(snapshot.records).length).toBeGreaterThan(2 * 1024 * 1024);
+  const remove = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "remove", words: [words[0]] }] },
+  });
+  expect(remove.ok()).toBe(true);
+  const read = await context.request.get("/api/sync/library");
+  expect(read.ok()).toBe(true);
+  expect((await read.json() as LibrarySnapshot).records.filter((record) => record.present)).toHaveLength(19_999);
+});
+
 test("paired devices sync additions, removals, ordering and offline reloads", async ({ page, context }) => {
   const secondContext = await newDevice(context);
   try {

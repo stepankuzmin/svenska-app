@@ -33,7 +33,7 @@ function readDeepLinkQuery(): string {
 }
 
 function LookupApp() {
-  const { session, dispatch } = useLookupSession({ initialQuery: readDeepLinkQuery() });
+  const { session, dispatch, storageError } = useLookupSession({ initialQuery: readDeepLinkQuery() });
   const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
@@ -101,6 +101,7 @@ function LookupApp() {
       syncControl={<Suspense fallback={null}><SyncControl /></Suspense>}
       query={query}
       status={lookupState.kind}
+      storageError={storageError}
       outcome={outcome}
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}

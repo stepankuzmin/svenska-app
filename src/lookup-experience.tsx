@@ -24,6 +24,7 @@ export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed
 
 type LookupExperienceProps = {
   syncControl?: ReactNode;
+  storageError?: boolean;
   query: string;
   status: LookupStatus;
   outcome: LookupOutcome | null;
@@ -472,7 +473,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       </form>
 
       <div
-        className={props.status === "unavailable-offline" || props.status === "failed" ? "lookup-status" : "visually-hidden"}
+        className={props.storageError || props.status === "unavailable-offline" || props.status === "failed" ? "lookup-status" : "visually-hidden"}
         role="status"
         aria-live="polite"
       >
@@ -481,6 +482,7 @@ export function LookupExperience(props: LookupExperienceProps) {
           ? "Connect once while online. After that, you can look up words offline."
           : null}
         {props.status === "failed" ? "The dictionary did not load. Reload to try again." : null}
+        {props.storageError ? "Words cannot be saved. Reconnect and reload." : null}
       </div>
 
       {library.length > 0 ? (

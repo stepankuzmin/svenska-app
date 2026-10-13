@@ -17,7 +17,8 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
     query: initialQuery, libraryWords: readLookupLibrary(), expandedCard: null, opens: 0,
   }));
   const latest = useRef({ session });
-  const bridge = useRef<Promise<ReturnType<typeof createSessionBridge>> | null>(null);
+  const [storageError, setStorageError] = useState(false);
+  const bridge = useRef<Promise<ReturnType<typeof createSessionBridge> | null> | null>(null);
   const active = useRef(true);
 
   function storage() {
@@ -29,14 +30,14 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
         // the library so that a storage notification cannot restore old input.
         setSession((shown) => ({ ...shown, libraryWords }));
       }),
-    );
+    ).catch(() => { if (active.current) setStorageError(true); return null; });
   }
   useEffect(() => {
     active.current = true;
     void storage();
     return () => {
       active.current = false;
-      void bridge.current?.then((value) => value.close());
+      void bridge.current?.then((value) => value?.close());
       bridge.current = null;
     };
   }, []);
@@ -46,7 +47,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
     const next = reduceLookupSession({ session: current, event });
     latest.current.session = next;
     if (event.kind === "dictionary-loaded" || event.kind === "word-removed" || next.opens > current.opens) {
-      void storage().then((value) => value.dispatch(event));
+      void storage().then((value) => value?.dispatch(event));
     }
     if (next.libraryWords === current.libraryWords || event.kind === "dictionary-loaded") {
       setSession(next);
@@ -55,5 +56,5 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
     setSession((shown) => ({ ...next, libraryWords: shown.libraryWords }));
     withLibraryMotion(() => setSession((shown) => ({ ...shown, libraryWords: latest.current.session.libraryWords })));
   }
-  return { session, dispatch };
+  return { session, dispatch, storageError };
 }

@@ -102,7 +102,12 @@ export class LibraryStore {
   async reload(): Promise<LibraryState> {
     if (!this.durable) return this.current;
     const state = await (await this.database).get("library", "current") as LibraryState | undefined;
-    if (state) { this.current = state; this.publish(); }
+    if (state) {
+      this.current = state; this.publish();
+      if (state.snapshot.libraryId && this.automatic && !this.remote) {
+        void this.startRemote().catch(() => this.setStatus("offline"));
+      }
+    }
     return this.current;
   }
   dispatch(event: LookupSessionEvent, dictionary: Pick<DictionaryAsset, "entries" | "wordAliases"> | null): Promise<void> {

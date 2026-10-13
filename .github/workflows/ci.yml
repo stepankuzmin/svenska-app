@@ -115,6 +115,10 @@ jobs:
           import { readFileSync, writeFileSync } from 'node:fs';
           const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
           config.name += `-pr-${process.env.PREVIEW_NUMBER}`;
+          config.ratelimits = config.ratelimits.map((binding) => ({
+            ...binding,
+            namespace_id: String(Number(binding.namespace_id) + Number(process.env.PREVIEW_NUMBER) * 10_000),
+          }));
           config.preview_urls = false;
           writeFileSync('wrangler.preview.json', JSON.stringify(config));
           JS

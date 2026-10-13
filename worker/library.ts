@@ -1,6 +1,6 @@
 import { DurableObject } from "cloudflare:workers";
 import { applyOperation, maximumWords, recordsOf, type LibrarySnapshot, type SyncOperation, type WordRecord } from "../src/sync/model";
-import type { LibraryWord } from "../src/words";
+import { wordKey, type LibraryWord } from "../src/words";
 
 type Device = { id: string; label: string; hash: string; acknowledged: number; createdAt: number };
 type Invitation = { hash: string; expiresAt: number };
@@ -21,18 +21,37 @@ function sameHash(left: string, right: string): boolean {
 }
 
 export class LookupLibrary extends DurableObject<Env> {
+  private savedRecords = new Map<string, WordRecord>();
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_state (id INTEGER PRIMARY KEY CHECK(id = 1), data TEXT NOT NULL)");
+    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_records (key TEXT PRIMARY KEY, data TEXT NOT NULL)");
+    const legacy = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_state WHERE id = 1").toArray()[0];
+    if (legacy) {
+      const state = JSON.parse(legacy.data) as StoredLibrary;
+      if (Array.isArray(state.records)) this.save(state);
+    }
   }
 
   private load(): StoredLibrary {
     const rows = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_state WHERE id = 1").toArray();
     if (rows.length === 0) throw new Error("404:This library does not exist.");
-    return JSON.parse(rows[0].data) as StoredLibrary;
+    const records = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_records").toArray()
+      .map((row) => JSON.parse(row.data) as WordRecord);
+    this.savedRecords = new Map(records.map((record) => [wordKey(record), record]));
+    return { ...JSON.parse(rows[0].data), records } as StoredLibrary;
   }
   private save(state: StoredLibrary): void {
-    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_state (id, data) VALUES (1, ?)", JSON.stringify(state));
+    this.ctx.storage.transactionSync(() => {
+      for (const record of state.records) {
+        const key = wordKey(record);
+        if (this.savedRecords.get(key) !== record) {
+          this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_records (key, data) VALUES (?, ?)", key, JSON.stringify(record));
+        }
+      }
+      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_state (id, data) VALUES (1, ?)", JSON.stringify({ ...state, records: undefined }));
+    });
+    this.savedRecords = new Map(state.records.map((record) => [wordKey(record), record]));
   }
   private device(state: StoredLibrary, id: string, hash: string): Device {
     const device = state.devices.find((item) => item.id === id && sameHash(item.hash, hash));
@@ -107,13 +126,13 @@ export class LookupLibrary extends DurableObject<Env> {
         if (!invitation) throw new Error("410:This pairing link has expired or was already used.");
         state.invitations = state.invitations.filter((item) => item !== invitation);
       }
-      if (state.devices.some((device) => device.id === credential.id)) throw new Error("409:This device is already connected.");
-      if (state.devices.length >= 20) throw new Error("422:Disconnect an old device before adding another.");
+      const previous = state.devices.find((device) => device.id === credential.id);
+      if (!previous && state.devices.length >= 20) throw new Error("422:Disconnect an old device before adding another.");
       const device: Device = {
         id: credential.id, label: credential.label, hash: credential.hash,
-        acknowledged: credential.sequence, createdAt: Date.now(),
+        acknowledged: Math.max(credential.sequence, previous?.acknowledged ?? 0), createdAt: previous?.createdAt ?? Date.now(),
       };
-      state.devices.push(device);
+      state.devices = [...state.devices.filter((item) => item.id !== device.id), device];
       // Joining appends new identities, preserving the incoming device's order.
       if (words.length > 0) {
         state.revision++;
@@ -125,6 +144,10 @@ export class LookupLibrary extends DurableObject<Env> {
       this.save(state);
       return this.snapshot(state, device);
     });
+    for (const socket of this.ctx.getWebSockets()) {
+      const attachment = socket.deserializeAttachment() as { deviceId: string; hash: string };
+      if (attachment.deviceId === credential.id && !sameHash(attachment.hash, credential.hash)) socket.close(4001, "Device reconnected.");
+    }
     this.changed();
     return result;
   }

@@ -109,24 +109,30 @@ export function createRemote(store: LibraryStore): Remote {
   const remote: Remote = {
     flush,
     async connect(kind, details) {
-      await store.ready;
-      if (!store.getSnapshot().durable) throw new Error("Enable browser storage before connecting devices.");
-      await store.reload();
-      if (store.state().snapshot.libraryId) throw new Error("Disconnect this device before joining another library.");
-      const state = store.state();
-      store.setStatus("connecting");
-      try {
-        const result = await syncRequest<{ snapshot: LibrarySnapshot; recoveryCode?: string }>(kind, {
-          ...details, deviceId: state.snapshot.deviceId, sequence: state.sequence, words: store.connectionWords(),
-        });
-        await store.accept(result.snapshot);
-        stopped = false;
-        await flush();
-        return result;
-      } catch (error) {
-        store.setStatus("error", error instanceof Error ? error.message : "Could not connect this device.");
-        throw error;
-      }
+      const establish = async () => {
+        await store.ready;
+        if (!store.getSnapshot().durable) throw new Error("Enable browser storage before connecting devices.");
+        await store.reload();
+        if (store.state().snapshot.libraryId) throw new Error("Disconnect this device before joining another library.");
+        const state = store.state();
+        store.setStatus("connecting");
+        try {
+          const result = await syncRequest<{ snapshot: LibrarySnapshot; recoveryCode?: string }>(kind, {
+            ...details, deviceId: state.snapshot.deviceId, sequence: state.sequence, words: store.connectionWords(),
+          });
+          await store.accept(result.snapshot);
+          stopped = false;
+          return result;
+        } catch (error) {
+          store.setStatus("error", error instanceof Error ? error.message : "Could not connect this device.");
+          throw error;
+        }
+      };
+      const result = navigator.locks
+        ? await navigator.locks.request("svenska-library-sync", establish)
+        : await establish();
+      await flush();
+      return result;
     },
     async disconnect() {
       // A disconnected device keeps its complete local projection, including
