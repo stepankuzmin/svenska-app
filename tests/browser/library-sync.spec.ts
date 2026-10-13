@@ -120,6 +120,8 @@ test("a second tab saves offline changes and shares the durable queue", async ({
   await expect(page.getByText("Your devices are in sync.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close sync" }).click();
   const second = await context.newPage(); await second.goto(".");
+  await expect(second.getByRole("status")).toBeEmpty();
+  await second.evaluate(() => navigator.serviceWorker.ready.then(() => undefined));
   await context.setOffline(true);
   await openWord(page, "katt");
   await openWord(second, "hund");
