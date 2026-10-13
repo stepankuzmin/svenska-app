@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { libraryStore } from "./store";
-import { queryClient, syncRequest } from "./remote";
+import type { loadTransport } from "./load-transport";
 import "./panel.css";
 
 const mobilePattern = /Mobi/;
+type PanelProps = { onClose: () => void; transport: Awaited<ReturnType<typeof loadTransport>> };
 
 type Device = { id: string; label: string; current: boolean };
 type Invitation = { libraryId: string; token: string; expiresAt: number };
@@ -22,7 +23,8 @@ function pairingFromFragment(): { libraryId: string; token: string } | null {
   return { libraryId, token };
 }
 
-function Panel({ onClose }: { onClose: () => void }) {
+function Panel({ onClose, transport }: PanelProps) {
+  const { queryClient, syncRequest } = transport;
   const store = libraryStore();
   const view = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -125,6 +127,6 @@ function Panel({ onClose }: { onClose: () => void }) {
     {recovery ? <label>Recovery code<input readOnly value={recovery} onFocus={(event) => event.currentTarget.select()} /></label> : null}
   </dialog>;
 }
-export default function SyncPanel(props: { onClose: () => void }) {
-  return <QueryClientProvider client={queryClient}><Panel {...props} /></QueryClientProvider>;
+export default function SyncPanel(props: PanelProps) {
+  return <QueryClientProvider client={props.transport.queryClient}><Panel {...props} /></QueryClientProvider>;
 }

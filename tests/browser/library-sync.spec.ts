@@ -174,14 +174,54 @@ test("a failed transport download retries and receives remote edits without relo
     await page.unroute(`${origin}/`);
     let attempts = 0;
     await page.route("**/assets/remote-*.js*", (route) => ++attempts <= 2 ? route.abort("internetdisconnected") : route.continue());
+    const connected = page.waitForEvent("websocket");
     await page.reload();
     await expect.poll(() => attempts).toBe(3);
+    const socket = await connected;
+    const notified = socket.waitForEvent("framereceived");
     const change = await context.request.post("/api/sync/operations", {
       headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "open", words: [election] }] },
     });
     expect(change.ok()).toBe(true);
+    await notified;
     await expect(page.locator(".word-card-list > li")).toHaveCount(2);
     await expect(page.locator(".word-card-list > li")).toContainText(["ett val", "en val"]);
+    await openSync(page);
+    await page.getByRole("button", { name: "Connect another device", exact: true }).click();
+    await expect(page.getByAltText("QR code to connect another device")).toBeVisible();
+    await page.getByText("Recovery", { exact: true }).click();
+    await page.getByRole("button", { name: "Generate recovery code", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "Recovery code", exact: true })).toBeVisible();
+    const [libraryId, token] = (await page.getByRole("textbox", { name: "Recovery code", exact: true }).inputValue()).split(".");
+    const superseded = socket.waitForEvent("close");
+    const replacement = await context.request.post("/api/sync/recover", {
+      headers: { Origin: origin }, data: { libraryId, token, deviceId: snapshot.deviceId, label: "Reconnected tab", sequence: 1, words: [] },
+    });
+    expect(replacement.ok()).toBe(true);
+    await superseded;
+    await expect(page.getByText("This device is disconnected. Your local words are kept.", { exact: true })).toBeVisible();
+    const replacementSnapshot = (await replacement.json() as { snapshot: LibrarySnapshot }).snapshot;
+    // Model another tab accepting the renewed credential and announcing it.
+    await page.evaluate((snapshot) => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("svenska-library", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("library", "readwrite");
+        const current = transaction.objectStore("library").get("current");
+        current.onsuccess = () => transaction.objectStore("library").put({ ...current.result, snapshot }, "current");
+        transaction.oncomplete = () => {
+          database.close();
+          const channel = new BroadcastChannel("svenska-library-changes"); channel.postMessage("changed"); channel.close(); resolve();
+        };
+        transaction.onerror = () => reject(transaction.error);
+      };
+    }), replacementSnapshot);
+    await expect(page.getByText("Your devices are in sync.", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Disconnect this device", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Enable sync", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Close sync", exact: true }).click();
+    await expect(page.locator(".word-card-list > li")).toHaveCount(2);
   } finally { await context.close(); }
 });
 

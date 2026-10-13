@@ -17,6 +17,29 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it("keeps storage healthy and continues saving lookups after snapshot validation fails", async () => {
+    const store = create(); await store.ready;
+    await expect(store.accept({ ...store.state().snapshot, protocol: 2 as 1 })).rejects.toThrow("Update the app");
+    expect(store.getSnapshot().durable).toBe(true);
+    expect(store.getSnapshot().error).toBe("");
+    await store.enqueue("open", [election]);
+    expect(store.state().pending).toHaveLength(1);
+    expect(store.getSnapshot().durable).toBe(true);
+  });
+  it("invalidates a revoked transport and flushes its replacement on shared-state reload", async () => {
+    const name = crypto.randomUUID();
+    const store = new LibraryStore(name, [], false, true); stores.push(store); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1 });
+    const old = await store.startRemote();
+    const replacement = { ...transport, flush: vi.fn(() => Promise.resolve()) };
+    transportFactory.mockReturnValue(replacement);
+    expect(store.remoteRevoked(old)).toBe(true);
+    store.setStatus("revoked");
+    await store.reload();
+    await expect.poll(() => replacement.flush.mock.calls.length).toBe(1);
+    expect(await store.startRemote()).toBe(replacement);
+    expect(store.remoteRevoked(old)).toBe(false);
+  });
   it("flushes an existing dormant transport when another tab connects", async () => {
     const name = crypto.randomUUID();
     const local = new LibraryStore(name, [], false, true); stores.push(local); await local.ready;

@@ -1,9 +1,13 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import { loadTransport } from "./sync/load-transport";
 
 const StorageStatus = lazy(() => import("./sync/status").catch(() => ({ default: () => <></> })));
-const SyncPanel = lazy(() => import("./sync/panel").catch(() => ({
-  default: () => <span role="status">Connect once and reload to open device sync.</span>,
-})));
+const SyncPanel = lazy(() => Promise.all([import("./sync/panel"), loadTransport()])
+  .then(([{ default: Panel }, transport]) => ({
+    default: (props: { onClose: () => void }) => <Panel {...props} transport={transport} />,
+  }))
+  .catch(() => ({ default: () => <span role="status">Connect once and reload to open device sync.</span> })));
+
 
 export default function SyncControl() {
   const [pairingVersion, setPairingVersion] = useState(0);

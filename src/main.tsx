@@ -24,18 +24,15 @@ type LookupState =
   | { kind: "unavailable-offline" }
   | { kind: "failed" };
 
-function readDeepLinkQuery(): string {
-  return new URLSearchParams(window.location.search).get("q") ?? "";
-}
 
 function LookupApp() {
-  const { session, dispatch, storageError } = useLookupSession({ initialQuery: readDeepLinkQuery() });
-  const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
+  const pendingDeepLinkQuery = useRef(new URLSearchParams(location.search).get("q") ?? "");
+  const { session, dispatch, storageError } = useLookupSession({ initialQuery: pendingDeepLinkQuery.current });
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
   const { query } = session;
   const outcome = useMemo<LookupOutcome | null>(
-    () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
+    () => (lookupState.kind === "ready" ? lookupState.search(query) : null),
     [lookupState, query],
   );
 
@@ -43,7 +40,7 @@ function LookupApp() {
     async function loadAsset(url: string): Promise<unknown> {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`${url} responded ${response.status}.`);
+        throw new Error("Dictionary unavailable.");
       }
       return response.json();
     }
@@ -52,7 +49,7 @@ function LookupApp() {
       const detailsRequest = loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
       const [asset, { createSearch, hasDictionaryAssetShape, hasDictionaryDetailsShape }] = await Promise.all([loadAsset(dictionaryAssetUrl), import("./dictionary-search")]);
       if (!hasDictionaryAssetShape(asset)) {
-        throw new Error("Dictionary asset has an invalid format.");
+        throw new Error("Dictionary unavailable.");
       }
       setLookupState({
         kind: "ready",

@@ -70,10 +70,8 @@ const WordCard = memo(function WordCard({
   const copy = (
     <span className="word-card-heading">
       <strong lang="sv">{item.citation}</strong>
-      {wordType.length > 0 ? " " : null}
-      {wordType.length > 0 ? <span className="word-card-type">({wordType})</span> : null}
-      {translation.length > 0 ? " " : null}
-      {translation.length > 0 ? <span className="word-card-translation" lang="ru">{translation}</span> : null}
+      {wordType ? <span className="word-card-type">{` (${wordType})`}</span> : null}
+      {translation ? <span className="word-card-translation" lang="ru">{` ${translation}`}</span> : null}
     </span>
   );
 
@@ -246,7 +244,8 @@ export function LookupExperience(props: LookupExperienceProps) {
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
   const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
-  const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
+  const hasQuery = props.query.trim().length > 0;
+  const [autocompleteOpen, setAutocompleteOpen] = useState(hasQuery);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
   const transitionNames = useRef(new Map<string, string>());
@@ -258,7 +257,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   const suggestionsStale = matches !== deferredMatches;
   const showNoMatches = autocompleteOpen &&
     props.status === "ready" &&
-    props.query.trim().length > 0 &&
+    hasQuery &&
     matches.choices.length === 0;
   const queryInput = useRef<HTMLInputElement>(null);
   // The menu's handlers read what the last render saw, so they keep one
@@ -357,7 +356,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             setActiveSuggestionIndex(-1);
             setRenderedSuggestionCount(suggestionBatchSize);
           }}
-          onPointerDown={() => setAutocompleteOpen(props.query.trim().length > 0)}
+          onPointerDown={() => setAutocompleteOpen(hasQuery)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -441,10 +440,10 @@ export function LookupExperience(props: LookupExperienceProps) {
       >
         {props.status === "loading" ? "Loading dictionary…" : null}
         {props.status === "unavailable-offline"
-          ? "Connect once while online. After that, you can look up words offline."
+          ? "Connect once while online to enable offline lookup."
           : null}
-        {props.status === "failed" ? "The dictionary did not load. Reload to try again." : null}
-        {props.storageError ? "Words cannot be saved. Reconnect and reload." : null}
+        {props.status === "failed" ? "Dictionary did not load. Reload to retry." : null}
+        {props.storageError ? "Cannot save words. Reload when online." : null}
       </div>
 
       {library.length > 0 ? (

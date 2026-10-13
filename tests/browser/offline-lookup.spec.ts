@@ -90,9 +90,9 @@ test("lookup works when optional sync code cannot download", async ({ page }) =>
 test("a failed persistence chunk reports that new words cannot be saved", async ({ page }) => {
   await page.route("**/assets/session-bridge-*.js", (route) => route.abort("internetdisconnected"));
   await page.goto(".");
-  await expect(page.getByText("Words cannot be saved. Reconnect and reload.")).toBeVisible();
+  await expect(page.getByText("Cannot save words. Reload when online.")).toBeVisible();
   await searchFor(page, "bok");
-  await expect(page.getByText("Words cannot be saved. Reconnect and reload.")).toBeVisible();
+  await expect(page.getByText("Cannot save words. Reload when online.")).toBeVisible();
   await expect(page.getByRole("region", { name: "Library" }).getByRole("strong").filter({ hasText: bokHeadword })).toHaveCount(2);
 });
 

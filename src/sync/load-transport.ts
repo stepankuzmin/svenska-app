@@ -1,21 +1,27 @@
 import transportUrl from "./transport-url";
 
 let attempt = 0;
-let loaded: Promise<typeof import("./remote")> | null = null;
-async function targetUrl(): Promise<URL> {
-  if (transportUrl) return new URL(transportUrl, location.href);
+type Transport = typeof import("./remote");
+const names = ["createRemote", "queryClient", "syncRequest", "SyncError"] as const;
+let loaded: Promise<Transport> | null = null;
+async function target(): Promise<{ url: URL; bindings: Record<string, string> }> {
+  if (transportUrl) return { url: new URL(transportUrl, location.href), bindings: Object.fromEntries(names.map((name) => [name, name])) };
   const script = document.querySelector<HTMLScriptElement>('script[type="module"][src]');
   if (!script) throw new Error("Sync code is unavailable.");
   const response = await fetch(`${script.src}.sync.json`, { cache: "no-store" });
   if (!response.ok) throw new Error("Sync code is unavailable.");
-  const { file } = await response.json() as { file?: unknown };
+  const { file, bindings } = await response.json() as { file?: unknown; bindings?: Record<string, string> };
   if (typeof file !== "string" || !file.startsWith("assets/remote-") || !file.endsWith(".js")) throw new Error("Invalid sync module map.");
-  return new URL(file, location.origin);
+  if (!bindings || names.some((name) => typeof bindings[name] !== "string")) throw new Error("Invalid sync module exports.");
+  return { url: new URL(file, location.origin), bindings };
 }
-export function loadTransport(): Promise<typeof import("./remote")> {
-  return loaded ??= targetUrl().then((url) => {
+export function loadTransport(): Promise<Transport> {
+  return loaded ??= target().then(async ({ url, bindings }) => {
     if (attempt > 0) url.searchParams.set("retry", String(attempt));
     attempt++;
-    return import(/* @vite-ignore */ url.href) as Promise<typeof import("./remote")>;
+    const module = await import(/* @vite-ignore */ url.href);
+    const transport = Object.fromEntries(names.map((name) => [name, module[bindings[name]]])) as Transport;
+    if (typeof transport.createRemote !== "function" || typeof transport.syncRequest !== "function") throw new Error("Invalid sync module.");
+    return transport;
   }).catch((error) => { loaded = null; throw error; });
 }

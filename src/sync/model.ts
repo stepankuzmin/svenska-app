@@ -4,6 +4,7 @@ const wordNumberPattern = /^\d{0,12}$/;
 
 export const protocolVersion = 1;
 export const maximumWords = 20_000;
+export class SnapshotValidationError extends Error {}
 
 export type WordRecord = LibraryWord & {
   present: boolean;
@@ -86,9 +87,9 @@ export function visibleWords(state: LibraryState): LibraryWord[] {
 }
 
 export function receiveSnapshot(state: LibraryState, snapshot: LibrarySnapshot): LibraryState {
-  if (snapshot.protocol !== protocolVersion) throw new Error("Update the app to continue syncing.");
+  if (snapshot.protocol !== protocolVersion) throw new SnapshotValidationError("Update the app to continue syncing.");
   if (state.snapshot.libraryId && state.snapshot.libraryId !== snapshot.libraryId) {
-    throw new Error("Disconnect this device before joining another library.");
+    throw new SnapshotValidationError("Disconnect this device before joining another library.");
   }
   if (state.snapshot.libraryId && snapshot.revision < state.snapshot.revision) return state;
   return {

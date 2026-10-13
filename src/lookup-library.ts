@@ -3,13 +3,13 @@ import { uniqueWords, wordKey, type LibraryWord } from "./words";
 const lookupLibraryStorageKey = "svenska.lookup-library";
 // A library written before the app kept words holds bare headwords. The app
 // bundle reads this by hand rather than carry a schema library for it.
-function libraryWordOf(value: unknown): LibraryWord | null {
+function libraryWordOf(value: unknown): Partial<LibraryWord> {
   if (typeof value === "string") {
     return { headword: value, word: "" };
   }
 
   const { headword, word } = (value ?? {}) as Partial<LibraryWord>;
-  return typeof headword === "string" && typeof word === "string" ? { headword, word } : null;
+  return { headword, word };
 }
 
 // Reading `localStorage` itself throws where site data is blocked, so it is
@@ -19,7 +19,8 @@ export function readLookupLibrary(): readonly LibraryWord[] {
     const storedLibrary: unknown = JSON.parse(localStorage.getItem(lookupLibraryStorageKey) ?? "[]");
     const libraryWords = Array.isArray(storedLibrary) ? storedLibrary.map(libraryWordOf) : [];
     // One entry the app cannot read spoils the library, as the schema did.
-    return libraryWords.every((libraryWord) => libraryWord !== null) ? libraryWords : [];
+    return libraryWords.every((libraryWord): libraryWord is LibraryWord =>
+      typeof libraryWord.headword === "string" && typeof libraryWord.word === "string") ? libraryWords : [];
   } catch {
     return [];
   }

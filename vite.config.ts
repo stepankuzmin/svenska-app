@@ -9,7 +9,7 @@ const transportPath = fileURLToPath(new URL("./src/sync/remote.ts", import.meta.
 let transportVersion = "";
 
 export default defineConfig({
-  build: { target: "esnext", modulePreload: { polyfill: false }, rollupOptions: { output: { minifyInternalExports: false } } },
+  build: { target: "esnext", modulePreload: { polyfill: false } },
   server: { proxy: { "/api": { target: "http://127.0.0.1:4173", ws: true } } },
   plugins: [
     {
@@ -30,9 +30,20 @@ export default defineConfig({
       generateBundle(_options, bundle) {
         const chunks = Object.values(bundle).filter((file) => file.type === "chunk");
         const entry = chunks.find((file) => file.isEntry && file.name === "index");
-        const transport = chunks.find((file) => file.modules[transportPath] && file.exports.includes("createRemote"));
-        if (!entry || !transport) throw new Error("Cannot resolve the sync transport build.");
-        this.emitFile({ type: "asset", fileName: `${entry.fileName}.sync.json`, source: JSON.stringify({ file: transport.fileName }) });
+        const transport = chunks.find((file) => file.modules[transportPath]);
+        const facade = chunks.find((file) => file.isEntry && file.facadeModuleId === transportPath);
+        if (!entry || !transport || !facade) throw new Error("Cannot resolve the sync transport build.");
+        const bindings = transport === facade ? Object.fromEntries(facade.exports.map((name) => [name, name]))
+          : Object.fromEntries(this.parse(facade.code).body.flatMap((node) => {
+            if (node.type !== "ExportNamedDeclaration" || !node.source) return [];
+            return node.specifiers.map((specifier) => {
+              if (specifier.type !== "ExportSpecifier" || specifier.local.type !== "Identifier" || specifier.exported.type !== "Identifier") {
+                throw new Error("Unexpected sync transport export.");
+              }
+              return [specifier.exported.name, specifier.local.name];
+            });
+          }));
+        this.emitFile({ type: "asset", fileName: `${entry.fileName}.sync.json`, source: JSON.stringify({ file: transport.fileName, bindings }) });
       },
     },
     react(),

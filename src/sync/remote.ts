@@ -1,5 +1,5 @@
-import { QueryClient } from "@tanstack/react-query";
-import type { LibrarySnapshot } from "./model";
+import { QueryClient } from "@tanstack/query-core";
+import { SnapshotValidationError, type LibrarySnapshot } from "./model";
 import type { LibraryStore, Remote } from "./store";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, networkMode: "always", staleTime: 0 } } });
@@ -30,6 +30,7 @@ export function createRemote(store: LibraryStore): Remote {
     if (!stopped) timer = setTimeout(() => { void flush(); }, delay);
   }
   function report(error: unknown): void {
+    if (stopped) return;
     if (!store.getSnapshot().durable) {
       stopped = true; socket?.close();
       store.setStatus("error", store.getSnapshot().error);
@@ -38,8 +39,11 @@ export function createRemote(store: LibraryStore): Remote {
     if (error instanceof SyncError && error.status === 401) {
       stopped = true;
       socket?.close();
-      store.setStatus("revoked", "This device is disconnected. Your local words are kept.");
+      if (store.remoteRevoked(remote)) store.setStatus("revoked", "This device is disconnected. Your local words are kept.");
       return;
+    }
+    if (error instanceof SnapshotValidationError) {
+      stopped = true; socket?.close(); store.setStatus("error", error.message); return;
     }
     if (error instanceof SyncError && [400, 403, 409, 410, 415, 422].includes(error.status)) {
       stopped = true;
@@ -71,13 +75,16 @@ export function createRemote(store: LibraryStore): Remote {
     const snapshot = await queryClient.fetchQuery({
       queryKey: ["library", libraryId], queryFn: () => syncRequest<LibrarySnapshot>("library"),
     });
+    if (stopped) return;
     await store.accept(snapshot);
     while (true) {
+      if (stopped) return;
       const state = await store.reload();
       const operations = state.pending.slice(0, 100);
       if (operations.length === 0) break;
       store.setStatus("saving");
       const confirmed = await syncRequest<LibrarySnapshot>("operations", { operations });
+      if (stopped) return;
       await store.accept(confirmed);
       queryClient.setQueryData(["library", libraryId], confirmed);
     }

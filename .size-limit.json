@@ -3,7 +3,8 @@
     "name": "App JS",
     "path": [
       "dist/assets/index-*.js",
-      "dist/assets/words-*.js"
+      "dist/assets/words-*.js",
+      "dist/assets/jsx-runtime-*.js"
     ],
     "limit": "65 kB"
   },
@@ -44,12 +45,19 @@
   },
   {
     "name": "Local library storage",
-    "path": "dist/assets/store-*.js",
+    "path": [
+      "dist/assets/store-*.js",
+      "dist/assets/model-*.js",
+      "dist/assets/load-transport-*.js"
+    ],
     "limit": "4 kB"
   },
   {
     "name": "Sync transport",
-    "path": "dist/assets/remote-*.js",
+    "path": [
+      "dist/assets/remote-*.js",
+      "dist/assets/query-*.js"
+    ],
     "limit": "10 kB"
   },
   {

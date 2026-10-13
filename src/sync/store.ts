@@ -32,6 +32,7 @@ export class LibraryStore {
   private current: LibraryState;
   private view: StoreView;
   private remote: Promise<Remote> | null = null;
+  private currentRemote: Remote | null = null;
   private importRetry: ReturnType<typeof setTimeout> | null = null;
   private importDelay = 1000;
   private durable = false;
@@ -74,12 +75,12 @@ export class LibraryStore {
   private storageFailed(): void { this.durable = false; this.setStatus("error", "Changes cannot be saved on this device. Check browser storage and reload."); }
 
   private async update(change: (state: LibraryState) => LibraryState): Promise<LibraryState> {
-    const database = await this.database;
-    const transaction = database.transaction("library", "readwrite");
-    const state = (await transaction.store.get("current") as LibraryState | undefined) ?? this.current;
+    const transaction = await this.database.then((database) => database.transaction("library", "readwrite"))
+      .catch((error) => { this.storageFailed(); throw error; });
+    const state = (await transaction.store.get("current").catch((error) => { this.storageFailed(); throw error; }) as LibraryState | undefined) ?? this.current;
     const next = change(state);
-    await transaction.store.put(next, "current");
-    await transaction.done;
+    try { await transaction.store.put(next, "current"); await transaction.done; }
+    catch (error) { this.storageFailed(); throw error; }
     this.durable = true;
     this.current = next;
     // Retain a rollback-readable snapshot for older cached app shells. IndexedDB
@@ -137,7 +138,7 @@ export class LibraryStore {
     try {
       await this.update((state) => attempted = queue(state));
       if (this.current.snapshot.libraryId && this.automatic) {
-        this.setStatus("saving");
+        if (this.status !== "error" && this.status !== "revoked") this.setStatus("saving");
         void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
       }
     } catch { this.current = attempted ?? queue(this.current); this.storageFailed(); }
@@ -161,19 +162,25 @@ export class LibraryStore {
 
   async accept(snapshot: LibrarySnapshot): Promise<void> {
     if (!this.durable) throw new Error(this.error);
-    try { await this.update((state) => receiveSnapshot(state, snapshot)); }
-    catch (error) { this.storageFailed(); throw error; }
+    await this.update((state) => receiveSnapshot(state, snapshot));
   }
   async detach(): Promise<void> {
-    try { await this.update((state) => initialState(visibleWords(state))); }
-    catch (error) { this.storageFailed(); throw error; }
+    await this.update((state) => initialState(visibleWords(state)));
     this.remote = null;
+    this.currentRemote = null;
     this.setStatus("local");
   }
   state(): LibraryState { return this.current; }
+  remoteRevoked(remote: Remote): boolean {
+    if (this.currentRemote !== remote) return false;
+    this.currentRemote = null;
+    this.remote = null;
+    return true;
+  }
   async startRemote(): Promise<Remote> {
     if (!this.remote) this.remote = loadTransport().then(({ createRemote }) => {
       const remote = createRemote(this);
+      this.currentRemote = remote;
       this.importDelay = 1000;
       if (this.importRetry) clearTimeout(this.importRetry);
       return remote;
