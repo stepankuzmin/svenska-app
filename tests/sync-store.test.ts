@@ -1,18 +1,67 @@
 import "fake-indexeddb/auto";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LibraryStore } from "../src/sync/store";
 import { recordsOf } from "../src/sync/model";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const stores: LibraryStore[] = [];
+const transport = vi.hoisted(() => ({ flush: vi.fn(() => Promise.resolve()), connect: vi.fn(), disconnect: vi.fn() }));
+const transportFactory = vi.hoisted(() => vi.fn());
+vi.mock("../src/sync/load-transport", () => ({ loadTransport: () => Promise.resolve({ createRemote: transportFactory }) }));
+beforeEach(() => { transportFactory.mockReset().mockReturnValue(transport); transport.flush.mockClear(); });
 function create(name = crypto.randomUUID(), seed = [whale]) {
   const store = new LibraryStore(name, seed, false, false);
   stores.push(store);
   return store;
 }
-afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it("flushes an existing dormant transport when another tab connects", async () => {
+    const name = crypto.randomUUID();
+    const local = new LibraryStore(name, [], false, true); stores.push(local); await local.ready;
+    await local.startRemote();
+    expect(transport.flush).not.toHaveBeenCalled();
+    const connecting = create(name, []); await connecting.ready;
+    await connecting.accept({ ...connecting.state().snapshot, libraryId: "shared", revision: 1 });
+    await local.reload();
+    await expect.poll(() => transport.flush.mock.calls.length).toBe(1);
+    expect(transportFactory).toHaveBeenCalledOnce();
+  });
+  it("clears a failed transport import and automatically retries without losing pending changes", async () => {
+    const store = new LibraryStore(crypto.randomUUID(), [], false, true); stores.push(store); await store.ready;
+    await store.enqueue("open", [whale]);
+    await store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1, records: [] });
+    vi.useFakeTimers();
+    transportFactory.mockImplementationOnce(() => { throw new Error("Chunk unavailable"); });
+    await expect(store.startRemote()).rejects.toThrow("Chunk unavailable");
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(await store.startRemote()).toBe(transport);
+    expect(transportFactory).toHaveBeenCalledTimes(2);
+    expect(store.state().pending).toHaveLength(1);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+  it("marks failed snapshot commits as storage errors and retains the saved outbox", async () => {
+    const name = crypto.randomUUID();
+    const store = create(name); await store.ready; await store.enqueue("open", [election]);
+    const put = vi.spyOn(IDBObjectStore.prototype, "put").mockImplementation(() => { throw new DOMException("No space", "QuotaExceededError"); });
+    await expect(store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1, acknowledged: 1 })).rejects.toThrow("No space");
+    expect(store.getSnapshot().durable).toBe(false);
+    expect(store.getSnapshot().status).toBe("error");
+    expect(store.state().snapshot.revision).toBe(0);
+    expect(store.state().pending).toHaveLength(1);
+    put.mockRestore();
+    const reopened = create(name, []); await reopened.ready;
+    expect(reopened.state().pending).toHaveLength(1);
+    expect(reopened.getSnapshot().words).toEqual([election, whale]);
+  });
+  it("reports a closed database as a storage failure instead of a network outage", async () => {
+    const store = create(); await store.ready; await store.close();
+    await expect(store.reload()).rejects.toThrow();
+    expect(store.getSnapshot().durable).toBe(false);
+    expect(store.getSnapshot().status).toBe("error");
+    expect(store.getSnapshot().words).toEqual([whale]);
+  });
   it("starts remote reconciliation when another tab connects the stored library", async () => {
     const name = crypto.randomUUID();
     const local = new LibraryStore(name, [], false, true); stores.push(local);

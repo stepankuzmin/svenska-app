@@ -1,6 +1,6 @@
 import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 import { randomUUID } from "node:crypto";
-import type { LibrarySnapshot } from "../../src/sync/model";
+import { receiveSnapshot, visibleWords, type LibrarySnapshot } from "../../src/sync/model";
 const pairFragment = /pair=/;
 const origin = new URL(process.env.SYNC_TEST_BASE_URL ?? "http://127.0.0.1:4173").origin;
 const whale = { headword: "val", word: "18439" };
@@ -105,14 +105,27 @@ test("recovery or a fresh invitation replaces a credential stranded by a lost co
     // Discarding cookies models a response that committed before reaching the browser.
     await secondContext.clearCookies();
     const fresh = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
-    const retried = await secondContext.request.post(`${origin}/api/sync/join`, { headers: { Origin: origin }, data: { ...fresh, ...details } });
+    const pendingRemoval = { sequence: 2, baseRevision: 0, kind: "remove" as const, words: [whale] };
+    const retried = await secondContext.request.post(`${origin}/api/sync/join`, { headers: { Origin: origin }, data: { ...fresh, ...details, sequence: 2 } });
     expect(retried.ok()).toBe(true);
-    expect((await retried.json() as { snapshot: LibrarySnapshot }).snapshot.acknowledged).toBe(1);
+    const retriedSnapshot = (await retried.json() as { snapshot: LibrarySnapshot }).snapshot;
+    expect(retriedSnapshot.acknowledged).toBe(1);
+    const replay = receiveSnapshot({ snapshot: { ...first, libraryId: "" }, sequence: 2, pending: [pendingRemoval] }, retriedSnapshot);
+    expect(replay.pending).toEqual([pendingRemoval]);
+    expect(visibleWords(replay)).toEqual([election]);
+    const removed = await secondContext.request.post(`${origin}/api/sync/operations`, { headers: { Origin: origin }, data: { operations: replay.pending } });
+    expect(removed.ok()).toBe(true);
     await secondContext.clearCookies();
     const [libraryId, token] = recoveryCode.split(".");
-    const recovered = await secondContext.request.post(`${origin}/api/sync/recover`, { headers: { Origin: origin }, data: { ...details, libraryId, token } });
+    const recovered = await secondContext.request.post(`${origin}/api/sync/recover`, { headers: { Origin: origin }, data: { ...details, sequence: 3, libraryId, token } });
     expect(recovered.ok()).toBe(true);
-    expect((await recovered.json() as { snapshot: LibrarySnapshot }).snapshot.acknowledged).toBe(1);
+    const recoveredSnapshot = (await recovered.json() as { snapshot: LibrarySnapshot }).snapshot;
+    expect(recoveredSnapshot.acknowledged).toBe(2);
+    const removeElection = await secondContext.request.post(`${origin}/api/sync/operations`, {
+      headers: { Origin: origin }, data: { operations: [{ ...pendingRemoval, sequence: 3, words: [election] }] },
+    });
+    expect(removeElection.ok()).toBe(true);
+    expect((await removeElection.json() as LibrarySnapshot).records.filter((record) => record.present)).toHaveLength(0);
     expect((await (await context.request.get("/api/sync/devices")).json() as { id: string }[]).filter((device) => device.id === deviceId)).toHaveLength(1);
   } finally { await secondContext.close(); }
 });
@@ -133,6 +146,43 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   const read = await context.request.get("/api/sync/library");
   expect(read.ok()).toBe(true);
   expect((await read.json() as LibrarySnapshot).records.filter((record) => record.present)).toHaveLength(19_999);
+});
+
+test("a failed transport download retries and receives remote edits without reloading", async ({ browser }) => {
+  const context = await browser.newContext({ baseURL: origin, serviceWorkers: "block" });
+  try {
+    const create = await context.request.post("/api/sync/libraries", {
+      headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Retrying", sequence: 0, words: [whale] },
+    });
+    expect(create.ok()).toBe(true);
+    const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
+    const page = await context.newPage();
+    await page.route(`${origin}/`, (route) => route.fulfill({ contentType: "text/html", body: "<!doctype html><html></html>" }));
+    await page.goto(".");
+    await page.evaluate((snapshot) => new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("svenska-library", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("library");
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const database = request.result;
+        const transaction = database.transaction("library", "readwrite");
+        transaction.objectStore("library").put({ snapshot, sequence: snapshot.acknowledged, pending: [] }, "current");
+        transaction.oncomplete = () => { database.close(); resolve(); };
+        transaction.onerror = () => reject(transaction.error);
+      };
+    }), snapshot);
+    await page.unroute(`${origin}/`);
+    let attempts = 0;
+    await page.route("**/assets/remote-*.js*", (route) => ++attempts <= 2 ? route.abort("internetdisconnected") : route.continue());
+    await page.reload();
+    await expect.poll(() => attempts).toBe(3);
+    const change = await context.request.post("/api/sync/operations", {
+      headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "open", words: [election] }] },
+    });
+    expect(change.ok()).toBe(true);
+    await expect(page.locator(".word-card-list > li")).toHaveCount(2);
+    await expect(page.locator(".word-card-list > li")).toContainText(["ett val", "en val"]);
+  } finally { await context.close(); }
 });
 
 test("paired devices sync additions, removals, ordering and offline reloads", async ({ page, context }) => {

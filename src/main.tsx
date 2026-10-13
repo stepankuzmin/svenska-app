@@ -1,11 +1,7 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
-import {
-  hasDictionaryAssetShape,
-  hasDictionaryDetailsShape,
-  type LookupOutcome,
-} from "./dictionary";
+import type { LookupOutcome } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
 import { useLookupSession } from "./use-lookup-session";
@@ -54,7 +50,7 @@ function LookupApp() {
 
     async function load() {
       const detailsRequest = loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
-      const [asset, { createSearch }] = await Promise.all([loadAsset(dictionaryAssetUrl), import("./dictionary-search")]);
+      const [asset, { createSearch, hasDictionaryAssetShape, hasDictionaryDetailsShape }] = await Promise.all([loadAsset(dictionaryAssetUrl), import("./dictionary-search")]);
       if (!hasDictionaryAssetShape(asset)) {
         throw new Error("Dictionary asset has an invalid format.");
       }

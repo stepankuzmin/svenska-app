@@ -1,4 +1,4 @@
-import { wordKey, type LibraryWord } from "./words";
+import { uniqueWords, wordKey, type LibraryWord } from "./words";
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
 // A library written before the app kept words holds bare headwords. The app
@@ -43,7 +43,7 @@ export function addToLookupLibrary({
   libraryWords: readonly LibraryWord[];
   openedWords: readonly LibraryWord[];
 }): readonly LibraryWord[] {
-  const uniqueOpenedWords = [...new Map(openedWords.map((word) => [wordKey(word), word])).values()];
+  const uniqueOpenedWords = uniqueWords(openedWords);
   const openedKeys = new Set(uniqueOpenedWords.map(wordKey));
   return [
     ...uniqueOpenedWords,

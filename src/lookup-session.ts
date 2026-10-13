@@ -39,12 +39,6 @@ function open(
   };
 }
 
-// A lookup can open fewer words than its headword holds, `vigselakt` the act
-// of `akt` alone, so the card it extends is the first it opened.
-function firstCardOpened(words: readonly LibraryWord[]): string | null {
-  return words.length === 0 ? null : wordKey(words[0]);
-}
-
 export function wordsOpenedBy(event: LookupSessionEvent): LibraryWord[] {
   if (event.kind === "picked") return [event.choice.word];
   if (event.kind !== "submitted" && event.kind !== "deep-linked") return [];
@@ -78,7 +72,7 @@ export function reduceLookupSession({
       const words = wordsOpenedBy(event);
       return words.length === 0
         ? session
-        : open(session, words, firstCardOpened(words), query);
+        : open(session, words, wordKey(words[0]), query);
     }
     case "picked":
       return open(session, [event.choice.word], wordKey(event.choice.word), "");

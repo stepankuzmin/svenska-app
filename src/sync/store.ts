@@ -1,4 +1,5 @@
 import { openDB, type IDBPDatabase } from "idb";
+import { loadTransport } from "./load-transport";
 import { wordsOpenedBy, type LookupSessionEvent } from "../lookup-session";
 import { readLookupLibrary, writeLookupLibrary } from "../lookup-library";
 import { resolveLibraryWords, wordKey, type LibraryWord } from "../words";
@@ -31,6 +32,8 @@ export class LibraryStore {
   private current: LibraryState;
   private view: StoreView;
   private remote: Promise<Remote> | null = null;
+  private importRetry: ReturnType<typeof setTimeout> | null = null;
+  private importDelay = 1000;
   private durable = false;
   private status: SyncStatus = "local";
   private error = "";
@@ -45,7 +48,7 @@ export class LibraryStore {
       upgrade(database) { database.createObjectStore("library"); },
       blocked: () => this.setStatus("error", "Close other app tabs to finish upgrading local storage."),
       blocking: () => { void this.database.then((database) => database.close()); },
-      terminated: () => this.setStatus("error", "Local storage closed unexpectedly. Reload to save your changes."),
+      terminated: () => this.storageFailed(),
     }));
     this.ready = this.update((state) => state).then(() => {
       if (this.current.snapshot.libraryId && this.automatic) void this.startRemote().catch(() => this.setStatus("offline"));
@@ -101,11 +104,14 @@ export class LibraryStore {
   }
   async reload(): Promise<LibraryState> {
     if (!this.durable) return this.current;
-    const state = await (await this.database).get("library", "current") as LibraryState | undefined;
+    const wasConnected = Boolean(this.current.snapshot.libraryId);
+    let state: LibraryState | undefined;
+    try { state = await (await this.database).get("library", "current") as LibraryState | undefined; }
+    catch (error) { this.storageFailed(); throw error; }
     if (state) {
       this.current = state; this.publish();
-      if (state.snapshot.libraryId && this.automatic && !this.remote) {
-        void this.startRemote().catch(() => this.setStatus("offline"));
+      if (state.snapshot.libraryId && this.automatic && (!this.remote || !wasConnected)) {
+        void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
       }
     }
     return this.current;
@@ -155,19 +161,39 @@ export class LibraryStore {
 
   async accept(snapshot: LibrarySnapshot): Promise<void> {
     if (!this.durable) throw new Error(this.error);
-    await this.update((state) => receiveSnapshot(state, snapshot));
+    try { await this.update((state) => receiveSnapshot(state, snapshot)); }
+    catch (error) { this.storageFailed(); throw error; }
   }
   async detach(): Promise<void> {
-    await this.update((state) => initialState(visibleWords(state)));
+    try { await this.update((state) => initialState(visibleWords(state))); }
+    catch (error) { this.storageFailed(); throw error; }
     this.remote = null;
     this.setStatus("local");
   }
   state(): LibraryState { return this.current; }
   async startRemote(): Promise<Remote> {
-    if (!this.remote) this.remote = import("./remote").then(({ createRemote }) => createRemote(this));
+    if (!this.remote) this.remote = loadTransport().then(({ createRemote }) => {
+      const remote = createRemote(this);
+      this.importDelay = 1000;
+      if (this.importRetry) clearTimeout(this.importRetry);
+      return remote;
+    }).catch((error) => {
+      this.remote = null;
+      if (this.automatic && this.durable && this.current.snapshot.libraryId) {
+        if (this.importRetry) clearTimeout(this.importRetry);
+        this.importRetry = setTimeout(() => {
+          if (this.durable && this.current.snapshot.libraryId) {
+            void this.startRemote().catch(() => this.setStatus("offline"));
+          }
+        }, this.importDelay);
+        this.importDelay = Math.min(this.importDelay * 2, 60_000);
+      }
+      throw error;
+    });
     return this.remote;
   }
   async close(): Promise<void> {
+    if (this.importRetry) clearTimeout(this.importRetry);
     this.channel?.close();
     (await this.database).close();
   }

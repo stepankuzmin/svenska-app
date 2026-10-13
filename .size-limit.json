@@ -1,7 +1,10 @@
 [
   {
     "name": "App JS",
-    "path": "dist/assets/index-*.js",
+    "path": [
+      "dist/assets/index-*.js",
+      "dist/assets/words-*.js"
+    ],
     "limit": "65 kB"
   },
   {
@@ -73,5 +76,10 @@
     "name": "Sync control",
     "path": "dist/assets/sync-control-*.js",
     "limit": "1.5 kB"
+  },
+  {
+    "name": "Extended word details",
+    "path": "dist/assets/word-card-details-*.js",
+    "limit": "1 kB"
   }
 ]

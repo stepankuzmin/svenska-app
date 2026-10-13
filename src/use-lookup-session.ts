@@ -16,7 +16,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
   const [session, setSession] = useState<LookupSession>(() => ({
     query: initialQuery, libraryWords: readLookupLibrary(), expandedCard: null, opens: 0,
   }));
-  const latest = useRef({ session });
+  const latest = useRef(session);
   const [storageError, setStorageError] = useState(false);
   const bridge = useRef<Promise<ReturnType<typeof createSessionBridge> | null> | null>(null);
   const active = useRef(true);
@@ -25,7 +25,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
     return bridge.current ??= import("./sync/session-bridge").then(({ createSessionBridge }) =>
       createSessionBridge((libraryWords) => {
         if (!active.current) return;
-        latest.current.session = { ...latest.current.session, libraryWords };
+        latest.current = { ...latest.current, libraryWords };
         // React may replay this update after an urgent keystroke. Change only
         // the library so that a storage notification cannot restore old input.
         setSession((shown) => ({ ...shown, libraryWords }));
@@ -43,9 +43,9 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
   }, []);
 
   function dispatch(event: LookupSessionEvent) {
-    const current = latest.current.session;
+    const current = latest.current;
     const next = reduceLookupSession({ session: current, event });
-    latest.current.session = next;
+    latest.current = next;
     if (event.kind === "dictionary-loaded" || event.kind === "word-removed" || next.opens > current.opens) {
       void storage().then((value) => value?.dispatch(event));
     }
@@ -54,7 +54,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
       return;
     }
     setSession((shown) => ({ ...next, libraryWords: shown.libraryWords }));
-    withLibraryMotion(() => setSession((shown) => ({ ...shown, libraryWords: latest.current.session.libraryWords })));
+    withLibraryMotion(() => setSession((shown) => ({ ...shown, libraryWords: latest.current.libraryWords })));
   }
   return { session, dispatch, storageError };
 }

@@ -1,5 +1,7 @@
 import {
   Fragment,
+  lazy,
+  Suspense,
   memo,
   useCallback,
   useDeferredValue,
@@ -40,6 +42,10 @@ type LookupExperienceProps = {
   onRemoveWord: (card: string) => void;
 };
 
+const WordCardDetails = lazy(() => import("./word-card-details").catch(() => ({
+  default: () => <div className="word-card-details" role="status">Reload to view word details.</div>,
+})));
+
 const suggestionBatchSize = 100;
 
 // Every named card costs a snapshot pair, so only the cards a phone can show
@@ -60,7 +66,7 @@ const WordCard = memo(function WordCard({
   onRemove: (card: string) => void;
 }) {
   const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
-  const { wordType, phonetics, examples, translation, hasMeanings } = item;
+  const { wordType, translation } = item;
   const copy = (
     <span className="word-card-heading">
       <strong lang="sv">{item.citation}</strong>
@@ -112,51 +118,7 @@ const WordCard = memo(function WordCard({
           {copy}
         </summary>
 
-        <div className="word-card-details">
-          {phonetics.length > 0 || item.forms.length > 1 ? (
-            <p className="word-card-forms" lang="sv">
-              {phonetics.length > 0 ? <span>[{phonetics.join(", ")}]</span> : null}
-              {phonetics.length > 0 && item.forms.length > 1 ? " " : null}
-              {item.forms.length > 1 ? <span>{item.forms.join(", ")}</span> : null}
-            </p>
-          ) : null}
-          {hasMeanings ? (
-            <div className="word-card-senses">
-              {item.senses.map((sense, index) => (
-                <p key={`${sense.meaning}-${sense.translation}-${index}`}>
-                  {sense.meaning.length > 0 ? <span lang="sv">{sense.meaning}</span> : null}
-                  {sense.translation.length > 0 ? <span lang="ru">{sense.translation}</span> : null}
-                </p>
-              ))}
-            </div>
-          ) : null}
-          {examples.length > 0 ? (
-            <section aria-label={`Examples for ${item.headword}`}>
-              <h3>Examples</h3>
-              <ul role="list">
-                {examples.map((example, index) => (
-                  <li key={`${example.swedish}-${example.russian}-${index}`}>
-                    <span lang="sv">{example.swedish}</span>
-                    {example.russian.length > 0 ? <span lang="ru">{example.russian}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          {item.relatedWords.length > 0 ? (
-            <section aria-label={`Words containing ${item.headword}`}>
-              <h3>More with <span lang="sv">{item.headword}</span></h3>
-              <ul role="list">
-                {item.relatedWords.map((relatedWord) => (
-                  <li key={relatedWord.headword}>
-                    <span lang="sv">{relatedWord.headword}</span>
-                    {relatedWord.translation.length > 0 ? <span lang="ru">{relatedWord.translation}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </div>
+        {expanded ? <Suspense fallback={<div className="word-card-details" />}><WordCardDetails item={item} /></Suspense> : null}
       </details>
     ),
   );

@@ -272,3 +272,5 @@ function outcomeOf({ choices, dictionary, cited, spellsForm }: {
   return choices.length === 0 ? { kind: "no-match" } : { kind: "choices", choices };
 }
 
+
+export { hasDictionaryAssetShape, hasDictionaryDetailsShape } from "./dictionary-validation";

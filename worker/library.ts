@@ -130,7 +130,7 @@ export class LookupLibrary extends DurableObject<Env> {
       if (!previous && state.devices.length >= 20) throw new Error("422:Disconnect an old device before adding another.");
       const device: Device = {
         id: credential.id, label: credential.label, hash: credential.hash,
-        acknowledged: Math.max(credential.sequence, previous?.acknowledged ?? 0), createdAt: previous?.createdAt ?? Date.now(),
+        acknowledged: previous?.acknowledged ?? credential.sequence, createdAt: previous?.createdAt ?? Date.now(),
       };
       state.devices = [...state.devices.filter((item) => item.id !== device.id), device];
       // Joining appends new identities, preserving the incoming device's order.
