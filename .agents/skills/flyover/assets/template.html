@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{title}}</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/v{{version}}/mapbox-gl.css">
+<script src="https://api.mapbox.com/mapbox-gl-js/v{{version}}/mapbox-gl.js"></script>
+<style>
+html, body { margin: 0; height: 100%; background: #000; }
+/* The frame is laid out at a fixed size and scaled to the window, so the
+   camera reaches the zoom the build computed and the video is that size. */
+#stage { position: fixed; inset: 0; overflow: hidden; }
+/* Centered by translate rather than by centering an oversized box, which grid
+   clamps to the top edge once the frame is taller than the window. */
+#frame { position: absolute; left: 50%; top: 50%; width: {{frameWidth}}px; height: {{frameHeight}}px; }
+#map { position: absolute; inset: 0; opacity: 0; transition: opacity 300ms; }
+#download { position: absolute; top: 12px; right: 12px; }
+/* Outside the scaled frame, so it stays legible and never reaches the canvas
+   the recorder captures. The flight loads its tiles before it starts, which
+   takes about a second per kilometer of path, long enough to need saying. */
+#loading { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    display: grid; gap: 14px; justify-items: center;
+    font: 12px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.05em; color: #9a9a9a; }
+#loading[hidden] { display: none; }
+#rail { width: 200px; height: 2px; background: #2c2c2c; }
+#bar { height: 100%; width: 0; background: #d8d8d8; transition: width 250ms linear; }
+</style>
+</head>
+
+<body>
+<div id="stage">
+    <div id="frame"><div id="map"></div><button id="download" hidden>Download video</button></div>
+    <div id="loading"><span id="loadingLabel">Loading the flight</span><div id="rail"><div id="bar"></div></div></div>
+</div>
+
+<!-- assets/flyover.ts with types stripped, so the module below can import it -->
+<script type="importmap">{ "imports": { "flyover": "data:text/javascript;base64,{{library}}" } }</script>
+<script type="module">
+import { compileFlight, preload, play, record } from "flyover";
+
+const waypoints = {{waypoints}};
+// Ground under each waypoint's camera and target, read from the style's DEM at
+// build time. Altitudes in the flight are above ground; these make them absolute.
+const ground = {{ground}};
+
+// A prompted token goes into the URL, so a reload and a shared link keep it.
+const params = new URLSearchParams(location.search);
+if (!params.get("access_token")) {
+    params.set("access_token", prompt("Mapbox access token") ?? "");
+    location.replace(`${location.pathname}?${params}`);
+}
+mapboxgl.accessToken = params.get("access_token");
+
+const frame = document.getElementById("frame");
+const fit = () => {
+    const scale = Math.min(innerWidth / frame.offsetWidth, innerHeight / frame.offsetHeight);
+    frame.style.transform = `translate(-50%, -50%) scale(${scale})`;
+};
+fit();
+addEventListener("resize", fit);
+
+const map = new mapboxgl.Map({
+    container: "map",
+    style: "mapbox://styles/mapbox/standard",
+    center: waypoints.features[0].geometry.coordinates,
+    zoom: 14,
+    interactive: false,
+    maxPitch: 85,
+    // The tile cache is sized for one viewport, so a long flight evicts what
+    // it preloaded before it gets there and reloads it in the air. This is a
+    // cap, not an allocation: it holds what the flight loads, nothing more.
+    minTileCacheSize: 1000,
+    preserveDrawingBuffer: true
+});
+
+map.on("load", async () => {
+    const flight = compileFlight(waypoints, ground);
+
+    const loading = document.getElementById("loading");
+    const bar = document.getElementById("bar");
+    const label = document.getElementById("loadingLabel");
+    await preload(map, flight, (done, total) => {
+        bar.style.width = `${Math.round((done / total) * 100)}%`;
+        if (done === total) label.textContent = "Starting";
+    });
+    loading.hidden = true;
+
+    const player = play(map, flight);
+    map.getContainer().style.opacity = 1;
+
+    window.addEventListener("keydown", (e) => {
+        if (e.code !== "Space") return;
+        e.preventDefault();
+        player.toggle();
+    });
+
+    const button = document.getElementById("download");
+    button.hidden = false;
+    button.onclick = async () => {
+        button.disabled = true;
+        await record(map, player);
+        button.disabled = false;
+    };
+});
+</script>
+</body>
+</html>
