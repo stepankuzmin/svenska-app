@@ -33,6 +33,7 @@ export type LibraryState = {
   snapshot: LibrarySnapshot;
   pending: SyncOperation[];
   sequence: number;
+  connectionSequence?: number;
 };
 
 export function recordsOf(words: readonly LibraryWord[]): WordRecord[] {
@@ -48,8 +49,6 @@ export function applyOperation(
   const next = new Map(records.map((record) => [wordKey(record), record]));
   operation.retained?.forEach(({ source, word }, index) => {
     const previous = next.get(wordKey(source));
-    // Splitting a legacy spelling keeps its remaining words in the same place.
-    // Known removal records must never be revived by this implicit migration.
     if (previous?.present && !next.has(wordKey(word))) {
       next.set(wordKey(word), { ...previous, ...word, index: previous.index + index / 1000 });
     }
@@ -66,8 +65,6 @@ export function applyOperation(
       });
       return;
     }
-    // Removal wins concurrent openings. A device can also reopen a word
-    // after its own queued removal, even before receiving that acknowledgement.
     const ownRemoval = record.removedBy === deviceId && record.removedSequence < operation.sequence;
     if (record.removedRevision > operation.baseRevision && !ownRemoval) return;
     const order = operation.kind === "import" ? -revision : revision;
@@ -84,6 +81,14 @@ export function visibleWords(state: LibraryState): LibraryWord[] {
   return records.filter((record) => record.present)
     .toSorted((left, right) => right.order - left.order || left.index - right.index || wordKey(left).localeCompare(wordKey(right)))
     .map(({ headword, word }) => ({ headword, word }));
+}
+
+export function compactLocal(state: LibraryState): LibraryState {
+  if (state.snapshot.libraryId || state.connectionSequence !== undefined) return state;
+  return {
+    snapshot: { ...state.snapshot, revision: 0, acknowledged: state.sequence, records: recordsOf(visibleWords(state)) },
+    sequence: state.sequence, pending: [],
+  };
 }
 
 export function receiveSnapshot(state: LibraryState, snapshot: LibrarySnapshot): LibraryState {

@@ -26,8 +26,6 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
       createSessionBridge((libraryWords) => {
         if (!active.current) return;
         latest.current = { ...latest.current, libraryWords };
-        // React may replay this update after an urgent keystroke. Change only
-        // the library so that a storage notification cannot restore old input.
         setSession((shown) => ({ ...shown, libraryWords }));
       }),
     ).catch(() => { if (active.current) setStorageError(true); return null; });

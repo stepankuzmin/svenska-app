@@ -102,7 +102,6 @@ test("recovery or a fresh invitation replaces a credential stranded by a lost co
       headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: first.revision, kind: "open", words: [election] }] },
     });
     expect(saved.ok()).toBe(true);
-    // Discarding cookies models a response that committed before reaching the browser.
     await secondContext.clearCookies();
     const fresh = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
     const pendingRemoval = { sequence: 2, baseRevision: 0, kind: "remove" as const, words: [whale] };
@@ -205,7 +204,6 @@ test("a failed transport download retries and receives remote edits without relo
     await superseded;
     await expect(page.getByText("This device is disconnected. Your local words are kept.", { exact: true })).toBeVisible();
     const replacementSnapshot = (await replacement.json() as { snapshot: LibrarySnapshot }).snapshot;
-    // Model another tab accepting the renewed credential and announcing it.
     await page.evaluate((snapshot) => new Promise<void>((resolve, reject) => {
       const request = indexedDB.open("svenska-library", 1);
       request.onerror = () => reject(request.error);
@@ -248,7 +246,6 @@ test("paired devices sync additions, removals, ordering and offline reloads", as
     await secondContext.setOffline(true);
     await openWord(second, "häst");
     await expect(second.locator(".word-card-list > li")).toHaveCount(3);
-    // The asynchronous local write must commit before the offline reload.
     await expect.poll(() => second.evaluate(() => JSON.parse(localStorage.getItem("svenska.lookup-library") ?? "[]").length)).toBe(3);
     await second.reload();
     await expect(second.locator(".word-card-list > li")).toHaveCount(3);
@@ -262,7 +259,6 @@ test("paired devices sync additions, removals, ordering and offline reloads", as
     await expect(second.locator(".word-card-list > li").first()).toContainText("häst");
     await openWord(second, "katt");
     await expect(page.locator(".word-card-list > li")).toHaveCount(3);
-    // A used invitation cannot connect a third device.
     const thirdContext = await newDevice(context);
     try {
       const third = await thirdContext.newPage(); await third.goto(link);

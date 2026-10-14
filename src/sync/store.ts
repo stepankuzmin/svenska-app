@@ -5,7 +5,7 @@ import { readLookupLibrary, writeLookupLibrary } from "../lookup-library";
 import { resolveLibraryWords, wordKey, type LibraryWord } from "../words";
 import type { DictionaryAsset } from "../dictionary-contract";
 import {
-  receiveSnapshot, recordsOf, visibleWords,
+  compactLocal, receiveSnapshot, recordsOf, visibleWords,
   type LibrarySnapshot, type LibraryState, type SyncOperation,
 } from "./model";
 
@@ -15,6 +15,7 @@ export type Remote = {
   flush: () => Promise<void>;
   connect: (kind: "libraries" | "join" | "recover", details: { libraryId?: string; token?: string; label: string }) => Promise<{ recoveryCode?: string }>;
   disconnect: () => Promise<void>;
+  dispose: () => void;
 };
 
 function initialState(words: readonly LibraryWord[]): LibraryState {
@@ -51,7 +52,7 @@ export class LibraryStore {
       blocking: () => { void this.database.then((database) => database.close()); },
       terminated: () => this.storageFailed(),
     }));
-    this.ready = this.update((state) => state).then(() => {
+    this.ready = this.update((state) => compactLocal(state)).then(() => {
       if (this.current.snapshot.libraryId && this.automatic) void this.startRemote().catch(() => this.setStatus("offline"));
     }).catch(() => this.setStatus("error", "Changes cannot be saved on this device. Check browser storage and reload."));
     if (this.channel) this.channel.onmessage = () => { void this.reload().catch(() => this.storageFailed()); };
@@ -83,8 +84,6 @@ export class LibraryStore {
     catch (error) { this.storageFailed(); throw error; }
     this.durable = true;
     this.current = next;
-    // Retain a rollback-readable snapshot for older cached app shells. IndexedDB
-    // alone owns acknowledgement, ordering, and the durable pending queue.
     this.writeBackup();
     this.publish();
     this.channel?.postMessage("changed");
@@ -99,18 +98,21 @@ export class LibraryStore {
     this.writeBackup();
     this.publish();
   }
-  connectionWords(): readonly LibraryWord[] {
+  connectionWords(state = this.current): readonly LibraryWord[] {
     if (!this.dictionary) throw new Error("Wait for the dictionary to load before connecting devices.");
-    return resolveLibraryWords({ libraryWords: visibleWords(this.current), dictionary: this.dictionary });
+    return resolveLibraryWords({ libraryWords: visibleWords(state), dictionary: this.dictionary });
   }
   async reload(): Promise<LibraryState> {
     if (!this.durable) return this.current;
-    const wasConnected = Boolean(this.current.snapshot.libraryId);
+    const previous = this.current.snapshot;
+    const wasConnected = Boolean(previous.libraryId);
     let state: LibraryState | undefined;
     try { state = await (await this.database).get("library", "current") as LibraryState | undefined; }
     catch (error) { this.storageFailed(); throw error; }
     if (state) {
+      if (state.snapshot.deviceId !== previous.deviceId || state.snapshot.libraryId !== previous.libraryId && wasConnected) this.disposeRemote();
       this.current = state; this.publish();
+      if (!state.snapshot.libraryId && wasConnected) this.setStatus("local");
       if (state.snapshot.libraryId && this.automatic && (!this.remote || !wasConnected)) {
         void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
       }
@@ -129,7 +131,7 @@ export class LibraryStore {
   }
   async enqueue(kind: SyncOperation["kind"], words: LibraryWord[], retained?: SyncOperation["retained"]): Promise<void> {
     await this.ready;
-    const queue = (state: LibraryState): LibraryState => ({
+    const queue = (state: LibraryState): LibraryState => compactLocal({
       ...state, sequence: state.sequence + 1,
       pending: [...state.pending, { sequence: state.sequence + 1, baseRevision: state.snapshot.revision, kind, words, ...(retained?.length ? { retained } : {}) }],
     });
@@ -160,47 +162,79 @@ export class LibraryStore {
     if (words.length > 0) await this.enqueue("remove", [...new Map(words.map((word) => [wordKey(word), word])).values()], retained);
   }
 
-  async accept(snapshot: LibrarySnapshot): Promise<void> {
-    if (!this.durable) throw new Error(this.error);
-    await this.update((state) => receiveSnapshot(state, snapshot));
+  async beginConnection(): Promise<LibraryState> {
+    await this.ready;
+    return this.update((state) => {
+      if (state.snapshot.libraryId) throw new Error("Disconnect this device before joining another library.");
+      const local = compactLocal(state);
+      return { ...local, connectionSequence: local.connectionSequence ?? local.sequence };
+    });
   }
-  async detach(): Promise<void> {
-    await this.update((state) => initialState(visibleWords(state)));
+  async accept(snapshot: LibrarySnapshot, expected = this.current): Promise<boolean> {
+    if (!this.durable) throw new Error(this.error);
+    let accepted = false;
+    await this.update((state) => {
+      if (state.snapshot.deviceId !== expected.snapshot.deviceId || state.snapshot.libraryId !== expected.snapshot.libraryId) return state;
+      if (!expected.snapshot.libraryId && state.connectionSequence !== expected.connectionSequence) return state;
+      if (snapshot.deviceId !== expected.snapshot.deviceId) return state;
+      accepted = true;
+      return receiveSnapshot(state, snapshot);
+    });
+    return accepted;
+  }
+  async detach(expected?: LibrarySnapshot): Promise<void> {
+    await this.update((state) => {
+      if (expected && (state.snapshot.deviceId !== expected.deviceId || state.snapshot.libraryId !== expected.libraryId)) {
+        throw new Error("This connection was cancelled. Connect again to sync devices.");
+      }
+      return initialState(visibleWords(state));
+    });
+    this.disposeRemote();
+    this.setStatus("local");
+  }
+  private disposeRemote(): void {
+    const remote = this.remote;
+    this.currentRemote?.dispose();
     this.remote = null;
     this.currentRemote = null;
-    this.setStatus("local");
+    if (this.importRetry) clearTimeout(this.importRetry);
+    if (remote) void remote.catch(() => undefined);
   }
   state(): LibraryState { return this.current; }
   remoteRevoked(remote: Remote): boolean {
     if (this.currentRemote !== remote) return false;
-    this.currentRemote = null;
-    this.remote = null;
+    this.disposeRemote();
     return true;
   }
   async startRemote(): Promise<Remote> {
-    if (!this.remote) this.remote = loadTransport().then(({ createRemote }) => {
-      const remote = createRemote(this);
-      this.currentRemote = remote;
-      this.importDelay = 1000;
-      if (this.importRetry) clearTimeout(this.importRetry);
-      return remote;
-    }).catch((error) => {
-      this.remote = null;
-      if (this.automatic && this.durable && this.current.snapshot.libraryId) {
+    if (!this.remote) {
+      const loading = loadTransport().then(({ createRemote }) => {
+        if (this.remote !== loading) throw new Error("This connection was cancelled.");
+        const remote = createRemote(this);
+        this.currentRemote = remote;
+        this.importDelay = 1000;
         if (this.importRetry) clearTimeout(this.importRetry);
-        this.importRetry = setTimeout(() => {
-          if (this.durable && this.current.snapshot.libraryId) {
-            void this.startRemote().catch(() => this.setStatus("offline"));
-          }
-        }, this.importDelay);
-        this.importDelay = Math.min(this.importDelay * 2, 60_000);
-      }
-      throw error;
-    });
+        return remote;
+      }).catch((error) => {
+        if (this.remote !== loading) throw error;
+        this.remote = null;
+        if (this.automatic && this.durable && this.current.snapshot.libraryId) {
+          if (this.importRetry) clearTimeout(this.importRetry);
+          this.importRetry = setTimeout(() => {
+            if (this.durable && this.current.snapshot.libraryId) {
+              void this.startRemote().catch(() => this.setStatus("offline"));
+            }
+          }, this.importDelay);
+          this.importDelay = Math.min(this.importDelay * 2, 60_000);
+        }
+        throw error;
+      });
+      this.remote = loading;
+    }
     return this.remote;
   }
   async close(): Promise<void> {
-    if (this.importRetry) clearTimeout(this.importRetry);
+    this.disposeRemote();
     this.channel?.close();
     (await this.database).close();
   }

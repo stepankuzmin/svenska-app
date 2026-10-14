@@ -142,7 +142,6 @@ export class LookupLibrary extends DurableObject<Env> {
         acknowledged: previous?.acknowledged ?? credential.sequence, createdAt: previous?.createdAt ?? Date.now(),
       };
       state.devices = [...state.devices.filter((item) => item.id !== device.id), device];
-      // Joining appends new identities, preserving the incoming device's order.
       if (words.length > 0) {
         state.revision++;
         state.records = applyOperation(state.records, {
