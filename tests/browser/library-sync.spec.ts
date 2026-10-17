@@ -149,6 +149,41 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   const read = await context.request.get("/api/sync/library");
   expect(read.ok()).toBe(true);
   expect((await read.json() as LibrarySnapshot).records.filter((record) => record.present)).toHaveLength(19_999);
+  const replacement = { headword: "replacement", word: "30000" };
+  const opened = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: [{ sequence: 2, baseRevision: snapshot.revision + 1, kind: "open", words: [replacement] }] },
+  });
+  expect(opened.ok()).toBe(true);
+  const full = await opened.json() as LibrarySnapshot;
+  expect(full.records.filter((record) => record.present)).toHaveLength(20_000);
+  expect(full.records).toHaveLength(20_001);
+  const another = { headword: "another", word: "30001" };
+  const overflow = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: [{ sequence: 3, baseRevision: full.revision, kind: "open", words: [another] }] },
+  });
+  expect(overflow.status()).toBe(422);
+  const removals = Array.from({ length: 20 }, (_, index) => ({
+    sequence: index + 3, baseRevision: full.revision, kind: "remove", words: words.slice(1 + index * 1000, 1 + (index + 1) * 1000),
+  }));
+  const cleared = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: removals },
+  });
+  expect(cleared.ok()).toBe(true);
+  const history = await cleared.json() as LibrarySnapshot;
+  expect(history.records.filter((record) => !record.present)).toHaveLength(20_000);
+  expect(history.records.filter((record) => record.present)).toHaveLength(1);
+  const historyOverflow = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: [{ sequence: 23, baseRevision: history.revision, kind: "remove", words: [replacement] }] },
+  });
+  expect(historyOverflow.status()).toBe(422);
+  expect(await historyOverflow.json()).toMatchObject({ error: expect.stringContaining("removal history is full") });
+  const newWord = await context.request.post("/api/sync/operations", {
+    headers: { Origin: origin }, data: { operations: [{ sequence: 23, baseRevision: history.revision, kind: "open", words: [another] }] },
+  });
+  expect(newWord.ok()).toBe(true);
+  const current = await newWord.json() as LibrarySnapshot;
+  expect(current.records.filter((record) => record.present)).toHaveLength(2);
+  expect(current.records.filter((record) => !record.present)).toHaveLength(20_000);
 });
 
 test("a failed transport download retries and receives remote edits without reloading", async ({ browser }) => {

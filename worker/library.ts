@@ -20,6 +20,14 @@ function sameHash(left: string, right: string): boolean {
   return difference === 0;
 }
 
+function checkCapacity(records: WordRecord[]): void {
+  const present = records.filter((record) => record.present).length;
+  if (present > maximumWords) throw new Error("422:This library is full.");
+  if (records.length - present > maximumWords) {
+    throw new Error("422:This library's removal history is full. Start a new shared library to continue.");
+  }
+}
+
 export class LookupLibrary extends DurableObject<Env> {
   private savedRecords = new Map<string, WordRecord>();
   constructor(ctx: DurableObjectState, env: Env) {
@@ -105,7 +113,7 @@ export class LookupLibrary extends DurableObject<Env> {
         if (operation.baseRevision > state.revision) throw new Error("409:Invalid library revision.");
         state.revision++;
         state.records = applyOperation(state.records, operation, id, state.revision);
-        if (state.records.length > maximumWords) throw new Error("422:This library is full.");
+        checkCapacity(state.records);
         device.acknowledged = operation.sequence;
       }
       this.save(state);
@@ -148,7 +156,7 @@ export class LookupLibrary extends DurableObject<Env> {
           sequence: credential.sequence, baseRevision: state.revision, kind: "import", words,
         }, device.id, state.revision);
       }
-      if (state.records.length > maximumWords) throw new Error("422:This library is full.");
+      checkCapacity(state.records);
       this.save(state);
       return this.snapshot(state, device);
     });

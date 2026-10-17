@@ -61,6 +61,54 @@ function browserGlobals(locks = navigator.locks) {
 }
 
 describe("connection lifecycle", () => {
+  it.each([403, 410, 422, 429])("compacts local changes after a definitive %i pairing rejection", async (status) => {
+    browserGlobals();
+    const whale = { headword: "val", word: "18439" };
+    store = new LibraryStore(crypto.randomUUID(), [whale], false, false); await store.ready;
+    store.setDictionary({ entries: {}, wordAliases: {} });
+    const response = Promise.withResolvers<Response>();
+    vi.stubGlobal("fetch", vi.fn(() => response.promise));
+    remote = createRemote(store);
+    const connecting = remote.connect("join", { libraryId: "shared", token: "invalid", label: "Browser" });
+    const rejected = expect(connecting).rejects.toThrow("Rejected");
+    await expect.poll(() => store.state().connectionSequence).toBe(0);
+    await store.remove("val#18439", null);
+    response.resolve(Response.json({ error: "Rejected" }, { status }));
+    await rejected;
+    expect(store.state().connectionSequence).toBeUndefined();
+    expect(store.state().pending).toEqual([]);
+    expect(store.getSnapshot().words).toEqual([]);
+    await store.enqueue("open", [whale]);
+    expect(store.state().pending).toEqual([]);
+    expect(store.getSnapshot().words).toEqual([whale]);
+  });
+  it.each([408, 503])("keeps the journal after an ambiguous %i connection response", async (status) => {
+    browserGlobals();
+    store = new LibraryStore(crypto.randomUUID(), [], false, false); await store.ready;
+    store.setDictionary({ entries: {}, wordAliases: {} });
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "Uncertain" }, { status })));
+    remote = createRemote(store);
+    await expect(remote.connect("join", { label: "Browser" })).rejects.toThrow("Uncertain");
+    await store.enqueue("open", [{ headword: "val", word: "18439" }]);
+    expect(store.state().connectionSequence).toBe(0);
+    expect(store.state().pending).toHaveLength(1);
+  });
+  it("retains an earlier uncertain journal when a retry receives a definitive rejection", async () => {
+    browserGlobals();
+    store = new LibraryStore(crypto.randomUUID(), [], false, false); await store.ready;
+    store.setDictionary({ entries: {}, wordAliases: {} });
+    const whale = { headword: "val", word: "18439" };
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValueOnce(new Error("Lost response"))
+      .mockResolvedValueOnce(Response.json({ error: "Expired" }, { status: 410 })));
+    remote = createRemote(store);
+    await expect(remote.connect("join", { label: "Browser" })).rejects.toThrow("Lost response");
+    await store.enqueue("open", [whale]);
+    await expect(remote.connect("join", { label: "Browser" })).rejects.toThrow("Expired");
+    expect(store.state().connectionSequence).toBe(0);
+    expect(store.state().pending).toHaveLength(1);
+    expect(store.getSnapshot().words).toEqual([whale]);
+  });
+
   it("disconnects a cached transport after a terminal operation failure and keeps local words", async () => {
     const requestLock = vi.fn(async (name: string, optionsOrAction: LockOptions | LockGrantedCallback<void>, action?: LockGrantedCallback<void>) => {
       const callback = typeof optionsOrAction === "function" ? optionsOrAction : action;

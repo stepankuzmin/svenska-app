@@ -141,8 +141,8 @@ export function createRemote(store: LibraryStore): Remote {
         if (stopped) throw new Error("This connection was cancelled. Connect again to sync devices.");
         await store.ready;
         if (!store.getSnapshot().durable) throw new Error("Enable browser storage before connecting devices.");
-        await store.reload();
-        if (store.state().snapshot.libraryId) throw new Error("Disconnect this device before joining another library.");
+        const before = await store.reload();
+        if (before.snapshot.libraryId) throw new Error("Disconnect this device before joining another library.");
         const state = await store.beginConnection();
         store.setStatus("connecting");
         try {
@@ -152,6 +152,10 @@ export function createRemote(store: LibraryStore): Remote {
           if (stopped || !await store.accept(result.snapshot, state)) throw new Error("This connection was cancelled. Connect again to sync devices.");
           return result;
         } catch (error) {
+          if (before.connectionSequence === undefined && error instanceof SyncError &&
+            error.status >= 400 && error.status < 500 && error.status !== 408) {
+            await store.rejectConnection(state);
+          }
           if (!stopped) store.setStatus("error", error instanceof Error ? error.message : "Could not connect this device.");
           throw error;
         }

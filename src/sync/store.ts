@@ -170,6 +170,14 @@ export class LibraryStore {
       return { ...local, connectionSequence: local.connectionSequence ?? local.sequence };
     });
   }
+  async rejectConnection(expected: LibraryState): Promise<void> {
+    await this.update((state) => {
+      if (state.snapshot.libraryId || state.snapshot.deviceId !== expected.snapshot.deviceId ||
+        state.connectionSequence !== expected.connectionSequence) return state;
+      const { connectionSequence: _connectionSequence, ...local } = state;
+      return compactLocal(local);
+    });
+  }
   async accept(snapshot: LibrarySnapshot, expected = this.current): Promise<boolean> {
     if (!this.durable) throw new Error(this.error);
     let accepted = false;

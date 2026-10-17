@@ -89,6 +89,9 @@ describe("durable local library", () => {
     await store.detach();
     await store.accept({ ...store.state().snapshot, libraryId: "new" });
     await store.enqueue("open", [election]);
+    await store.rejectConnection(old);
+    expect(store.state().snapshot.libraryId).toBe("new");
+    expect(store.state().pending).toHaveLength(1);
     expect(await store.accept({ ...old.snapshot, libraryId: "old" }, old)).toBe(false);
     expect(store.state().pending).toHaveLength(1);
     expect(store.getSnapshot().words).toEqual([election, whale]);
