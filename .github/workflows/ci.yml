@@ -63,10 +63,19 @@ jobs:
         run: npm run build
       - name: Validate dictionary release
         run: npm run release:check
+      - name: Validate Worker packaging
+        run: npm run worker:check
       - name: Check size budgets
         run: npm run check:size
       - name: Run built PWA journey
         run: npm run test:browser:release
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-traces
+          path: test-results
+          retention-days: 3
       - name: Upload validated site
         uses: actions/upload-artifact@v7
         with:
@@ -91,29 +100,56 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
         with:
-          sparse-checkout: wrangler.jsonc
-          sparse-checkout-cone-mode: false
+          node-version: 26
+          cache: npm
+      - name: Install deployment dependencies
+        run: npm ci
       - name: Download validated site
         uses: actions/download-artifact@v8
         with:
           name: site
           path: dist
-      - name: Upload a preview version
+      - name: Deploy an isolated preview Worker
         if: github.event_name == 'pull_request'
         id: preview
+        env:
+          PREVIEW_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          npx --yes wrangler@4 versions upload --preview-alias "pr-${{ github.event.pull_request.number }}"
-          jq -r 'select(.type == "version-upload") | "url=" + .preview_alias_url' \
+          node --input-type=module - <<'JS'
+          import { readFileSync, writeFileSync } from 'node:fs';
+          const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
+          config.name += `-pr-${process.env.PREVIEW_NUMBER}`;
+          config.ratelimits = config.ratelimits.map((binding) => ({
+            ...binding,
+            namespace_id: String(Number(binding.namespace_id) + Number(process.env.PREVIEW_NUMBER) * 10_000),
+          }));
+          config.preview_urls = false;
+          writeFileSync('wrangler.preview.json', JSON.stringify(config));
+          JS
+          npx wrangler deploy --config wrangler.preview.json
+          jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
             "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Deploy to production
         if: github.event_name != 'pull_request'
         id: production
         run: |
-          npx --yes wrangler@4 deploy
+          npx wrangler deploy
           jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
             "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Link the deployment
         env:
           URL: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
         run: echo "[$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Install preview test browsers
+        if: github.event_name == 'pull_request'
+        run: npx playwright install --with-deps chromium webkit
+      - name: Test deployed preview pairing and sync
+        if: github.event_name == 'pull_request'
+        env:
+          SYNC_TEST_BASE_URL: ${{ steps.preview.outputs.url }}
+        run: |
+          test -n "$SYNC_TEST_BASE_URL"
+          npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit

@@ -1,10 +1,49 @@
 [
-  { "name": "App JS", "path": "dist/assets/index-*.js", "limit": "65 kB" },
-  { "name": "App CSS", "path": "dist/assets/index-*.css", "limit": "2.50 kB" },
-  { "name": "Dictionary release: lookup file", "path": "dist/lexin-dictionary.*.json" },
-  { "name": "Dictionary release: word-detail file", "path": "dist/lexin-details.*.json" },
-  { "name": "HTML", "path": "dist/index.html", "limit": "0.45 kB" },
-  { "name": "Web manifest", "path": "dist/manifest.webmanifest" },
-  { "name": "Service worker", "path": "dist/sw.js" },
-  { "name": "Workbox runtime", "path": "dist/workbox-*.js" }
+  {
+    "name": "App JS",
+    "path": [
+      "dist/assets/index-*.js",
+      "dist/assets/words-*.js",
+      "dist/assets/jsx-runtime-*.js",
+      "dist/assets/dictionary-search-*.js",
+      "dist/assets/session-bridge-*.js",
+      "dist/assets/store-*.js",
+      "dist/assets/model-*.js",
+      "dist/assets/load-transport-*.js",
+      "dist/assets/sync-control-*.js",
+      "dist/assets/status-*.js",
+      "dist/assets/word-card-details-*.js"
+    ],
+    "limit": "100 kB"
+  },
+  {
+    "name": "App CSS",
+    "path": "dist/assets/index-*.css",
+    "limit": "2.50 kB"
+  },
+  {
+    "name": "Dictionary release: lookup file",
+    "path": "dist/lexin-dictionary.*.json"
+  },
+  {
+    "name": "Dictionary release: word-detail file",
+    "path": "dist/lexin-details.*.json"
+  },
+  {
+    "name": "HTML",
+    "path": "dist/index.html",
+    "limit": "0.45 kB"
+  },
+  {
+    "name": "Web manifest",
+    "path": "dist/manifest.webmanifest"
+  },
+  {
+    "name": "Service worker",
+    "path": "dist/sw.js"
+  },
+  {
+    "name": "Workbox runtime",
+    "path": "dist/workbox-*.js"
+  }
 ]

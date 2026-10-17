@@ -1,5 +1,7 @@
 import {
   Fragment,
+  lazy,
+  Suspense,
   memo,
   useCallback,
   useDeferredValue,
@@ -10,6 +12,7 @@ import {
   type CSSProperties,
   type FormEvent,
   type ReactElement,
+  type ReactNode,
   type UIEvent,
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
@@ -22,6 +25,8 @@ import { wordKey, type LibraryWord } from "./words";
 export type LookupStatus = "loading" | "ready" | "unavailable-offline" | "failed";
 
 type LookupExperienceProps = {
+  syncControl?: ReactNode;
+  storageError?: boolean;
   query: string;
   status: LookupStatus;
   outcome: LookupOutcome | null;
@@ -36,6 +41,10 @@ type LookupExperienceProps = {
   onToggleCard: (card: string) => void;
   onRemoveWord: (card: string) => void;
 };
+
+const WordCardDetails = lazy(() => import("./word-card-details").catch(() => ({
+  default: () => <div className="word-card-details" role="status">Reload to view word details.</div>,
+})));
 
 const suggestionBatchSize = 100;
 
@@ -57,14 +66,12 @@ const WordCard = memo(function WordCard({
   onRemove: (card: string) => void;
 }) {
   const swipe = useSwipeToRemove({ onRemove: () => onRemove(item.card) });
-  const { wordType, phonetics, examples, translation, hasMeanings } = item;
+  const { wordType, translation } = item;
   const copy = (
     <span className="word-card-heading">
       <strong lang="sv">{item.citation}</strong>
-      {wordType.length > 0 ? " " : null}
-      {wordType.length > 0 ? <span className="word-card-type">({wordType})</span> : null}
-      {translation.length > 0 ? " " : null}
-      {translation.length > 0 ? <span className="word-card-translation" lang="ru">{translation}</span> : null}
+      {wordType ? <span className="word-card-type">{` (${wordType})`}</span> : null}
+      {translation ? <span className="word-card-translation" lang="ru">{` ${translation}`}</span> : null}
     </span>
   );
 
@@ -109,51 +116,7 @@ const WordCard = memo(function WordCard({
           {copy}
         </summary>
 
-        <div className="word-card-details">
-          {phonetics.length > 0 || item.forms.length > 1 ? (
-            <p className="word-card-forms" lang="sv">
-              {phonetics.length > 0 ? <span>[{phonetics.join(", ")}]</span> : null}
-              {phonetics.length > 0 && item.forms.length > 1 ? " " : null}
-              {item.forms.length > 1 ? <span>{item.forms.join(", ")}</span> : null}
-            </p>
-          ) : null}
-          {hasMeanings ? (
-            <div className="word-card-senses">
-              {item.senses.map((sense, index) => (
-                <p key={`${sense.meaning}-${sense.translation}-${index}`}>
-                  {sense.meaning.length > 0 ? <span lang="sv">{sense.meaning}</span> : null}
-                  {sense.translation.length > 0 ? <span lang="ru">{sense.translation}</span> : null}
-                </p>
-              ))}
-            </div>
-          ) : null}
-          {examples.length > 0 ? (
-            <section aria-label={`Examples for ${item.headword}`}>
-              <h3>Examples</h3>
-              <ul role="list">
-                {examples.map((example, index) => (
-                  <li key={`${example.swedish}-${example.russian}-${index}`}>
-                    <span lang="sv">{example.swedish}</span>
-                    {example.russian.length > 0 ? <span lang="ru">{example.russian}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          {item.relatedWords.length > 0 ? (
-            <section aria-label={`Words containing ${item.headword}`}>
-              <h3>More with <span lang="sv">{item.headword}</span></h3>
-              <ul role="list">
-                {item.relatedWords.map((relatedWord) => (
-                  <li key={relatedWord.headword}>
-                    <span lang="sv">{relatedWord.headword}</span>
-                    {relatedWord.translation.length > 0 ? <span lang="ru">{relatedWord.translation}</span> : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-        </div>
+        <Suspense fallback={<div className="word-card-details" />}><WordCardDetails item={item} /></Suspense>
       </details>
     ),
   );
@@ -281,7 +244,8 @@ export function LookupExperience(props: LookupExperienceProps) {
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
   const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
-  const [autocompleteOpen, setAutocompleteOpen] = useState(props.query.trim().length > 0);
+  const hasQuery = props.query.trim().length > 0;
+  const [autocompleteOpen, setAutocompleteOpen] = useState(hasQuery);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
   const transitionNames = useRef(new Map<string, string>());
@@ -293,7 +257,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   const suggestionsStale = matches !== deferredMatches;
   const showNoMatches = autocompleteOpen &&
     props.status === "ready" &&
-    props.query.trim().length > 0 &&
+    hasQuery &&
     matches.choices.length === 0;
   const queryInput = useRef<HTMLInputElement>(null);
   // The menu's handlers read what the last render saw, so they keep one
@@ -392,7 +356,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             setActiveSuggestionIndex(-1);
             setRenderedSuggestionCount(suggestionBatchSize);
           }}
-          onPointerDown={() => setAutocompleteOpen(props.query.trim().length > 0)}
+          onPointerDown={() => setAutocompleteOpen(hasQuery)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -470,15 +434,16 @@ export function LookupExperience(props: LookupExperienceProps) {
       </form>
 
       <div
-        className={props.status === "unavailable-offline" || props.status === "failed" ? "lookup-status" : "visually-hidden"}
+        className={props.storageError || props.status === "unavailable-offline" || props.status === "failed" ? "lookup-status" : "visually-hidden"}
         role="status"
         aria-live="polite"
       >
         {props.status === "loading" ? "Loading dictionary…" : null}
         {props.status === "unavailable-offline"
-          ? "Connect once while online. After that, you can look up words offline."
+          ? "Connect once while online to enable offline lookup."
           : null}
-        {props.status === "failed" ? "The dictionary did not load. Reload to try again." : null}
+        {props.status === "failed" ? "Dictionary did not load. Reload to retry." : null}
+        {props.storageError ? "Cannot save words. Reload when online." : null}
       </div>
 
       {library.length > 0 ? (
@@ -499,13 +464,14 @@ export function LookupExperience(props: LookupExperienceProps) {
         </section>
       ) : null}
 
-      <p className="lookup-attribution">
+      <div className="lookup-attribution">
         <span>Lexin, ISOF</span>
         <span aria-hidden="true"> · </span>
         <a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
           CC BY 4.0
         </a>
-      </p>
+        {props.syncControl}
+      </div>
     </main>
   );
 }

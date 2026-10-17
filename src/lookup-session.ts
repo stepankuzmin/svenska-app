@@ -39,10 +39,16 @@ function open(
   };
 }
 
-// A lookup can open fewer words than its headword holds, `vigselakt` the act
-// of `akt` alone, so the card it extends is the first it opened.
-function firstCardOpened(words: readonly LibraryWord[]): string | null {
-  return words.length === 0 ? null : wordKey(words[0]);
+export function wordsOpenedBy(event: LookupSessionEvent): LibraryWord[] {
+  if (event.kind === "picked") return [event.choice.word];
+  if (event.kind !== "submitted" && event.kind !== "deep-linked") return [];
+  const outcome = event.outcome;
+  if (outcome?.kind === "result") {
+    return wordsOf({ headword: outcome.headword, senses: outcome.senses }).map(({ headword, word }) => ({ headword, word }));
+  }
+  return outcome?.kind === "choices" ? outcome.choices
+    .filter((choice) => choice.exact && (event.kind === "deep-linked" || choice.language === "sv"))
+    .map(({ word }) => word) : [];
 }
 
 export function reduceLookupSession({
@@ -63,25 +69,10 @@ export function reduceLookupSession({
     case "deep-linked": {
       // The field empties on submit and stays as it was on a deep link.
       const query = event.kind === "submitted" ? "" : session.query;
-      const { outcome } = event;
-      if (outcome?.kind === "result") {
-        const { headword } = outcome;
-        const words = wordsOf({ headword, senses: outcome.senses }).map(({ word }) => ({ headword, word }));
-        return open(session, words, firstCardOpened(words), query);
-      }
-
-      // A word like "fika" indexes several words, so an exact link opens all of
-      // them rather than the one a suggestion would. Submitting does the same
-      // for a Swedish spelling several headwords hold, such as a compound
-      // Lexin lists under each of its parts: `tobaksaffär`.
-      const words = outcome?.kind === "choices"
-        ? outcome.choices
-          .filter((choice) => choice.exact && (event.kind === "deep-linked" || choice.language === "sv"))
-          .map(({ word }) => word)
-        : [];
+      const words = wordsOpenedBy(event);
       return words.length === 0
         ? session
-        : open(session, words, firstCardOpened(words), query);
+        : open(session, words, wordKey(words[0]), query);
     }
     case "picked":
       return open(session, [event.choice.word], wordKey(event.choice.word), "");

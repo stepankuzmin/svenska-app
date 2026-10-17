@@ -42,7 +42,7 @@ export function wordsOf({
   return words;
 }
 
-function uniqueWords(libraryWords: readonly LibraryWord[]): LibraryWord[] {
+export function uniqueWords(libraryWords: readonly LibraryWord[]): LibraryWord[] {
   const byKey = new Map(libraryWords.map((libraryWord) => [wordKey(libraryWord), libraryWord]));
   return [...byKey.values()];
 }
