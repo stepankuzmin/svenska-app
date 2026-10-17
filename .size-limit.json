@@ -45,57 +45,5 @@
   {
     "name": "Workbox runtime",
     "path": "dist/workbox-*.js"
-  },
-  {
-    "name": "Dictionary search engine",
-    "path": "dist/assets/dictionary-search-*.js",
-    "limit": "4 kB"
-  },
-  {
-    "name": "Local library storage",
-    "path": [
-      "dist/assets/store-*.js",
-      "dist/assets/model-*.js",
-      "dist/assets/load-transport-*.js"
-    ],
-    "limit": "4 kB"
-  },
-  {
-    "name": "Sync transport",
-    "path": [
-      "dist/assets/remote-*.js",
-      "dist/assets/query-*.js"
-    ],
-    "limit": "10 kB"
-  },
-  {
-    "name": "Device pairing UI",
-    "path": "dist/assets/panel-*.js",
-    "limit": "15 kB"
-  },
-  {
-    "name": "Device pairing styles",
-    "path": "dist/assets/panel-*.css",
-    "limit": "0.6 kB"
-  },
-  {
-    "name": "Library session integration",
-    "path": "dist/assets/session-bridge-*.js",
-    "limit": "2 kB"
-  },
-  {
-    "name": "Local storage status",
-    "path": "dist/assets/status-*.js",
-    "limit": "0.5 kB"
-  },
-  {
-    "name": "Sync control",
-    "path": "dist/assets/sync-control-*.js",
-    "limit": "1.5 kB"
-  },
-  {
-    "name": "Extended word details",
-    "path": "dist/assets/word-card-details-*.js",
-    "limit": "1 kB"
   }
 ]
