@@ -46,7 +46,7 @@ for (const [key, label] of [["cold", "Cold mobile lookup"], ["offline", "Cached 
   const timing = timings?.[key];
   console.log(timing ? row(label, timing.current, timing.base, seconds) : `| ${label} | Not measured | – | Report only |`);
 }
-console.log("\nTimings: median of 3 fresh Pixel 7 browser contexts per build, 4× CPU slowdown; cold: 1.6 Mbps down, 150 ms latency. Compressed (gzip) Vite production preview, not a physical phone or the deployed edge. A lookup completes when its result cards are visible. Offline: cached reload and a different lookup.\n\n<details>\n<summary>Startup size guards</summary>\n\n| Check | This PR | Change | Limit |\n|---|---|---|---|");
+console.log("\nTimings: median of 3 fresh Pixel 7 browser contexts per mode and build, 4× CPU slowdown; cold: 1.6 Mbps down, 150 ms latency. Compressed (gzip) Vite production preview, not a physical phone or the deployed edge. Cold service workers are blocked so every download is network-throttled. Offline uses a separate context with the normal service worker, a cached reload and a different lookup. A lookup completes when its result cards are visible.\n\n<details>\n<summary>Startup size guards</summary>\n\n| Check | This PR | Change | Limit |\n|---|---|---|---|");
 for (const check of checks.filter((check) => check.limit)) {
   const paths = typeof check.path === "string" ? [check.path] : check.path;
   const current = await measure(".", [...new Set(await Array.fromAsync(glob(paths, { cwd: "." })))]);
