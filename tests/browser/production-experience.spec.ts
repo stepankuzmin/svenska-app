@@ -1,5 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 
+// Playwright page routes cannot intercept responses served by a service worker.
+test.use({ serviceWorkers: "block" });
+
 const firstSuggestion = /lookup-suggestions-0/;
 const secondSuggestion = /lookup-suggestions-1/;
 const anySuggestion = /lookup-suggestions/;
@@ -200,6 +203,7 @@ test("the pointer and the keyboard agree on which row is active", async ({ page 
 
   const query = page.getByLabel("Swedish or Russian word");
   await query.fill("fik");
+  await expect(page.getByRole("option")).toHaveCount(2);
   await query.press("ArrowDown");
   await expect(query).toHaveAttribute("aria-activedescendant", firstSuggestion);
 
