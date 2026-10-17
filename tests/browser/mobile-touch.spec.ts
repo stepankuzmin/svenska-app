@@ -1,5 +1,7 @@
 import { expect, test } from "@playwright/test";
 
+test.use({ serviceWorkers: "block" });
+
 const fikaNoun = /^fika substantiv/;
 
 const dictionary = {

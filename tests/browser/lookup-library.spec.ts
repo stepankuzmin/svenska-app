@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+test.use({ serviceWorkers: "block" });
+
 const fikaNoun = /^fika substantiv/;
 const valNoun = /^val substantiv выбор/;
 const tackThenFika = [/tack/, /fika/];
