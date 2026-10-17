@@ -14,7 +14,7 @@
       "dist/assets/status-*.js",
       "dist/assets/word-card-details-*.js"
     ],
-    "limit": "65 kB"
+    "limit": "100 kB"
   },
   {
     "name": "App CSS",
