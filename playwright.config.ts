@@ -15,6 +15,7 @@ export default defineConfig({
     { name: "mobile-safari", testMatch: [touchSpec, "**/library-sync.spec.ts"], use: { ...devices["iPhone 13"] } },
   ],
   use: {
+    trace: "retain-on-failure",
     baseURL: deployedURL ?? "http://127.0.0.1:4173/",
   },
   webServer: deployedURL ? undefined : {

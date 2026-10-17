@@ -69,6 +69,13 @@ jobs:
         run: npm run check:size
       - name: Run built PWA journey
         run: npm run test:browser:release
+      - name: Upload browser failure traces
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-failure-traces
+          path: test-results
+          retention-days: 3
       - name: Upload validated site
         uses: actions/upload-artifact@v7
         with:

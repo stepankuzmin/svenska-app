@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Locator } from "@playwright/test";
 
 // Playwright page routes cannot intercept responses served by a service worker.
 test.use({ serviceWorkers: "block" });
@@ -76,6 +76,13 @@ const dictionary = {
   wordAliases: {},
 };
 
+async function replaceQuery(query: Locator, value: string) {
+  await query.click();
+  await query.press("ControlOrMeta+A");
+  await query.pressSequentially(value);
+  await expect(query).toHaveValue(value);
+}
+
 async function openReadyApp(page: Page) {
   await page.route("**/lexin-dictionary.*.json", (route) =>
     route.fulfill({ contentType: "application/json", json: dictionary }),
@@ -98,7 +105,7 @@ test("autocomplete shows each word's type and translation and supports keyboard 
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   const options = page.getByRole("option");
   // Every suggestion reads the same way: the word, its type and translation,
   // and its Swedish forms beneath.
@@ -119,7 +126,7 @@ test("a selection empties the field and keeps Lexin segment markers out of the c
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("abort");
+  await replaceQuery(query, "abort");
   await page.getByRole("option", { name: "abortrådgivning" }).click();
 
   await expect(query).toHaveValue("");
@@ -132,7 +139,7 @@ test("submitting the field empties it the way a selection does", async ({ page }
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fika");
+  await replaceQuery(query, "fika");
   await expect(page.getByRole("option").first()).toBeVisible();
   await query.press("Enter");
 
@@ -145,7 +152,7 @@ test("a query the dictionary cannot place says so", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("zzzz");
+  await replaceQuery(query, "zzzz");
 
   await expect(page.getByText("No matches")).toBeVisible();
   await expect(page.getByRole("listbox")).toHaveCount(0);
@@ -158,7 +165,7 @@ test("a query the dictionary cannot place says so", async ({ page }) => {
   await expect(query).toHaveCSS("border-top-color", blue);
   await expect(page.getByText("No matches")).toHaveCSS("border-top-color", blue);
 
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByText("No matches")).toHaveCount(0);
   await expect(page.getByRole("option")).toHaveCount(2);
 });
@@ -173,12 +180,12 @@ test("a compound Lexin lists under a word finds that word", async ({ page }) => 
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("husvag");
+  await replaceQuery(query, "husvag");
   // The compound follows the word's own forms after a dot.
   await expect(page.getByRole("option")).toHaveText(["hus substantiv дом hus · husvagn"]);
   releaseDetails();
 
-  await query.fill("husvagn");
+  await replaceQuery(query, "husvagn");
   await expect(page.getByRole("option")).toHaveCount(1);
   await query.press("Enter");
   await expect(query).toHaveValue("");
@@ -190,7 +197,7 @@ test("tabbing out of the field closes the suggestions", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByRole("option")).toHaveCount(2);
 
   await query.press("Tab");
@@ -202,7 +209,7 @@ test("the pointer and the keyboard agree on which row is active", async ({ page 
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByRole("option")).toHaveCount(2);
   await query.press("ArrowDown");
   await expect(query).toHaveAttribute("aria-activedescendant", firstSuggestion);
@@ -223,7 +230,7 @@ test("tapping the page closes the suggestions and leaves them closed", async ({ 
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByRole("option")).toHaveCount(2);
 
   await page.locator("main.minimal-lookup").click({ position: { x: 2, y: 2 } });
@@ -235,7 +242,7 @@ test("tapping the page closes the suggestions and leaves them closed", async ({ 
 test("an exact Swedish match does not hide longer autocomplete matches", async ({ page }) => {
   await openReadyApp(page);
 
-  await page.getByLabel("Swedish or Russian word").fill("abort");
+  await replaceQuery(page.getByLabel("Swedish or Russian word"), "abort");
 
   await expect(page.getByRole("option").locator("strong")).toHaveText(["abort", "abortrådgivning"]);
 });
@@ -243,7 +250,7 @@ test("an exact Swedish match does not hide longer autocomplete matches", async (
 test("an inflected Swedish query lists each matching word once, under its headword", async ({ page }) => {
   await openReadyApp(page);
 
-  await page.getByLabel("Swedish or Russian word").fill("ange");
+  await replaceQuery(page.getByLabel("Swedish or Russian word"), "ange");
 
   // `ange` and `angett` inflect `anger`, which is offered once, and `angett` is
   // also a word of its own; a choice opens that word alone.
@@ -254,7 +261,7 @@ test("an inflected Swedish query lists each matching word once, under its headwo
   await page.getByRole("option", { name: angettAdjective }).click();
   await expect(page.getByRole("region", { name: "Library" }).locator("strong")).toHaveText(["angett"]);
 
-  await page.getByLabel("Swedish or Russian word").fill("ab");
+  await replaceQuery(page.getByLabel("Swedish or Russian word"), "ab");
   await expect(page.getByRole("option").first().locator("strong")).toHaveText("AB");
 });
 
@@ -264,16 +271,16 @@ test("a Russian query offers the Swedish words its translations belong to", asyn
   // A Russian query offers the same rows a Swedish one does, with what it
   // matched among the translations.
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("ао");
+  await replaceQuery(query, "ао");
   await expect(page.getByRole("option")).toHaveText(["AB substantiv АО AB"]);
   await expect(page.getByRole("option").locator("strong")).toHaveAttribute("lang", "sv");
 
   // `result-100` matches as a Swedish word and by its translation, and is
   // offered once.
-  await query.fill("100");
+  await replaceQuery(query, "100");
   await expect(page.getByRole("option").locator("strong")).toHaveText(["hus", "result-100"]);
 
-  await query.fill("дом");
+  await replaceQuery(query, "дом");
 
   // Six words translate as `дом`, and each is a suggestion of its own.
   await expect(page.getByRole("option").locator("strong")).toHaveText([
@@ -300,7 +307,7 @@ test("a Russian query offers the Swedish words its translations belong to", asyn
 test("a broad Russian lookup renders its suggestions incrementally", async ({ page }) => {
   await openReadyApp(page);
 
-  await page.getByLabel("Swedish or Russian word").fill("яц");
+  await replaceQuery(page.getByLabel("Swedish or Russian word"), "яц");
 
   const options = page.getByRole("option");
   await expect(options).toHaveCount(100);
@@ -320,14 +327,14 @@ test("a suggestion list that runs on ends halfway through a row", async ({ page 
     'Number(getComputedStyle(document.querySelector("[role=listbox]"), "::after").opacity)',
   );
 
-  await query.fill("яц");
+  await replaceQuery(query, "яц");
   await expect(page.getByRole("option")).toHaveCount(100);
   expect((await rowsShown()) % 1).toBeCloseTo(0.5, 1);
   if (await page.evaluate<boolean>('CSS.supports("animation-timeline: scroll()")')) {
     await expect.poll(fade).toBe(1);
   }
 
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByRole("option")).toHaveCount(2);
   expect((await rowsShown()) % 1).toBeCloseTo(0, 1);
   // The scroll timeline can update a frame after the list shrinks, so the
@@ -339,7 +346,7 @@ test("the clear button empties the search field", async ({ page }) => {
   await openReadyApp(page);
 
   const query = page.getByLabel("Swedish or Russian word");
-  await query.fill("fik");
+  await replaceQuery(query, "fik");
   await expect(page.getByRole("option")).toHaveCount(2);
 
   await page.getByRole("button", { name: "Clear search" }).click();
