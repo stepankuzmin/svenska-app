@@ -34,23 +34,23 @@ async function assets(dir: string) {
 
 const kB = (bytes: number) => `${(bytes / 1000).toFixed(2)} kB`;
 const seconds = (ms: number) => `${(ms / 1000).toFixed(2)} s`;
-function row(name: string, current: number, base: number, format: (n: number) => string, limit = "Report only") {
-  return `| ${name} | ${format(current)} | ${current > base ? "+" : ""}${format(current - base)} | ${limit} |`;
+function row(name: string, current: number, base: number, format: (n: number) => string) {
+  return `| ${name} | ${format(base)} | ${format(current)} | ${current > base ? "+" : ""}${format(current - base)} |`;
 }
 const now = await assets(".");
 const was = await assets(baseDir);
-console.log("### App performance\n\n| Measure | This PR | Change | Budget |\n|---|---|---|---|");
+console.log("### App performance\n\n| Measure | Main | PR | Diff |\n|---|---|---|---|");
 console.log(row("Application assets (brotli)", now.app, was.app, kB));
 console.log(row("Dictionary downloads (brotli)", now.dictionary, was.dictionary, kB));
 for (const [key, label] of [["cold", "Cold mobile lookup"], ["offline", "Cached offline lookup"]] as const) {
   const timing = timings?.[key];
-  console.log(timing ? row(label, timing.current, timing.base, seconds) : `| ${label} | Not measured | – | Report only |`);
+  console.log(timing ? row(label, timing.current, timing.base, seconds) : `| ${label} | Not measured | Not measured | – |`);
 }
-console.log("\nTimings: median of 3 fresh Pixel 7 browser contexts per mode and build, 4× CPU slowdown; cold: 1.6 Mbps down, 150 ms latency. Compressed (gzip) Vite production preview, not a physical phone or the deployed edge. Cold service workers are blocked so every download is network-throttled. Offline uses a separate context with the normal service worker, a cached reload and a different lookup. A lookup completes when its result cards are visible.\n\n<details>\n<summary>Startup size guards</summary>\n\n| Check | This PR | Change | Limit |\n|---|---|---|---|");
+console.log("\nTimings: median of 3 fresh Pixel 7 browser contexts per mode and build, 4× CPU slowdown; cold: 1.6 Mbps down, 150 ms latency. Compressed (gzip) Vite production preview, not a physical phone or the deployed edge. Cold service workers are blocked so every download is network-throttled. Offline uses a separate context with the normal service worker, a cached reload and a different lookup. A lookup completes when its result cards are visible.\n\n<details>\n<summary>Startup size guards</summary>\n\n| Measure | Main | PR | Diff |\n|---|---|---|---|");
 for (const check of checks.filter((check) => check.limit)) {
   const paths = typeof check.path === "string" ? [check.path] : check.path;
   const current = await measure(".", [...new Set(await Array.fromAsync(glob(paths, { cwd: "." })))]);
   const base = await measure(baseDir, [...new Set(await Array.fromAsync(glob(paths, { cwd: baseDir })))]);
-  console.log(row(check.name, current, base, kB, check.limit));
+  console.log(row(check.name, current, base, kB));
 }
 console.log("\nEnforced by `check:size`. Application assets count each shipped file once, including optional features and the service worker; dictionary files are separate.\n\n</details>");

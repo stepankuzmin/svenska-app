@@ -34,18 +34,21 @@ test("groups shipped assets and dictionaries without double counting overlapping
   const result = report(fixture());
   expect(result).toContain(`| Application assets (brotli) | ${size("hello app", "worker")} |`);
   expect(result).toContain(`| Dictionary downloads (brotli) | ${size("lookup", "details")} |`);
-  expect(result).toContain(`| App JS | ${size("hello app")} | 0.00 kB | 65 kB |`);
+  expect(result).toContain(`| App JS | ${size("hello app")} | ${size("hello app")} | 0.00 kB |`);
+  expect(result).toContain("| Measure | Main | PR | Diff |");
+  expect(result).not.toContain("Budget");
+  expect(result).not.toContain("Report only");
   expect(result).toContain("<summary>Startup size guards</summary>");
   expect(result).toContain("Not measured");
 });
 
-test("reports mobile medians and signed changes without inventing a time budget", () => {
+test("reports main and PR mobile medians with signed differences", () => {
   const root = fixture();
   const timing = join(root, "mobile.json");
   writeFileSync(timing, JSON.stringify({ cold: { current: 2100, base: 2000 }, offline: { current: 200, base: 300 } }));
   const result = report(root, timing);
-  expect(result).toContain("| Cold mobile lookup | 2.10 s | +0.10 s | Report only |");
-  expect(result).toContain("| Cached offline lookup | 0.20 s | -0.10 s | Report only |");
+  expect(result).toContain("| Cold mobile lookup | 2.00 s | 2.10 s | +0.10 s |");
+  expect(result).toContain("| Cached offline lookup | 0.30 s | 0.20 s | -0.10 s |");
 });
 
 test("rejects invalid measurements instead of reporting false results", () => {
