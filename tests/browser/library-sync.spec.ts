@@ -161,9 +161,14 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   const overflow = await context.request.post("/api/sync/operations", {
     headers: { Origin: origin }, data: { operations: [{ sequence: 3, baseRevision: full.revision, kind: "open", words: [another] }] },
   });
-  expect(overflow.status()).toBe(422);
+  expect(overflow.ok()).toBe(true);
+  const rejected = await overflow.json() as LibrarySnapshot;
+  expect(rejected.acknowledged).toBe(3);
+  expect(rejected.revision).toBe(full.revision);
+  expect(rejected.rejectedOperation).toMatchObject({ sequence: 3, message: expect.stringContaining("library is full") });
+  expect(rejected.records.filter((record) => record.present)).toHaveLength(20_000);
   const removals = Array.from({ length: 20 }, (_, index) => ({
-    sequence: index + 3, baseRevision: full.revision, kind: "remove", words: words.slice(1 + index * 1000, 1 + (index + 1) * 1000),
+    sequence: index + 4, baseRevision: full.revision, kind: "remove", words: words.slice(1 + index * 1000, 1 + (index + 1) * 1000),
   }));
   const cleared = await context.request.post("/api/sync/operations", {
     headers: { Origin: origin }, data: { operations: removals },
@@ -173,17 +178,69 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   expect(history.records.filter((record) => !record.present)).toHaveLength(20_000);
   expect(history.records.filter((record) => record.present)).toHaveLength(1);
   const historyOverflow = await context.request.post("/api/sync/operations", {
-    headers: { Origin: origin }, data: { operations: [{ sequence: 23, baseRevision: history.revision, kind: "remove", words: [replacement] }] },
+    headers: { Origin: origin }, data: { operations: [{ sequence: 24, baseRevision: history.revision, kind: "remove", words: [replacement] }] },
   });
   expect(historyOverflow.status()).toBe(422);
   expect(await historyOverflow.json()).toMatchObject({ error: expect.stringContaining("removal history is full") });
   const newWord = await context.request.post("/api/sync/operations", {
-    headers: { Origin: origin }, data: { operations: [{ sequence: 23, baseRevision: history.revision, kind: "open", words: [another] }] },
+    headers: { Origin: origin }, data: { operations: [{ sequence: 24, baseRevision: history.revision, kind: "open", words: [another] }] },
   });
   expect(newWord.ok()).toBe(true);
   const current = await newWord.json() as LibrarySnapshot;
   expect(current.records.filter((record) => record.present)).toHaveLength(2);
   expect(current.records.filter((record) => !record.present)).toHaveLength(20_000);
+});
+
+test("concurrent openings at capacity reject one operation without blocking later edits", async ({ context }) => {
+  const words = Array.from({ length: 19_999 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
+  const created = await context.request.post("/api/sync/libraries", {
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "First", sequence: 0, words },
+  });
+  expect(created.ok()).toBe(true);
+  const first = (await created.json() as { snapshot: LibrarySnapshot }).snapshot;
+  const invitation = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
+  const other = await newDevice(context);
+  try {
+    const joined = await other.request.post(`${origin}/api/sync/join`, {
+      headers: { Origin: origin }, data: { ...invitation, deviceId: randomUUID(), label: "Second", sequence: 0, words: [] },
+    });
+    expect(joined.ok()).toBe(true);
+    const second = (await joined.json() as { snapshot: LibrarySnapshot }).snapshot;
+    expect(second.records).toHaveLength(19_999);
+    const winner = { headword: "winner", word: "30000" };
+    const loser = { headword: "loser", word: "30001" };
+    const accepted = await context.request.post("/api/sync/operations", {
+      headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: first.revision, kind: "open", words: [winner] }] },
+    });
+    expect(accepted.ok()).toBe(true);
+    const opening = { sequence: 1, baseRevision: second.revision, kind: "open", words: [loser] };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const response = await other.request.post(`${origin}/api/sync/operations`, {
+        headers: { Origin: origin }, data: { operations: [opening] },
+      });
+      expect(response.ok()).toBe(true);
+      const rejected = await response.json() as LibrarySnapshot;
+      expect(rejected.acknowledged).toBe(1);
+      expect(rejected.rejectedOperation).toMatchObject({ sequence: 1 });
+      expect(rejected.records).not.toContainEqual(expect.objectContaining(loser));
+    }
+    const recovered = await other.request.get(`${origin}/api/sync/library`);
+    const current = await recovered.json() as LibrarySnapshot;
+    expect(current.rejectedOperation).toMatchObject({ sequence: 1 });
+    const replacement = await other.request.post(`${origin}/api/sync/operations`, {
+      headers: { Origin: origin }, data: { operations: [
+        { sequence: 2, baseRevision: current.revision, kind: "remove", words: [words[0]] },
+        { sequence: 3, baseRevision: current.revision, kind: "open", words: [loser] },
+      ] },
+    });
+    expect(replacement.ok()).toBe(true);
+    const result = await replacement.json() as LibrarySnapshot;
+    expect(result.acknowledged).toBe(3);
+    expect(result.rejectedOperation).toBeUndefined();
+    expect(result.records.filter((record) => record.present)).toHaveLength(20_000);
+    expect(result.records).toContainEqual(expect.objectContaining({ ...winner, present: true }));
+    expect(result.records).toContainEqual(expect.objectContaining({ ...loser, present: true }));
+  } finally { await other.close(); }
 });
 
 test("a failed transport download retries and receives remote edits without reloading", async ({ browser }) => {

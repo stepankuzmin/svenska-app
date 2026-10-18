@@ -73,7 +73,8 @@ export function createRemote(store: LibraryStore): Remote {
   function settled(): void {
     if (stopped) return;
     retryDelay = 1000;
-    store.setStatus("synced");
+    const rejected = store.state().snapshot.rejectedOperation;
+    store.setStatus(rejected ? "error" : "synced", rejected?.message);
     listen();
     schedule(30_000);
   }

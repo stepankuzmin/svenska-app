@@ -61,6 +61,51 @@ function browserGlobals(locks = navigator.locks) {
 }
 
 describe("connection lifecycle", () => {
+  it("acknowledges a concurrent rejected opening and keeps syncing subsequent edits", async () => {
+    browserGlobals();
+    const words = Array.from({ length: 19_999 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
+    const winner = { headword: "winner", word: "30000" };
+    const loser = { headword: "loser", word: "30001" };
+    store = new LibraryStore(crypto.randomUUID(), words, false, false); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1 });
+    await store.enqueue("open", [loser]);
+    let snapshot: LibrarySnapshot = { ...store.state().snapshot, revision: 2, records: recordsOf([...words, winner]) };
+    const signals: AbortSignal[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string, options: RequestInit) => {
+      if (options.signal) signals.push(options.signal);
+      if (path.endsWith("operations")) {
+        const operations = readOperations(JSON.parse(String(options.body)).operations);
+        if (operations[0].sequence === 1) {
+          snapshot = { ...snapshot, acknowledged: 1, rejectedOperation: { sequence: 1, message: "Library is full" } };
+        } else {
+          const { rejectedOperation: _rejected, ...accepted } = snapshot;
+          snapshot = operations.reduce((state, operation) => ({
+            ...state, revision: state.revision + 1, acknowledged: operation.sequence,
+            records: applyOperation(state.records, operation, state.deviceId, state.revision + 1),
+          }), accepted);
+        }
+      }
+      return Response.json(path.endsWith("revision")
+        ? { protocol: snapshot.protocol, revision: snapshot.revision, acknowledged: snapshot.acknowledged } : snapshot);
+    }));
+    remote = createRemote(store);
+    await remote.flush();
+    expect(store.state().pending).toEqual([]);
+    expect(store.getSnapshot()).toMatchObject({ durable: true, status: "error", error: "Library is full" });
+    expect(store.getSnapshot().words).not.toContainEqual(loser);
+    await remote.flush();
+    expect(store.getSnapshot().error).toBe("Library is full");
+    await store.remove("word-0#1", null);
+    await store.enqueue("open", [loser]);
+    await remote.flush();
+    expect(store.state().pending).toEqual([]);
+    expect(store.state().snapshot.acknowledged).toBe(3);
+    expect(store.getSnapshot()).toMatchObject({ status: "synced", error: "" });
+    expect(store.getSnapshot().words).toHaveLength(20_000);
+    expect(store.getSnapshot().words).toContainEqual(loser);
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
+  });
+
   it.each([403, 410, 422, 429])("compacts local changes after a definitive %i pairing rejection", async (status) => {
     browserGlobals();
     const whale = { headword: "val", word: "18439" };

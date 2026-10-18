@@ -20,7 +20,7 @@ The application registers that service worker during startup. A first installati
 
 **Lookup library**:
 The locally stored collection of words opened by the user. Devices optionally share it after one-time QR/link pairing; openings, removals, and ordering sync automatically, with offline changes reconciled after reconnecting. Opening a word adds it automatically, and a lookup opens every word its spelling holds.
-A shared lookup library accepts 20,000 visible words and separately retains up to 20,000 removal records for conflict handling. Removing a word frees visible capacity. A library that reaches its removal-history limit must be replaced by a new shared library; removal records are never silently discarded.
+A shared lookup library accepts 20,000 visible words and separately retains up to 20,000 removal records for conflict handling. Removing a word frees visible capacity. Concurrent openings that exceed capacity are acknowledged as rejected without changing the library or blocking later edits. The rejection survives retries and lost responses until the next newly processed batch for that device. A library that reaches its removal-history limit must be replaced by a new shared library; removal records are never silently discarded.
 _Avoid_: Saved words, favourites
 
 **Word**:

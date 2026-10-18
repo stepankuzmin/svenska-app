@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { applyOperation, maximumWords, recordsOf, type LibrarySnapshot, type SyncOperation, type WordRecord } from "../src/sync/model";
 import { wordKey, type LibraryWord } from "../src/words";
 
-type Device = { id: string; label: string; hash: string; acknowledged: number; createdAt: number };
+type Device = { id: string; label: string; hash: string; acknowledged: number; createdAt: number; rejectedOperation?: LibrarySnapshot["rejectedOperation"] };
 type Invitation = { hash: string; expiresAt: number };
 type StoredLibrary = {
   revision: number;
@@ -74,6 +74,7 @@ export class LookupLibrary extends DurableObject<Env> {
     return {
       protocol: 1, libraryId: this.ctx.id.name ?? "", deviceId: device.id,
       revision: state.revision, acknowledged: device.acknowledged, records: state.records,
+      ...(device.rejectedOperation ? { rejectedOperation: device.rejectedOperation } : {}),
     };
   }
   private changed(): void {
@@ -107,13 +108,24 @@ export class LookupLibrary extends DurableObject<Env> {
     const result = this.ctx.storage.transactionSync(() => {
       const state = this.load();
       const device = this.device(state, id, hash);
+      let processed = false;
       for (const operation of operations) {
         if (operation.sequence <= device.acknowledged) continue;
         if (operation.sequence !== device.acknowledged + 1) throw new Error("409:Sync operations arrived out of order.");
         if (operation.baseRevision > state.revision) throw new Error("409:Invalid library revision.");
+        if (!processed) { delete device.rejectedOperation; processed = true; }
+        const next = applyOperation(state.records, operation, id, state.revision + 1);
+        if (operation.kind !== "remove" && next.filter((record) => record.present).length > maximumWords) {
+          device.rejectedOperation = {
+            sequence: operation.sequence,
+            message: "An opening was rejected because this library is full. Remove a word before opening another.",
+          };
+          device.acknowledged = operation.sequence;
+          continue;
+        }
+        checkCapacity(next);
         state.revision++;
-        state.records = applyOperation(state.records, operation, id, state.revision);
-        checkCapacity(state.records);
+        state.records = next;
         device.acknowledged = operation.sequence;
       }
       this.save(state);

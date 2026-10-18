@@ -28,6 +28,7 @@ export type LibrarySnapshot = {
   revision: number;
   acknowledged: number;
   records: WordRecord[];
+  rejectedOperation?: { sequence: number; message: string };
 };
 export type LibraryState = {
   snapshot: LibrarySnapshot;
@@ -96,7 +97,7 @@ export function receiveSnapshot(state: LibraryState, snapshot: LibrarySnapshot):
   if (state.snapshot.libraryId && state.snapshot.libraryId !== snapshot.libraryId) {
     throw new SnapshotValidationError("Disconnect this device before joining another library.");
   }
-  if (state.snapshot.libraryId && snapshot.revision < state.snapshot.revision) return state;
+  if (state.snapshot.libraryId && (snapshot.revision < state.snapshot.revision || snapshot.acknowledged < state.snapshot.acknowledged)) return state;
   return {
     snapshot,
     sequence: Math.max(state.sequence, snapshot.acknowledged),

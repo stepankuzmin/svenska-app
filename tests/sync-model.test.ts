@@ -11,6 +11,16 @@ function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it("keeps an acknowledged rejection when an older read has the same record revision", () => {
+    const rejected = { ...snapshot, revision: 2, acknowledged: 1, rejectedOperation: { sequence: 1, message: "Full" } };
+    const state = { snapshot: rejected, sequence: 2, pending: [op("remove", 2, 2)] };
+    expect(receiveSnapshot(state, { ...snapshot, revision: 2 })).toBe(state);
+    const next = receiveSnapshot(state, { ...snapshot, revision: 3, acknowledged: 2 });
+    expect(next.pending).toEqual([]);
+    expect(next.snapshot.rejectedOperation).toBeUndefined();
+    expect(next.snapshot.acknowledged).toBe(2);
+  });
+
   it("preserves distinct words and a lookup group's order", () => {
     const records = applyOperation(recordsOf([tea, whale]), op("open", 1, 0, [whale, election]), "phone", 1);
     expect(words(records)).toEqual([whale, election, tea]);
