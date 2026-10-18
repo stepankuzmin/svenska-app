@@ -5,7 +5,7 @@ import { readLookupLibrary, writeLookupLibrary } from "../lookup-library";
 import { resolveLibraryWords, wordKey, type LibraryWord } from "../words";
 import type { DictionaryAsset } from "../dictionary-contract";
 import {
-  compactLocal, maximumWords, receiveSnapshot, recordsOf, visibleWords,
+  compactLocal, maximumWords, protocolVersion, receiveSnapshot, recordsOf, visibleWords,
   type LibrarySnapshot, type LibraryState, type SyncOperation,
 } from "./model";
 
@@ -20,7 +20,7 @@ export type Remote = {
 
 function initialState(words: readonly LibraryWord[]): LibraryState {
   return {
-    snapshot: { protocol: 1, libraryId: "", deviceId: crypto.randomUUID(), revision: 0, acknowledged: 0, records: recordsOf(words) },
+    snapshot: { protocol: protocolVersion, libraryId: "", deviceId: crypto.randomUUID(), revision: 0, acknowledged: 0, records: recordsOf(words) },
     sequence: 0, pending: [],
   };
 }

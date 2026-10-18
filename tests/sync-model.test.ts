@@ -3,7 +3,7 @@ import { applyOperation, readOperations, readWords, receiveSnapshot, recordsOf, 
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const tea = { headword: "te", word: "123" };
-const snapshot: LibrarySnapshot = { protocol: 1, libraryId: "library", deviceId: "phone", revision: 0, acknowledged: 0, records: [] };
+const snapshot: LibrarySnapshot = { protocol: 2, libraryId: "library", deviceId: "phone", revision: 0, acknowledged: 0, records: [] };
 function op(kind: SyncOperation["kind"], sequence: number, baseRevision = 0, words = [whale]): SyncOperation {
   return { kind, sequence, baseRevision, words };
 }
@@ -11,6 +11,14 @@ function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it("rejects a legacy protocol response before consuming any queued edits", () => {
+    const pending = [op("open", 1)];
+    const state = { snapshot, sequence: 1, pending };
+    expect(() => receiveSnapshot(state, { ...snapshot, protocol: 1, acknowledged: 1 } as unknown as LibrarySnapshot)).toThrow("Update the app");
+    expect(state.pending).toEqual(pending);
+    expect(state.snapshot.acknowledged).toBe(0);
+  });
+
   it("keeps an acknowledged rejection when an older read has the same record revision", () => {
     const rejected = { ...snapshot, revision: 2, acknowledged: 1, rejectedOperation: { sequence: 1, message: "Full" } };
     const state = { snapshot: rejected, sequence: 2, pending: [op("remove", 2, 2)] };
@@ -58,7 +66,7 @@ describe("sync semantics", () => {
     expect(visibleWords(next)).toEqual([tea, election]);
     expect(receiveSnapshot(next, { ...confirmed, revision: 0 })).toBe(next);
     expect(() => receiveSnapshot(next, { ...confirmed, libraryId: "other" })).toThrow("Disconnect");
-    expect(() => receiveSnapshot(next, { ...confirmed, protocol: 2 } as unknown as LibrarySnapshot)).toThrow("Update");
+    expect(() => receiveSnapshot(next, { ...confirmed, protocol: 3 } as unknown as LibrarySnapshot)).toThrow("Update");
   });
   it("retains legacy siblings atomically without reviving earlier removals", () => {
     const legacy = { headword: "val", word: "" };

@@ -132,7 +132,7 @@ describe("durable local library", () => {
   });
   it("keeps storage healthy and continues saving lookups after snapshot validation fails", async () => {
     const store = create(); await store.ready;
-    await expect(store.accept({ ...store.state().snapshot, protocol: 2 as 1 })).rejects.toThrow("Update the app");
+    await expect(store.accept({ ...store.state().snapshot, protocol: 3 as 2 })).rejects.toThrow("Update the app");
     expect(store.getSnapshot().durable).toBe(true);
     expect(store.getSnapshot().error).toBe("");
     await store.accept({ ...store.state().snapshot, libraryId: "shared" });

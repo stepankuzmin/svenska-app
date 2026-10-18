@@ -2,7 +2,7 @@ import { wordKey, type LibraryWord } from "../words";
 
 const wordNumberPattern = /^\d{0,12}$/;
 
-export const protocolVersion = 1;
+export const protocolVersion = 2;
 export const maximumWords = 20_000;
 export class SnapshotValidationError extends Error { name = "SnapshotValidationError"; }
 
@@ -22,7 +22,7 @@ export type SyncOperation = {
   retained?: { source: LibraryWord; word: LibraryWord }[];
 };
 export type LibrarySnapshot = {
-  protocol: 1;
+  protocol: typeof protocolVersion;
   libraryId: string;
   deviceId: string;
   revision: number;

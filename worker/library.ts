@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { applyOperation, maximumWords, recordsOf, type LibrarySnapshot, type SyncOperation, type WordRecord } from "../src/sync/model";
+import { applyOperation, maximumWords, protocolVersion, recordsOf, type LibrarySnapshot, type SyncOperation, type WordRecord } from "../src/sync/model";
 import { wordKey, type LibraryWord } from "../src/words";
 
 type Device = { id: string; label: string; hash: string; acknowledged: number; createdAt: number; rejectedOperation?: LibrarySnapshot["rejectedOperation"] };
@@ -72,7 +72,7 @@ export class LookupLibrary extends DurableObject<Env> {
   }
   private snapshot(state: StoredLibrary, device: Device): LibrarySnapshot {
     return {
-      protocol: 1, libraryId: this.ctx.id.name ?? "", deviceId: device.id,
+      protocol: protocolVersion, libraryId: this.ctx.id.name ?? "", deviceId: device.id,
       revision: state.revision, acknowledged: device.acknowledged, records: state.records,
       ...(device.rejectedOperation ? { rejectedOperation: device.rejectedOperation } : {}),
     };
@@ -101,7 +101,7 @@ export class LookupLibrary extends DurableObject<Env> {
   revision(id: string, hash: string): Pick<LibrarySnapshot, "protocol" | "revision" | "acknowledged"> {
     const state = this.metadata();
     const device = this.device(state, id, hash);
-    return { protocol: 1, revision: state.revision, acknowledged: device.acknowledged };
+    return { protocol: protocolVersion, revision: state.revision, acknowledged: device.acknowledged };
   }
 
   apply(id: string, hash: string, operations: SyncOperation[]): LibrarySnapshot {

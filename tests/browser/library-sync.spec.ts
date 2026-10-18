@@ -140,7 +140,7 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
   expect(JSON.stringify(snapshot.records).length).toBeGreaterThan(2 * 1024 * 1024);
   const revision = await context.request.get("/api/sync/revision");
   expect(revision.ok()).toBe(true);
-  expect(await revision.json()).toEqual({ protocol: 1, revision: snapshot.revision, acknowledged: snapshot.acknowledged });
+  expect(await revision.json()).toEqual({ protocol: 2, revision: snapshot.revision, acknowledged: snapshot.acknowledged });
   expect((await revision.body()).byteLength).toBeLessThan(100);
   const remove = await context.request.post("/api/sync/operations", {
     headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "remove", words: [words[0]] }] },
@@ -269,10 +269,14 @@ test("a failed transport download retries and receives remote edits without relo
     await page.unroute(`${origin}/`);
     let attempts = 0;
     await page.route("**/assets/remote-*.js*", (route) => ++attempts <= 2 ? route.abort("internetdisconnected") : route.continue());
-    const connected = page.waitForEvent("websocket");
-    await page.reload();
-    await expect.poll(() => attempts).toBe(3);
-    const socket = await connected;
+    await page.clock.install();
+    const [socket] = await Promise.all([
+      page.waitForEvent("websocket"),
+      page.reload().then(() => expect.poll(async () => {
+        await page.clock.fastForward(1000);
+        return attempts;
+      }).toBe(3)),
+    ]);
     const notified = socket.waitForEvent("framereceived");
     const change = await context.request.post("/api/sync/operations", {
       headers: { Origin: origin }, data: { operations: [{ sequence: 1, baseRevision: snapshot.revision, kind: "open", words: [election] }] },
