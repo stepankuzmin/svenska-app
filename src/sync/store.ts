@@ -5,7 +5,7 @@ import { readLookupLibrary, writeLookupLibrary } from "../lookup-library";
 import { resolveLibraryWords, wordKey, type LibraryWord } from "../words";
 import type { DictionaryAsset } from "../dictionary-contract";
 import {
-  compactLocal, receiveSnapshot, recordsOf, visibleWords,
+  compactLocal, maximumWords, receiveSnapshot, recordsOf, visibleWords,
   type LibrarySnapshot, type LibraryState, type SyncOperation,
 } from "./model";
 
@@ -137,8 +137,17 @@ export class LibraryStore {
     });
     if (!this.durable) { this.current = queue(this.current); this.storageFailed(); return; }
     let attempted: LibraryState | undefined;
+    let full = false;
     try {
-      await this.update((state) => attempted = queue(state));
+      await this.update((state) => {
+        const next = queue(state);
+        full = kind === "open" && !!state.snapshot.libraryId && visibleWords(next).length > maximumWords;
+        return full ? state : attempted = next;
+      });
+      if (full) {
+        this.setStatus("error", "This library is full. Remove a word before opening another.");
+        return;
+      }
       if (this.current.snapshot.libraryId && this.automatic) {
         if (this.status !== "error" && this.status !== "revoked") this.setStatus("saving");
         void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));

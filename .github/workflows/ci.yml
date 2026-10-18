@@ -153,3 +153,10 @@ jobs:
         run: |
           test -n "$SYNC_TEST_BASE_URL"
           npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit
+      - name: Upload deployed preview failure traces
+        if: failure() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: preview-browser-failure-traces
+          path: test-results
+          retention-days: 3

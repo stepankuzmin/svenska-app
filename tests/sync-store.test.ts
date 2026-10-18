@@ -18,6 +18,27 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it("keeps over-capacity openings out of the shared outbox and permits replacement after removal", async () => {
+    const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
+    const store = create(crypto.randomUUID(), words); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared" });
+    const extra = { headword: "extra", word: "30000" };
+    await store.enqueue("open", [extra]);
+    expect(store.state().sequence).toBe(0);
+    expect(store.state().pending).toEqual([]);
+    expect(store.getSnapshot()).toMatchObject({ durable: true, status: "error", error: expect.stringContaining("Remove a word") });
+    expect(store.getSnapshot().words).not.toContainEqual(extra);
+    await store.enqueue("open", [words[1]]);
+    await store.remove("word-0#1", null);
+    await store.enqueue("open", [extra]);
+    expect(store.state().pending.map(({ kind, sequence }) => ({ kind, sequence }))).toEqual([
+      { kind: "open", sequence: 1 }, { kind: "remove", sequence: 2 }, { kind: "open", sequence: 3 },
+    ]);
+    expect(store.getSnapshot().words).toHaveLength(20_000);
+    expect(store.getSnapshot().words).toContainEqual(extra);
+    expect(store.getSnapshot().words).not.toContainEqual(words[0]);
+  });
+
   it("folds unpaired lookups into the snapshot across tabs without growing an outbox", async () => {
     const name = crypto.randomUUID();
     const first = create(name); const second = create(name); await Promise.all([first.ready, second.ready]);
