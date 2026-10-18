@@ -155,6 +155,14 @@ jobs:
           npx wrangler tail --config wrangler.preview.json --format pretty --search sync-request-failed > "$RUNNER_TEMP/sync-errors.log" 2>&1 &
           tail_pid=$!
           trap 'kill "$tail_pid" 2>/dev/null || true' EXIT
+          tail_deadline=$((SECONDS + 30))
+          until grep -q 'Connected to .*waiting for logs' "$RUNNER_TEMP/sync-errors.log"; do
+            if ! kill -0 "$tail_pid" 2>/dev/null || [ "$SECONDS" -ge "$tail_deadline" ]; then
+              cat "$RUNNER_TEMP/sync-errors.log"
+              exit 1
+            fi
+            sleep 1
+          done
           set +e
           npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit
           test_status=$?
