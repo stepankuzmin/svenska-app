@@ -152,7 +152,16 @@ jobs:
           SYNC_TEST_BASE_URL: ${{ steps.preview.outputs.url }}
         run: |
           test -n "$SYNC_TEST_BASE_URL"
+          npx wrangler tail --config wrangler.preview.json --format pretty --search sync-request-failed > "$RUNNER_TEMP/sync-errors.log" 2>&1 &
+          tail_pid=$!
+          trap 'kill "$tail_pid" 2>/dev/null || true' EXIT
+          set +e
           npx playwright test tests/browser/library-sync.spec.ts --project=chromium --project=webkit
+          test_status=$?
+          if [ "$test_status" -ne 0 ]; then
+            cat "$RUNNER_TEMP/sync-errors.log"
+          fi
+          exit "$test_status"
       - name: Upload deployed preview failure traces
         if: failure() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@v7

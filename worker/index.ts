@@ -136,7 +136,7 @@ export default {
       const message = error instanceof Error ? error.message : "";
       const expected = expectedErrorPattern.exec(message);
       if (expected) return json({ error: expected[2] }, Number(expected[1]));
-      console.error(JSON.stringify({ event: "sync-request-failed", path: url.pathname, error: error instanceof Error ? error.name : "unknown" }));
+      console.error(JSON.stringify({ event: "sync-request-failed", path: url.pathname, error: error instanceof Error ? error.name : "unknown", message: error instanceof Error ? error.message : "Unknown failure" }));
       return json({ error: "Sync is temporarily unavailable. Your local words are kept." }, 503);
     }
   },
