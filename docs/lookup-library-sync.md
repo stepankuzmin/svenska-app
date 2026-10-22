@@ -1,6 +1,6 @@
 # Lookup library sync
 
-The browser owns the visible library. IndexedDB stores a confirmed snapshot and an outbox in a single transaction. TanStack Query fetches remote snapshots and device metadata. HTTPS sends outbox operations; hibernating WebSockets announce new revisions. One SQLite-backed `LookupLibrary` Durable Object coordinates each library. Metadata and word records occupy separate SQLite rows, so the 20,000-word capacity does not depend on the per-row size limit; older aggregate records migrate on activation.
+The browser owns the visible library. IndexedDB stores a confirmed snapshot and an outbox in a single transaction. TanStack Query fetches remote snapshots and device metadata. HTTPS sends outbox operations; hibernating WebSockets announce new revisions. One SQLite-backed `LookupLibrary` Durable Object coordinates each library. Metadata and word records occupy separate SQLite rows, so the 20,000-word capacity does not depend on the per-row size limit.
 
 Implement in this order: protocol and local migration; persistent service; browser reconciliation; account-free pairing; real-runtime and browser verification; deployment isolation.
 

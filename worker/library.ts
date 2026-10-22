@@ -34,11 +34,6 @@ export class LookupLibrary extends DurableObject<Env> {
     super(ctx, env);
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_state (id INTEGER PRIMARY KEY CHECK(id = 1), data TEXT NOT NULL)");
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_records (key TEXT PRIMARY KEY, data TEXT NOT NULL)");
-    const legacy = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_state WHERE id = 1").toArray()[0];
-    if (legacy) {
-      const state = JSON.parse(legacy.data) as StoredLibrary;
-      if (Array.isArray(state.records)) this.save(state);
-    }
   }
 
   private metadata(): Omit<StoredLibrary, "records"> {
@@ -61,9 +56,13 @@ export class LookupLibrary extends DurableObject<Env> {
           this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_records (key, data) VALUES (?, ?)", key, JSON.stringify(record));
         }
       }
-      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_state (id, data) VALUES (1, ?)", JSON.stringify({ ...state, records: undefined }));
+      const { records: _records, ...metadata } = state;
+      this.saveMetadata(metadata);
     });
     this.savedRecords = new Map(state.records.map((record) => [wordKey(record), record]));
+  }
+  private saveMetadata(state: Omit<StoredLibrary, "records">): void {
+    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_state (id, data) VALUES (1, ?)", JSON.stringify(state));
   }
   private device(state: Pick<StoredLibrary, "devices">, id: string, hash: string): Device {
     const device = state.devices.find((item) => item.id === id && sameHash(item.hash, hash));
@@ -136,12 +135,12 @@ export class LookupLibrary extends DurableObject<Env> {
   }
 
   invite(id: string, hash: string, invitationHash: string): { expiresAt: number } {
-    const state = this.load();
+    const state = this.metadata();
     this.device(state, id, hash);
     const expiresAt = Date.now() + 10 * 60_000;
     state.invitations = state.invitations.filter((item) => item.expiresAt > Date.now()).slice(-4);
     state.invitations.push({ hash: invitationHash, expiresAt });
-    this.save(state);
+    this.saveMetadata(state);
     return { expiresAt };
   }
 
@@ -181,15 +180,15 @@ export class LookupLibrary extends DurableObject<Env> {
   }
 
   devices(id: string, hash: string): { id: string; label: string; current: boolean }[] {
-    const state = this.load();
+    const state = this.metadata();
     this.device(state, id, hash);
     return state.devices.map((device) => ({ id: device.id, label: device.label, current: device.id === id }));
   }
   revoke(id: string, hash: string, target: string): void {
-    const state = this.load();
+    const state = this.metadata();
     this.device(state, id, hash);
     state.devices = state.devices.filter((device) => device.id !== target);
-    this.save(state);
+    this.saveMetadata(state);
     for (const socket of this.ctx.getWebSockets()) {
       const attachment = socket.deserializeAttachment() as { deviceId: string };
       if (attachment.deviceId === target) socket.close(4001, "Device disconnected.");
@@ -197,27 +196,21 @@ export class LookupLibrary extends DurableObject<Env> {
     this.changed();
   }
   recovery(id: string, hash: string, nextHash: string): void {
-    const state = this.load();
+    const state = this.metadata();
     this.device(state, id, hash);
     state.recoveryHash = nextHash;
-    this.save(state);
+    this.saveMetadata(state);
   }
 
   fetch(request: Request): Response {
     const id = request.headers.get("X-Sync-Device") ?? "";
     const hash = request.headers.get("X-Sync-Hash") ?? "";
-    const state = this.load();
-    this.device(state, id, hash);
+    this.device(this.metadata(), id, hash);
     const pair = new WebSocketPair();
     pair[1].serializeAttachment({ deviceId: id, hash });
     this.ctx.acceptWebSocket(pair[1]);
     pair[1].send("changed");
     return new Response(null, { status: 101, webSocket: pair[0] });
-  }
-  webSocketMessage(socket: WebSocket): void {
-    const attachment = socket.deserializeAttachment() as { deviceId: string; hash: string };
-    try { this.device(this.load(), attachment.deviceId, attachment.hash); socket.send("changed"); }
-    catch { socket.close(4001, "Device disconnected."); }
   }
   webSocketError(socket: WebSocket): void { socket.close(1011, "Reconnect to sync."); }
 }
