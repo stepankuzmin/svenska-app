@@ -3,6 +3,8 @@ import { randomUUID } from "node:crypto";
 import { receiveSnapshot, visibleWords, type LibrarySnapshot } from "../../src/sync/model";
 const pairFragment = /pair=/;
 const origin = new URL(process.env.SYNC_TEST_BASE_URL ?? "http://127.0.0.1:4173").origin;
+// Filling a library to capacity writes more Durable Object rows than the free plan allows the whole account per day.
+const capacityTestsSkipped = process.env.SYNC_TEST_BASE_URL !== undefined;
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const challenge = "XXXX.DUMMY.TOKEN.XXXX";
@@ -155,6 +157,7 @@ test("recovery or a fresh invitation replaces a credential stranded by a lost co
 });
 
 test("a full 20000-word library persists beyond SQLite's per-row size limit", async ({ context }) => {
+  test.skip(capacityTestsSkipped, "Runs only against the local Worker.");
   const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
   const create = await context.request.post("/api/sync/libraries", {
     headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Large library", sequence: 0, words },
@@ -217,6 +220,7 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
 });
 
 test("concurrent openings at capacity reject one operation without blocking later edits", async ({ context }) => {
+  test.skip(capacityTestsSkipped, "Runs only against the local Worker.");
   const words = Array.from({ length: 19_999 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
   const created = await context.request.post("/api/sync/libraries", {
     headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "First", sequence: 0, words },
