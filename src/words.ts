@@ -20,6 +20,10 @@ export function wordKey({ headword, word }: LibraryWord): string {
   return word.length > 0 ? `${headword}#${word}` : headword;
 }
 
+export function sameWords(left: readonly LibraryWord[], right: readonly LibraryWord[]): boolean {
+  return left.length === right.length && left.every((word, index) => wordKey(word) === wordKey(right[index]));
+}
+
 export function wordsOf({
   headword,
   senses,

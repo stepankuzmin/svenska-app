@@ -15,6 +15,26 @@ const statusText = {
   offline: "Offline. Changes will sync when connected.", saving: "Syncing changes…", error: "Sync needs attention.", revoked: "This device is disconnected.",
 };
 
+type Turnstile = {
+  render: (element: HTMLElement, options: {
+    sitekey: string; appearance: "interaction-only"; callback: (token: string) => void; "error-callback": () => void;
+  }) => string;
+  remove: (widget: string) => void;
+};
+let turnstile: Promise<Turnstile> | null = null;
+function loadTurnstile(): Promise<Turnstile> {
+  return turnstile ??= new Promise<Turnstile>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.onload = () => resolve((window as unknown as { turnstile: Turnstile }).turnstile);
+    script.onerror = () => {
+      turnstile = null; script.remove();
+      reject(new Error("Could not load the check that you are a person. Check your connection and try again."));
+    };
+    document.head.append(script);
+  });
+}
+
 function pairingFromFragment(): { libraryId: string; token: string } | null {
   const fragment = new URLSearchParams(location.hash.slice(1));
   const pair = fragment.get("pair");
@@ -28,6 +48,7 @@ function Panel({ onClose, transport }: PanelProps) {
   const store = libraryStore();
   const view = useSyncExternalStore(store.subscribe, store.getSnapshot);
   const dialog = useRef<HTMLDialogElement>(null);
+  const challenge = useRef<HTMLDivElement>(null);
   const [pairing] = useState(pairingFromFragment);
   const [label, setLabel] = useState(mobilePattern.test(navigator.userAgent) ? "Phone" : "Computer");
   const [busy, setBusy] = useState(false);
@@ -53,8 +74,18 @@ function Panel({ onClose, transport }: PanelProps) {
     catch (error) { setMessage(error instanceof Error ? error.message : "Please try again."); }
     finally { setBusy(false); }
   }
+  async function confirmHuman(): Promise<string> {
+    const [{ siteKey }, api] = await Promise.all([syncRequest<{ siteKey: string }>("challenge"), loadTurnstile()]);
+    return new Promise((resolve, reject) => {
+      const widget = api.render(challenge.current!, {
+        sitekey: siteKey, appearance: "interaction-only",
+        callback: (token) => { api.remove(widget); resolve(token); },
+        "error-callback": () => { api.remove(widget); reject(new Error("The check that you are a person failed. Try again.")); },
+      });
+    });
+  }
   async function connect(kind: "libraries" | "join" | "recover", details?: { libraryId: string; token: string }): Promise<void> {
-    const result = await (await store.startRemote()).connect(kind, { label, ...details });
+    const result = await (await store.startRemote()).connect(kind, { label, ...details, challenge: await confirmHuman() });
     if (result.recoveryCode) setRecovery(result.recoveryCode);
     setMessage("Connected. Card changes will sync automatically.");
     await queryClient.invalidateQueries({ queryKey: ["devices"] });
@@ -80,6 +111,7 @@ function Panel({ onClose, transport }: PanelProps) {
     {message && message !== view.error ? <p role="status">{message}</p> : null}
     {pairing && view.connected && store.state().snapshot.libraryId !== pairing.libraryId ? <p>Disconnect this device before joining the library in this link. Your local words will be kept.</p> : null}
     {!view.connected ? <>
+      <div ref={challenge} />
       <label>Device name<input value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} /></label>
       <p>Connect your devices once. Later changes sync automatically.</p>
       {pairing ? <button disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("join", pairing))}>Connect this device</button>

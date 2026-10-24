@@ -26,6 +26,7 @@ export function createRemote(store: LibraryStore): Remote {
   let timer: ReturnType<typeof setTimeout> | null = null;
   let running: Promise<void> | null = null;
   let retryDelay = 1000;
+  let socketDelay = 1000;
   let rerun = false;
   let refreshed = false;
 
@@ -41,8 +42,7 @@ export function createRemote(store: LibraryStore): Remote {
       return;
     }
     if (error instanceof SyncError && error.status === 401) {
-      remote.dispose();
-      if (store.remoteRevoked(remote)) store.setStatus("revoked", "This device is disconnected. Your local words are kept.");
+      if (store.releaseRemote(remote)) store.setStatus("revoked", "This device is disconnected. Your local words are kept.");
       return;
     }
     if (error instanceof Error && error.name === "SnapshotValidationError") {
@@ -62,12 +62,12 @@ export function createRemote(store: LibraryStore): Remote {
     const url = new URL("/api/sync/events", location.href);
     url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
     socket = new WebSocket(url);
-    socket.onmessage = () => { void flush(); };
+    socket.onmessage = () => { socketDelay = 1000; void flush(); };
     socket.onerror = () => socket?.close();
     socket.onclose = (event) => {
       socket = null;
       if (event.code === 4001) { report(new SyncError(401, "Device disconnected.")); }
-      else schedule(1000);
+      else { schedule(socketDelay); socketDelay = Math.min(socketDelay * 2, 60_000); }
     };
   }
   function settled(): void {
@@ -76,7 +76,7 @@ export function createRemote(store: LibraryStore): Remote {
     const rejected = store.state().snapshot.rejectedOperation;
     store.setStatus(rejected ? "error" : "synced", rejected?.message);
     listen();
-    schedule(30_000);
+    if (document.visibilityState === "visible") schedule(30_000);
   }
   async function reconcile(): Promise<void> {
     if (!store.getSnapshot().durable) return;
@@ -89,29 +89,28 @@ export function createRemote(store: LibraryStore): Remote {
       await store.reload();
       if (stopped) return;
       const current = store.state().snapshot;
-      if (current.deviceId !== expected.snapshot.deviceId || current.libraryId !== libraryId) { store.remoteRevoked(remote); remote.dispose(); return; }
+      if (current.deviceId !== expected.snapshot.deviceId || current.libraryId !== libraryId) { store.releaseRemote(remote); return; }
       if (revision.protocol === current.protocol && revision.revision === current.revision && revision.acknowledged === current.acknowledged) {
         settled(); return;
       }
     }
-    const snapshot = await queryClient.fetchQuery({
-      queryKey: ["library", libraryId], queryFn: () => request<LibrarySnapshot>("library"),
-    });
-    if (stopped) return;
-    if (!await store.accept(snapshot, expected)) { store.remoteRevoked(remote); remote.dispose(); return; }
-    refreshed = true;
+    if (!refreshed || expected.pending.length === 0) {
+      const snapshot = await request<LibrarySnapshot>("library");
+      if (stopped) return;
+      if (!await store.accept(snapshot, expected)) { store.releaseRemote(remote); return; }
+      refreshed = true;
+    }
     while (true) {
       if (stopped) return;
       const state = await store.reload();
       if (stopped) return;
-      if (state.snapshot.deviceId !== expected.snapshot.deviceId || state.snapshot.libraryId !== libraryId) { store.remoteRevoked(remote); remote.dispose(); return; }
+      if (state.snapshot.deviceId !== expected.snapshot.deviceId || state.snapshot.libraryId !== libraryId) { store.releaseRemote(remote); return; }
       const operations = state.pending.slice(0, 100);
       if (operations.length === 0) break;
       store.setStatus("saving");
       const confirmed = await request<LibrarySnapshot>("operations", { operations });
       if (stopped) return;
-      if (!await store.accept(confirmed, expected)) { store.remoteRevoked(remote); remote.dispose(); return; }
-      queryClient.setQueryData(["library", libraryId], confirmed);
+      if (!await store.accept(confirmed, expected)) { store.releaseRemote(remote); return; }
     }
     settled();
   }
@@ -148,7 +147,7 @@ export function createRemote(store: LibraryStore): Remote {
         store.setStatus("connecting");
         try {
           const result = await request<{ snapshot: LibrarySnapshot; recoveryCode?: string }>(kind, {
-            ...details, deviceId: state.snapshot.deviceId, sequence: state.sequence, words: store.connectionWords(state),
+            ...details, deviceId: state.snapshot.deviceId, sequence: state.connectionSequence, words: store.connectionWords({ ...state, pending: [] }),
           });
           if (stopped || !await store.accept(result.snapshot, state)) throw new Error("This connection was cancelled. Connect again to sync devices.");
           return result;

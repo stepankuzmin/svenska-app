@@ -29,7 +29,7 @@ describe("durable local library", () => {
     expect(store.getSnapshot()).toMatchObject({ durable: true, status: "error", error: expect.stringContaining("Remove a word") });
     expect(store.getSnapshot().words).not.toContainEqual(extra);
     await store.enqueue("open", [words[1]]);
-    await store.remove("word-0#1", null);
+    await store.remove("word-0#1");
     await store.enqueue("open", [extra]);
     expect(store.state().pending.map(({ kind, sequence }) => ({ kind, sequence }))).toEqual([
       { kind: "open", sequence: 1 }, { kind: "remove", sequence: 2 }, { kind: "open", sequence: 3 },
@@ -43,7 +43,7 @@ describe("durable local library", () => {
     const name = crypto.randomUUID();
     const first = create(name); const second = create(name); await Promise.all([first.ready, second.ready]);
     for (let index = 0; index < 100; index++) await (index % 2 ? first : second).enqueue("open", [election]);
-    await first.remove("val#18439", null);
+    await first.remove("val#18439");
     const reopened = create(name, []); await reopened.ready;
     expect(reopened.state().pending).toEqual([]);
     expect(reopened.state().snapshot.records).toHaveLength(1);
@@ -79,7 +79,7 @@ describe("durable local library", () => {
       expect(connecting.getSnapshot().words).toEqual([election, whale]);
       const tea = { headword: "te", word: "123" };
       await editing.enqueue("open", [tea]);
-      await editing.remove("val#18439", null);
+      await editing.remove("val#18439");
       await connecting.accept({ ...captured.snapshot, libraryId: "shared", revision: 1, acknowledged: captured.sequence }, captured);
       expect(connecting.getSnapshot().words).toEqual([tea, election]);
       expect(connecting.state().pending.map((operation) => operation.sequence)).toEqual([2, 3]);
@@ -147,12 +147,12 @@ describe("durable local library", () => {
     const old = await store.startRemote();
     const replacement = { ...transport, flush: vi.fn(() => Promise.resolve()) };
     transportFactory.mockReturnValue(replacement);
-    expect(store.remoteRevoked(old)).toBe(true);
+    expect(store.releaseRemote(old)).toBe(true);
     store.setStatus("revoked");
     await store.reload();
     await expect.poll(() => replacement.flush.mock.calls.length).toBe(1);
     expect(await store.startRemote()).toBe(replacement);
-    expect(store.remoteRevoked(old)).toBe(false);
+    expect(store.releaseRemote(old)).toBe(false);
   });
   it("flushes an existing dormant transport when another tab connects", async () => {
     const name = crypto.randomUUID();
@@ -232,7 +232,7 @@ describe("durable local library", () => {
     await store.accept({ ...store.state().snapshot, libraryId: "shared" });
     const listener = vi.fn(); const unsubscribe = store.subscribe(listener);
     await store.enqueue("open", [election]);
-    await store.remove("val#18439", null);
+    await store.remove("val#18439");
     unsubscribe();
     expect(listener).toHaveBeenCalled();
     const reopened = create(name, []); await reopened.ready;
@@ -266,10 +266,11 @@ describe("durable local library", () => {
     const stale = { headword: "val", word: "9" };
     const store = create(undefined, [stale]); await store.ready;
     await store.accept({ ...store.state().snapshot, libraryId: "shared" });
-    await store.remove("val#18439", {
+    store.setDictionary({
       entries: { val: [{ word: "18439", partOfSpeech: "", meaning: "", translation: "" }] },
       wordAliases: { "val#9": "18439" },
     });
+    await store.remove("val#18439");
     expect(store.getSnapshot().words).toEqual([]);
     expect(store.state().pending[0].words).toEqual([stale, whale]);
   });
@@ -292,10 +293,11 @@ describe("durable local library", () => {
     const legacy = { headword: "val", word: "" };
     const store = create(undefined, [tea, legacy]); await store.ready;
     await store.accept({ ...store.state().snapshot, libraryId: "shared" });
-    await store.remove("val#18439", {
+    store.setDictionary({
       entries: { val: [whale, election].map(({ word }) => ({ word, partOfSpeech: "", meaning: "", translation: "" })) },
       wordAliases: {},
     });
+    await store.remove("val#18439");
     expect(store.getSnapshot().words).toEqual([tea, election]);
     expect(store.state().pending[0].retained).toEqual([{ source: legacy, word: election }]);
   });
@@ -318,6 +320,8 @@ describe("durable local library", () => {
   });
   it("keeps a visible in-memory library when persistence cannot open", async () => {
     vi.stubGlobal("indexedDB", { open: () => { throw new Error("Storage unavailable"); } });
+    const saved = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => saved.set(key, value) });
     const store = new LibraryStore(crypto.randomUUID(), [whale], false, false);
     await store.ready;
     expect(store.getSnapshot().words).toEqual([whale]);
@@ -325,5 +329,17 @@ describe("durable local library", () => {
     await store.enqueue("open", [election]);
     expect(store.getSnapshot().error).toContain("cannot be saved");
     expect(store.getSnapshot().words).toEqual([election, whale]);
+    expect(JSON.parse(saved.get("svenska.lookup-library") ?? "[]")).toEqual([election, whale]);
+  });
+
+  it("keeps a removal in memory when the storage connection is lost", async () => {
+    const saved = new Map<string, string>();
+    vi.stubGlobal("localStorage", { getItem: (key: string) => saved.get(key) ?? null, setItem: (key: string, value: string) => saved.set(key, value) });
+    const store = new LibraryStore(crypto.randomUUID(), [whale, election], false, false);
+    await store.ready;
+    await store.close();
+    await store.dispatch({ kind: "word-removed", card: "val#18439" });
+    expect(store.getSnapshot().words).toEqual([election]);
+    expect(JSON.parse(saved.get("svenska.lookup-library") ?? "[]")).toEqual([election]);
   });
 });

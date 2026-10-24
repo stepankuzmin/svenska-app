@@ -22,7 +22,7 @@
     "check:task": "npm run check:fast && npm run check:coverage && npm run build && npm run check:size",
     "check:full": "npm run check:task && npm run release:check && npm run test:browser:release",
     "worker:types": "wrangler types worker/env.d.ts",
-    "worker:dev": "wrangler dev --ip 127.0.0.1 --port 4173 --persist-to .wrangler/local",
+    "worker:dev": "wrangler dev --ip 127.0.0.1 --port 4173 --persist-to .wrangler/local --var TURNSTILE_SITE_KEY:1x00000000000000000000AA TURNSTILE_SECRET:1x0000000000000000000000000000000AA",
     "worker:check": "wrangler deploy --dry-run"
   },
   "dependencies": {

@@ -127,6 +127,7 @@ jobs:
             namespace_id: String(Number(binding.namespace_id) + Number(process.env.PREVIEW_NUMBER) * 10_000),
           }));
           config.preview_urls = false;
+          config.vars = { ...config.vars, TURNSTILE_SITE_KEY: '1x00000000000000000000AA', TURNSTILE_SECRET: '1x0000000000000000000000000000000AA' };
           writeFileSync('wrangler.preview.json', JSON.stringify(config));
           JS
           npx wrangler deploy --config wrangler.preview.json

@@ -40,5 +40,3 @@ export function choicesOf(outcome: LookupOutcome | null): readonly LookupChoice[
 
   return outcome.kind === "result" ? outcome.suggestions : outcome.choices;
 }
-
-export { hasDictionaryAssetShape, hasDictionaryDetailsShape } from "./dictionary-validation";

@@ -30,16 +30,7 @@ export default defineConfig({
       },
       transform(_code, id) {
         if (!id.endsWith("/src/sync/transport-url.ts")) return;
-        return { code: 'export default "";', map: null };
-      },
-      augmentChunkHash(chunk) {
-        if (chunk.isEntry && chunk.name === "index") return transportVersion;
-      },
-      generateBundle(_options, bundle) {
-        const chunks = Object.values(bundle).filter((file) => file.type === "chunk");
-        const entry = chunks.find((file) => file.isEntry && file.name === "index");
-        if (!entry) throw new Error("Cannot resolve the application entry.");
-        this.emitFile({ type: "asset", fileName: `${entry.fileName}.sync.json`, source: JSON.stringify({ file: `assets/remote-${transportVersion.slice(0, 12)}.js` }) });
+        return { code: `export default ${JSON.stringify(`/assets/remote-${transportVersion.slice(0, 12)}.js`)};`, map: null };
       },
     },
     react(),

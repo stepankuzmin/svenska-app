@@ -11,6 +11,9 @@
     ]
   },
   "main": "worker/index.ts",
+  "vars": {
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFjlEi5_IgJshENu"
+  },
   "durable_objects": {
     "bindings": [
       {

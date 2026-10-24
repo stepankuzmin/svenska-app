@@ -2,7 +2,7 @@ import { openDB, type IDBPDatabase } from "idb";
 import { loadTransport } from "./load-transport";
 import { wordsOpenedBy, type LookupSessionEvent } from "../lookup-session";
 import { readLookupLibrary, writeLookupLibrary } from "../lookup-library";
-import { resolveLibraryWords, wordKey, type LibraryWord } from "../words";
+import { resolveLibraryWords, sameWords, wordKey, type LibraryWord } from "../words";
 import type { DictionaryAsset } from "../dictionary-contract";
 import {
   compactLocal, maximumWords, protocolVersion, receiveSnapshot, recordsOf, visibleWords,
@@ -10,10 +10,10 @@ import {
 } from "./model";
 
 export type SyncStatus = "local" | "connecting" | "synced" | "offline" | "saving" | "error" | "revoked";
-export type StoreView = { words: LibraryWord[]; connected: boolean; pending: number; durable: boolean; readyForSync: boolean; status: SyncStatus; error: string };
+export type StoreView = { words: readonly LibraryWord[]; connected: boolean; pending: number; durable: boolean; readyForSync: boolean; status: SyncStatus; error: string };
 export type Remote = {
   flush: () => Promise<void>;
-  connect: (kind: "libraries" | "join" | "recover", details: { libraryId?: string; token?: string; label: string }) => Promise<{ recoveryCode?: string }>;
+  connect: (kind: "libraries" | "join" | "recover", details: { libraryId?: string; token?: string; label: string; challenge?: string }) => Promise<{ recoveryCode?: string }>;
   disconnect: () => Promise<void>;
   dispose: () => void;
 };
@@ -58,8 +58,11 @@ export class LibraryStore {
     if (this.channel) this.channel.onmessage = () => { void this.reload().catch(() => this.storageFailed()); };
   }
   private makeView(): StoreView {
+    const words = this.dictionary ? resolveLibraryWords({ libraryWords: visibleWords(this.current), dictionary: this.dictionary }) : visibleWords(this.current);
+    const previous = this.view?.words;
     return {
-      words: visibleWords(this.current), connected: this.current.snapshot.libraryId.length > 0,
+      words: previous && sameWords(previous, words) ? previous : words,
+      connected: this.current.snapshot.libraryId.length > 0,
       pending: this.current.pending.length, durable: this.durable, readyForSync: this.dictionary !== null && this.durable, status: this.status, error: this.error,
     };
   }
@@ -73,7 +76,11 @@ export class LibraryStore {
     return () => { this.listeners.delete(listener); };
   };
   setStatus(status: SyncStatus, error = ""): void { this.status = status; this.error = error; this.publish(); }
-  private storageFailed(): void { this.durable = false; this.setStatus("error", "Changes cannot be saved on this device. Check browser storage and reload."); }
+  private storageFailed(): void {
+    this.durable = false;
+    this.setStatus("error", "Changes cannot be saved on this device. Check browser storage and reload.");
+    writeLookupLibrary(this.view.words);
+  }
 
   private async update(change: (state: LibraryState) => LibraryState): Promise<LibraryState> {
     const transaction = await this.database.then((database) => database.transaction("library", "readwrite"))
@@ -84,19 +91,15 @@ export class LibraryStore {
     catch (error) { this.storageFailed(); throw error; }
     this.durable = true;
     this.current = next;
-    this.writeBackup();
     this.publish();
+    writeLookupLibrary(this.view.words);
     this.channel?.postMessage("changed");
     return next;
   }
-  private writeBackup(): void {
-    const words = visibleWords(this.current);
-    writeLookupLibrary(this.dictionary ? resolveLibraryWords({ libraryWords: words, dictionary: this.dictionary }) : words);
-  }
   setDictionary(dictionary: Pick<DictionaryAsset, "entries" | "wordAliases">): void {
     this.dictionary = dictionary;
-    this.writeBackup();
     this.publish();
+    writeLookupLibrary(this.view.words);
   }
   connectionWords(state = this.current): readonly LibraryWord[] {
     if (!this.dictionary) throw new Error("Wait for the dictionary to load before connecting devices.");
@@ -119,9 +122,9 @@ export class LibraryStore {
     }
     return this.current;
   }
-  dispatch(event: LookupSessionEvent, dictionary: Pick<DictionaryAsset, "entries" | "wordAliases"> | null): Promise<void> {
+  dispatch(event: LookupSessionEvent): Promise<void> {
     this.actions = this.actions.then(async () => {
-      if (event.kind === "word-removed") await this.remove(event.card, dictionary);
+      if (event.kind === "word-removed") await this.remove(event.card);
       else {
         const words = wordsOpenedBy(event);
         if (words.length > 0) await this.enqueue("open", words);
@@ -154,13 +157,13 @@ export class LibraryStore {
       }
     } catch { this.current = attempted ?? queue(this.current); this.storageFailed(); }
   }
-  async remove(card: string, dictionary: Pick<DictionaryAsset, "entries" | "wordAliases"> | null): Promise<void> {
+  async remove(card: string): Promise<void> {
     await this.ready;
-    await this.reload();
+    await this.reload().catch(() => undefined);
     const words: LibraryWord[] = [];
     const retained: NonNullable<SyncOperation["retained"]> = [];
     for (const source of visibleWords(this.current)) {
-      const resolved = dictionary ? resolveLibraryWords({ libraryWords: [source], dictionary }) : [source];
+      const resolved = this.dictionary ? resolveLibraryWords({ libraryWords: [source], dictionary: this.dictionary }) : [source];
       const target = resolved.find((word) => wordKey(word) === card);
       if (!target) continue;
       words.push(source, target);
@@ -218,7 +221,8 @@ export class LibraryStore {
     if (remote) void remote.catch(() => undefined);
   }
   state(): LibraryState { return this.current; }
-  remoteRevoked(remote: Remote): boolean {
+  releaseRemote(remote: Remote): boolean {
+    remote.dispose();
     if (this.currentRemote !== remote) return false;
     this.disposeRemote();
     return true;

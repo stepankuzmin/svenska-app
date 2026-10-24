@@ -1,7 +1,7 @@
 import "fake-indexeddb/auto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LibraryStore } from "../src/sync/store";
-import { applyOperation, readOperations, readWords, recordsOf, visibleWords, type LibrarySnapshot } from "../src/sync/model";
+import { applyOperation, readOperations, readWords, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
 import { createRemote, queryClient } from "../src/sync/remote";
 
 vi.mock("../src/sync/load-transport", () => ({ loadTransport: () => import("../src/sync/remote") }));
@@ -50,6 +50,73 @@ describe("idle sync health checks", () => {
     expect(store.state().snapshot.revision).toBe(2);
     expect(visibleWords(store.state())).toEqual([{ headword: "fika", word: "4106" }]);
   });
+  it("backs off reconnecting when the network keeps closing the WebSocket", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    browserGlobals();
+    vi.stubGlobal("navigator", {});
+    let sockets = 0;
+    vi.stubGlobal("WebSocket", class {
+      onclose: ((event: { code: number }) => void) | null = null;
+      constructor() { sockets++; setTimeout(() => this.onclose?.({ code: 1006 }), 0); }
+      close() {}
+    });
+    store = new LibraryStore(crypto.randomUUID(), [], false, false); await store.ready;
+    const snapshot: LibrarySnapshot = { ...store.state().snapshot, libraryId: "shared", revision: 1 };
+    await store.accept(snapshot);
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => Response.json(path.endsWith("revision")
+      ? { protocol: snapshot.protocol, revision: snapshot.revision, acknowledged: snapshot.acknowledged } : snapshot)));
+    remote = createRemote(store);
+    await remote.flush();
+    for (let second = 0; second < 60; second++) {
+      await vi.advanceTimersByTimeAsync(1000);
+      for (let tick = 0; tick < 20; tick++) await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(sockets).toBe(6);
+  });
+
+  it("sends an opening without downloading the library again", async () => {
+    browserGlobals();
+    vi.stubGlobal("navigator", {});
+    store = new LibraryStore(crypto.randomUUID(), [], false, false); await store.ready;
+    let snapshot: LibrarySnapshot = { ...store.state().snapshot, libraryId: "shared", revision: 1 };
+    await store.accept(snapshot);
+    const requested: string[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (path: string, options?: RequestInit) => {
+      requested.push(path);
+      if (path.endsWith("operations")) {
+        const { operations } = JSON.parse(String(options?.body)) as { operations: SyncOperation[] };
+        snapshot = { ...snapshot, revision: 2, acknowledged: operations[0].sequence, records: applyOperation(snapshot.records, operations[0], snapshot.deviceId, 2) };
+      }
+      return Response.json(snapshot);
+    }));
+    remote = createRemote(store);
+    await remote.flush();
+    requested.length = 0;
+    await store.enqueue("open", [{ headword: "te", word: "123" }]);
+    await remote.flush();
+    expect(requested).toEqual(["/api/sync/operations"]);
+    expect(store.state().pending).toEqual([]);
+  });
+
+  it("stops polling the server from a hidden tab with an open WebSocket", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    browserGlobals();
+    vi.stubGlobal("navigator", {});
+    vi.stubGlobal("document", { visibilityState: "hidden", addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    store = new LibraryStore(crypto.randomUUID(), [], false, false); await store.ready;
+    const snapshot: LibrarySnapshot = { ...store.state().snapshot, libraryId: "shared", revision: 1 };
+    await store.accept(snapshot);
+    const fetch = vi.fn(async (path: string) => Response.json(path.endsWith("revision")
+      ? { protocol: snapshot.protocol, revision: snapshot.revision, acknowledged: snapshot.acknowledged } : snapshot));
+    vi.stubGlobal("fetch", fetch);
+    remote = createRemote(store);
+    await remote.flush();
+    for (let minute = 0; minute < 10; minute++) {
+      await vi.advanceTimersByTimeAsync(60_000);
+      for (let tick = 0; tick < 20; tick++) await new Promise((resolve) => setImmediate(resolve));
+    }
+    expect(fetch.mock.calls.map(([path]) => path)).toEqual(["/api/sync/library", "/api/sync/revision"]);
+  });
 });
 
 function browserGlobals(locks = navigator.locks) {
@@ -95,7 +162,7 @@ describe("connection lifecycle", () => {
     expect(store.getSnapshot().words).not.toContainEqual(loser);
     await remote.flush();
     expect(store.getSnapshot().error).toBe("Library is full");
-    await store.remove("word-0#1", null);
+    await store.remove("word-0#1");
     await store.enqueue("open", [loser]);
     await remote.flush();
     expect(store.state().pending).toEqual([]);
@@ -117,7 +184,7 @@ describe("connection lifecycle", () => {
     const connecting = remote.connect("join", { libraryId: "shared", token: "invalid", label: "Browser" });
     const rejected = expect(connecting).rejects.toThrow("Rejected");
     await expect.poll(() => store.state().connectionSequence).toBe(0);
-    await store.remove("val#18439", null);
+    await store.remove("val#18439");
     response.resolve(Response.json({ error: "Rejected" }, { status }));
     await rejected;
     expect(store.state().connectionSequence).toBeUndefined();
@@ -339,7 +406,7 @@ describe("connection lifecycle", () => {
     await expect.poll(() => joins).toBe(1);
     lost.reject(new Error("Response lost"));
     await failed;
-    await store.remove("val#18439", null);
+    await store.remove("val#18439");
     await store.enqueue("open", [tea]);
     remote.dispose();
     await store.close();
@@ -352,7 +419,7 @@ describe("connection lifecycle", () => {
     await expect.poll(() => joins).toBe(2);
     expect(snapshot.acknowledged).toBe(0);
     expect(store.state().sequence).toBe(2);
-    await store.remove("val#18440", null);
+    await store.remove("val#18440");
     await store.enqueue("open", [coffee]);
     replacement.resolve(Response.json({ snapshot }));
     await retry;
@@ -363,6 +430,44 @@ describe("connection lifecycle", () => {
     await remote.flush();
     expect(sequences).toEqual([1, 2, 3, 4, 5]);
     expect(store.getSnapshot().words).toEqual([whale, coffee, tea]);
+    expect(store.state().pending).toEqual([]);
+  });
+  it("replays edits made after a pairing attempt that never reached the server", async () => {
+    browserGlobals();
+    const whale = { headword: "val", word: "18439" };
+    const tea = { headword: "te", word: "123" };
+    const coffee = { headword: "kaffe", word: "124" };
+    store = new LibraryStore(crypto.randomUUID(), [whale, coffee], false, false); await store.ready;
+    store.setDictionary({ entries: {}, wordAliases: {} });
+    let snapshot: LibrarySnapshot | null = null;
+    let joins = 0;
+    vi.stubGlobal("fetch", vi.fn(async (path: string, options: RequestInit) => {
+      const body = JSON.parse(String(options.body ?? "{}"));
+      if (path.endsWith("join")) {
+        if (++joins === 1) throw new TypeError("Network error");
+        snapshot = {
+          protocol: 2, libraryId: "shared", deviceId: body.deviceId, revision: 2, acknowledged: body.sequence,
+          records: applyOperation(recordsOf([whale]), { sequence: body.sequence, baseRevision: 2, kind: "import", words: readWords(body.words) }, body.deviceId, 2),
+        };
+        return Response.json({ snapshot });
+      }
+      if (path.endsWith("operations")) {
+        for (const operation of readOperations(body.operations)) {
+          if (operation.sequence <= snapshot!.acknowledged) continue;
+          snapshot = {
+            ...snapshot!, revision: snapshot!.revision + 1, acknowledged: operation.sequence,
+            records: applyOperation(snapshot!.records, operation, snapshot!.deviceId, snapshot!.revision + 1),
+          };
+        }
+      }
+      return Response.json(snapshot);
+    }));
+    remote = createRemote(store);
+    await expect(remote.connect("join", { libraryId: "shared", token: "first", label: "Browser" })).rejects.toThrow("Network error");
+    await store.remove("val#18439");
+    await store.enqueue("open", [tea]);
+    await remote.connect("join", { libraryId: "shared", token: "second", label: "Browser" });
+    expect(store.getSnapshot().words).toEqual([tea, coffee]);
     expect(store.state().pending).toEqual([]);
   });
   it("imports current words and sends edits made during the pairing request afterward", async () => {

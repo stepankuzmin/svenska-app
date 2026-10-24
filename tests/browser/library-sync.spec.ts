@@ -5,6 +5,7 @@ const pairFragment = /pair=/;
 const origin = new URL(process.env.SYNC_TEST_BASE_URL ?? "http://127.0.0.1:4173").origin;
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
+const challenge = "XXXX.DUMMY.TOKEN.XXXX";
 test.describe.configure({ mode: "serial" });
 
 async function openWord(page: Page, word: string) {
@@ -37,6 +38,23 @@ async function newDevice(context: BrowserContext) {
   const browser = context.browser()!;
   return browser.newContext({ serviceWorkers: "allow" });
 }
+
+test("sync starts when another module script loads first, and reads renew the device cookie", async ({ page }) => {
+  await page.addInitScript(() => {
+    document.addEventListener("readystatechange", () => {
+      if (document.readyState !== "interactive" || document.querySelector("script[data-extension]")) return;
+      const script = document.createElement("script");
+      script.type = "module"; script.src = "data:text/javascript,void 0"; script.dataset.extension = "";
+      document.head.prepend(script);
+    });
+  });
+  await page.goto(".");
+  await openSync(page);
+  await page.getByRole("button", { name: "Enable sync", exact: true }).click();
+  await expect(page.getByText("Your devices are in sync.", { exact: true })).toBeVisible();
+  const revision = await page.request.get("api/sync/revision");
+  expect(revision.headers()["set-cookie"]).toContain("Max-Age=31536000");
+});
 
 test("a tab opened before pairing keeps receiving changes after the pairing tab closes", async ({ page, context }) => {
   const otherContext = await newDevice(context);
@@ -85,16 +103,23 @@ test("simultaneous connection attempts in two tabs create only one shared librar
   } finally { await context.close(); }
 });
 
+test("creating a library requires the person check", async ({ context }) => {
+  const create = await context.request.post("/api/sync/libraries", {
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Script", sequence: 0, words: [whale] },
+  });
+  expect(create.status()).toBe(403);
+});
+
 test("recovery or a fresh invitation replaces a credential stranded by a lost connection response", async ({ context }) => {
   const create = await context.request.post("/api/sync/libraries", {
-    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Primary", sequence: 0, words: [whale] },
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Primary", sequence: 0, words: [whale] },
   });
   const { recoveryCode } = await create.json() as { recoveryCode: string };
   const invitation = await (await context.request.post("/api/sync/invitations", { headers: { Origin: origin }, data: {} })).json();
   const secondContext = await newDevice(context);
   try {
     const deviceId = randomUUID();
-    const details = { deviceId, label: "Returning", sequence: 0, words: [] };
+    const details = { deviceId, challenge, label: "Returning", sequence: 0, words: [] };
     const joined = await secondContext.request.post(`${origin}/api/sync/join`, { headers: { Origin: origin }, data: { ...invitation, ...details } });
     expect(joined.ok()).toBe(true);
     const first = (await joined.json() as { snapshot: LibrarySnapshot }).snapshot;
@@ -132,7 +157,7 @@ test("recovery or a fresh invitation replaces a credential stranded by a lost co
 test("a full 20000-word library persists beyond SQLite's per-row size limit", async ({ context }) => {
   const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
   const create = await context.request.post("/api/sync/libraries", {
-    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Large library", sequence: 0, words },
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Large library", sequence: 0, words },
   });
   expect(create.ok()).toBe(true);
   const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
@@ -194,7 +219,7 @@ test("a full 20000-word library persists beyond SQLite's per-row size limit", as
 test("concurrent openings at capacity reject one operation without blocking later edits", async ({ context }) => {
   const words = Array.from({ length: 19_999 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
   const created = await context.request.post("/api/sync/libraries", {
-    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "First", sequence: 0, words },
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "First", sequence: 0, words },
   });
   expect(created.ok()).toBe(true);
   const first = (await created.json() as { snapshot: LibrarySnapshot }).snapshot;
@@ -202,7 +227,7 @@ test("concurrent openings at capacity reject one operation without blocking late
   const other = await newDevice(context);
   try {
     const joined = await other.request.post(`${origin}/api/sync/join`, {
-      headers: { Origin: origin }, data: { ...invitation, deviceId: randomUUID(), label: "Second", sequence: 0, words: [] },
+      headers: { Origin: origin }, data: { ...invitation, deviceId: randomUUID(), challenge, label: "Second", sequence: 0, words: [] },
     });
     expect(joined.ok()).toBe(true);
     const second = (await joined.json() as { snapshot: LibrarySnapshot }).snapshot;
@@ -247,7 +272,7 @@ test("a failed transport download retries and receives remote edits without relo
   const context = await browser.newContext({ baseURL: origin, serviceWorkers: "block" });
   try {
     const create = await context.request.post("/api/sync/libraries", {
-      headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Retrying", sequence: 0, words: [whale] },
+      headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Retrying", sequence: 0, words: [whale] },
     });
     expect(create.ok()).toBe(true);
     const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
@@ -294,7 +319,7 @@ test("a failed transport download retries and receives remote edits without relo
     const [libraryId, token] = (await page.getByRole("textbox", { name: "Recovery code", exact: true }).inputValue()).split(".");
     const superseded = socket.waitForEvent("close");
     const replacement = await context.request.post("/api/sync/recover", {
-      headers: { Origin: origin }, data: { libraryId, token, deviceId: snapshot.deviceId, label: "Reconnected tab", sequence: 1, words: [] },
+      headers: { Origin: origin }, data: { libraryId, token, deviceId: snapshot.deviceId, challenge, label: "Reconnected tab", sequence: 1, words: [] },
     });
     expect(replacement.ok()).toBe(true);
     await superseded;
@@ -366,7 +391,7 @@ test("paired devices sync additions, removals, ordering and offline reloads", as
 
 test("joining a spelling-only library does not restore a meaning removed on another device", async ({ page, context }) => {
   const create = await context.request.post("/api/sync/libraries", {
-    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Primary", sequence: 0, words: [whale] },
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Primary", sequence: 0, words: [whale] },
   });
   const { snapshot } = await create.json() as { snapshot: LibrarySnapshot };
   const remove = await context.request.post("/api/sync/operations", {
@@ -420,7 +445,7 @@ test("a second tab saves offline changes and shares the durable queue", async ({
 
 test("the persistent service deduplicates requests and enforces pairing, conflicts and revocation", async ({ context }) => {
   const create = await context.request.post("/api/sync/libraries", {
-    headers: { Origin: origin }, data: { deviceId: randomUUID(), label: "Phone", sequence: 0, words: [whale, election] },
+    headers: { Origin: origin }, data: { deviceId: randomUUID(), challenge, label: "Phone", sequence: 0, words: [whale, election] },
   });
   expect(create.ok()).toBe(true);
   const { snapshot, recoveryCode } = await create.json() as { snapshot: LibrarySnapshot; recoveryCode: string };
@@ -429,7 +454,7 @@ test("the persistent service deduplicates requests and enforces pairing, conflic
   try {
     const secondId = randomUUID();
     const join = await secondContext.request.post(`${origin}/api/sync/join`, {
-      headers: { Origin: origin }, data: { ...invitation, deviceId: secondId, label: "Computer", sequence: 0, words: [] },
+      headers: { Origin: origin }, data: { ...invitation, deviceId: secondId, challenge, label: "Computer", sequence: 0, words: [] },
     });
     expect(join.ok()).toBe(true);
     const operation = { sequence: 1, baseRevision: snapshot.revision, kind: "remove", words: [whale] };
@@ -458,7 +483,7 @@ test("the persistent service deduplicates requests and enforces pairing, conflic
     expect((await secondContext.request.get(`${origin}/api/sync/library`)).status()).toBe(401);
     const [libraryId, token] = recoveryCode.split(".");
     const recovered = await secondContext.request.post(`${origin}/api/sync/recover`, {
-      headers: { Origin: origin }, data: { libraryId, token, deviceId: randomUUID(), label: "Recovered", sequence: 0, words: [] },
+      headers: { Origin: origin }, data: { libraryId, token, deviceId: randomUUID(), challenge, label: "Recovered", sequence: 0, words: [] },
     });
     expect(recovered.ok()).toBe(true);
     expect((await recovered.json() as { snapshot: LibrarySnapshot }).snapshot.records.filter((record) => record.present)).toHaveLength(2);

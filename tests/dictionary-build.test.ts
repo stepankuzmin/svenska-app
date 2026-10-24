@@ -5,7 +5,7 @@ import { buildDictionaryAssets } from "../scripts/build-dictionary.ts";
 import {
   hasDictionaryAssetShape,
   hasDictionaryDetailsShape,
-} from "../src/dictionary.ts";
+} from "../src/dictionary-validation.ts";
 
 type Assets = ReturnType<typeof buildDictionaryAssets>;
 

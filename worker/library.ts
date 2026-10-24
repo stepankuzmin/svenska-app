@@ -29,30 +29,28 @@ function checkCapacity(records: WordRecord[]): void {
 }
 
 export class LookupLibrary extends DurableObject<Env> {
-  private savedRecords = new Map<string, WordRecord>();
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_state (id INTEGER PRIMARY KEY CHECK(id = 1), data TEXT NOT NULL)");
-    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS library_records (key TEXT PRIMARY KEY, data TEXT NOT NULL)");
-  }
+  private savedRecords: Map<string, WordRecord> | null = null;
 
+  private created(): boolean {
+    return this.ctx.storage.sql.exec("SELECT 1 FROM sqlite_master WHERE name = 'library_state'").toArray().length > 0;
+  }
   private metadata(): Omit<StoredLibrary, "records"> {
+    if (!this.created()) throw new Error("404:This library does not exist.");
     const rows = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_state WHERE id = 1").toArray();
     if (rows.length === 0) throw new Error("404:This library does not exist.");
     return JSON.parse(rows[0].data) as Omit<StoredLibrary, "records">;
   }
   private load(): StoredLibrary {
     const metadata = this.metadata();
-    const records = this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_records").toArray()
-      .map((row) => JSON.parse(row.data) as WordRecord);
-    this.savedRecords = new Map(records.map((record) => [wordKey(record), record]));
-    return { ...metadata, records };
+    this.savedRecords ??= new Map(this.ctx.storage.sql.exec<{ data: string }>("SELECT data FROM library_records").toArray()
+      .map((row) => JSON.parse(row.data) as WordRecord).map((record) => [wordKey(record), record]));
+    return { ...metadata, records: [...this.savedRecords.values()] };
   }
   private save(state: StoredLibrary): void {
     this.ctx.storage.transactionSync(() => {
       for (const record of state.records) {
         const key = wordKey(record);
-        if (this.savedRecords.get(key) !== record) {
+        if (this.savedRecords?.get(key) !== record) {
           this.ctx.storage.sql.exec("INSERT OR REPLACE INTO library_records (key, data) VALUES (?, ?)", key, JSON.stringify(record));
         }
       }
@@ -83,13 +81,17 @@ export class LookupLibrary extends DurableObject<Env> {
   }
 
   initialize(credential: DeviceCredential, words: LibraryWord[], recoveryHash: string): LibrarySnapshot {
-    if (this.ctx.storage.sql.exec("SELECT id FROM library_state").toArray().length > 0) throw new Error("409:Library already exists.");
+    if (this.created()) throw new Error("409:Library already exists.");
     const device: Device = {
       id: credential.id, label: credential.label, hash: credential.hash,
       acknowledged: credential.sequence, createdAt: Date.now(),
     };
     const state: StoredLibrary = { revision: 1, records: recordsOf(words), devices: [device], invitations: [], recoveryHash };
-    this.save(state);
+    this.ctx.storage.transactionSync(() => {
+      this.ctx.storage.sql.exec("CREATE TABLE library_state (id INTEGER PRIMARY KEY CHECK(id = 1), data TEXT NOT NULL)");
+      this.ctx.storage.sql.exec("CREATE TABLE library_records (key TEXT PRIMARY KEY, data TEXT NOT NULL) WITHOUT ROWID");
+      this.save(state);
+    });
     return this.snapshot(state, device);
   }
 

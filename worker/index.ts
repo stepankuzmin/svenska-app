@@ -64,11 +64,26 @@ async function sessionOf(request: Request, env: Env) {
   if (!value) throw new Error("401:Connect this device to sync.");
   const [libraryId, deviceId, token] = value.split(".");
   const stub = env.LIBRARIES.getByName(identifier(libraryId));
-  return { stub, libraryId, deviceId: identifier(deviceId), hash: await digest(tokenOf(token)) };
+  return { stub, libraryId, deviceId: identifier(deviceId), hash: await digest(tokenOf(token)), value };
+}
+
+async function confirmHuman(request: Request, env: Env & { TURNSTILE_SECRET?: string }, token: unknown): Promise<void> {
+  if (typeof token !== "string" || !token || token.length > 2048) throw new Error("403:Complete the check that you are a person, then try again.");
+  const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+    method: "POST",
+    body: new URLSearchParams({
+      secret: env.TURNSTILE_SECRET ?? "",
+      response: token, remoteip: request.headers.get("CF-Connecting-IP") ?? "",
+    }),
+  });
+  const result = await response.json() as { success?: boolean; "error-codes"?: string[] };
+  if (result["error-codes"]?.some((code) => code.endsWith("-input-secret"))) throw new Error("Turnstile secret is missing or invalid.");
+  if (!result.success) throw new Error("403:Complete the check that you are a person, then try again.");
 }
 
 async function connect(request: Request, env: Env, path: string): Promise<Response> {
   const body = await bodyOf(request);
+  await confirmHuman(request, env, body.challenge);
   const words = readWords(body.words);
   const token = secret();
   const credential = await credentialOf(body, token);
@@ -85,9 +100,10 @@ async function connect(request: Request, env: Env, path: string): Promise<Respon
 }
 
 async function authenticated(request: Request, env: Env, path: string): Promise<Response> {
-  const { stub, libraryId, deviceId, hash } = await sessionOf(request, env);
-  if (request.method === "GET" && path === "library") return json(await stub.read(deviceId, hash));
-  if (request.method === "GET" && path === "revision") return json(await stub.revision(deviceId, hash));
+  const { stub, libraryId, deviceId, hash, value } = await sessionOf(request, env);
+  const renewed = { "Set-Cookie": cookie(request, value) };
+  if (request.method === "GET" && path === "library") return json(await stub.read(deviceId, hash), 200, renewed);
+  if (request.method === "GET" && path === "revision") return json(await stub.revision(deviceId, hash), 200, renewed);
   if (request.method === "GET" && path === "devices") return json(await stub.devices(deviceId, hash));
   if (request.method === "GET" && path === "events" && request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
     return stub.fetch(new Request("https://library/events", { headers: { Upgrade: "websocket", "X-Sync-Device": deviceId, "X-Sync-Hash": hash } }));
@@ -121,6 +137,7 @@ export default {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/sync/")) return env.ASSETS.fetch(request);
     if (url.pathname === "/api/sync/health" && request.method === "GET") return json({ ok: true });
+    if (url.pathname === "/api/sync/challenge" && request.method === "GET") return json({ siteKey: env.TURNSTILE_SITE_KEY });
     try {
       const mutation = !["GET", "HEAD"].includes(request.method);
       const websocket = request.headers.get("Upgrade")?.toLowerCase() === "websocket";

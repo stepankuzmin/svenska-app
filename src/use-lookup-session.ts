@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { readLookupLibrary } from "./lookup-library";
 import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "./lookup-session";
 import type { createSessionBridge } from "./sync/session-bridge";
+import { sameWords } from "./words";
 
 function withLibraryMotion(apply: () => void) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof document.startViewTransition !== "function") {
@@ -24,7 +25,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
   function storage() {
     return bridge.current ??= import("./sync/session-bridge").then(({ createSessionBridge }) =>
       createSessionBridge((libraryWords) => {
-        if (!active.current) return;
+        if (!active.current || sameWords(latest.current.libraryWords, libraryWords)) return;
         latest.current = { ...latest.current, libraryWords };
         setSession((shown) => ({ ...shown, libraryWords }));
       }),

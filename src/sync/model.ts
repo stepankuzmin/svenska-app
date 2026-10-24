@@ -1,4 +1,4 @@
-import { wordKey, type LibraryWord } from "../words";
+import { uniqueWords, wordKey, type LibraryWord } from "../words";
 
 const wordNumberPattern = /^\d{0,12}$/;
 
@@ -48,6 +48,11 @@ export function applyOperation(
   records: readonly WordRecord[], operation: SyncOperation, deviceId: string, revision: number,
 ): WordRecord[] {
   const next = new Map(records.map((record) => [wordKey(record), record]));
+  applyTo(next, operation, deviceId, revision);
+  return [...next.values()];
+}
+
+function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, deviceId: string, revision: number): void {
   operation.retained?.forEach(({ source, word }, index) => {
     const previous = next.get(wordKey(source));
     if (previous?.present && !next.has(wordKey(word))) {
@@ -71,15 +76,12 @@ export function applyOperation(
     const order = operation.kind === "import" ? -revision : revision;
     next.set(key, { ...record, present: true, order, index });
   });
-  return [...next.values()];
 }
 
 export function visibleWords(state: LibraryState): LibraryWord[] {
-  const records = state.pending.reduce(
-    (current, operation, index) => applyOperation(current, operation, state.snapshot.deviceId, state.snapshot.revision + index + 1),
-    state.snapshot.records,
-  );
-  return records.filter((record) => record.present)
+  const records = new Map(state.snapshot.records.map((record) => [wordKey(record), record]));
+  state.pending.forEach((operation, index) => applyTo(records, operation, state.snapshot.deviceId, state.snapshot.revision + index + 1));
+  return [...records.values()].filter((record) => record.present)
     .toSorted((left, right) => right.order - left.order || left.index - right.index || wordKey(left).localeCompare(wordKey(right)))
     .map(({ headword, word }) => ({ headword, word }));
 }
@@ -115,7 +117,7 @@ export function readWords(value: unknown, limit = maximumWords): LibraryWord[] {
   if (!Array.isArray(value) || value.length > limit || !value.every(isLibraryWord)) {
     throw new Error("400:Invalid words.");
   }
-  return [...new Map(value.map((word) => [wordKey(word), { headword: word.headword, word: word.word }])).values()];
+  return uniqueWords(value.map(({ headword, word }) => ({ headword, word })));
 }
 function readRetained(value: unknown, sources: LibraryWord[]) {
   if (!Array.isArray(value) || value.length > 1000) throw new Error("400:Invalid retained words.");
