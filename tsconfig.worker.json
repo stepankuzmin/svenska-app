@@ -10,10 +10,12 @@
     "strict": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "types": []
   },
   "include": [
-    "worker"
+    "worker",
+    ".cloudflare/types"
   ]
 }

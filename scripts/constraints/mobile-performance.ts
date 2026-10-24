@@ -1,6 +1,7 @@
 import { chromium, devices, expect } from "@playwright/test";
 import { resolve } from "node:path";
 import { preview } from "vite";
+import { assetsDirOf } from "./build-output";
 
 const expectLookup = expect.configure({ timeout: 120_000 });
 const dictionaryPattern = /lexin-dictionary\.[^/]+\.json$/;
@@ -11,6 +12,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_EXE
 async function measure(directory: string) {
   const server = await preview({
     configFile: false, logLevel: "silent", root: resolve(directory),
+    build: { outDir: await assetsDirOf(directory) },
     preview: { host: "127.0.0.1", port: 0, open: false },
   });
   try {

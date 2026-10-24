@@ -57,17 +57,17 @@ async function credentialOf(body: Record<string, unknown>, token: string): Promi
     !Number.isSafeInteger(body.sequence) || (body.sequence as number) < 0) throw new Error("400:Invalid device details.");
   return { id: identifier(body.deviceId), label: body.label.trim(), hash: await digest(token), sequence: body.sequence as number };
 }
-async function sessionOf(request: Request, env: Env) {
+async function sessionOf(request: Request, ctx: ExecutionContext) {
   const name = cookieName(request);
   const value = request.headers.get("Cookie")?.split(";").map((part) => part.trim())
     .find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1);
   if (!value) throw new Error("401:Connect this device to sync.");
   const [libraryId, deviceId, token] = value.split(".");
-  const stub = env.LIBRARIES.getByName(identifier(libraryId));
+  const stub = ctx.exports.LookupLibrary.getByName(identifier(libraryId));
   return { stub, libraryId, deviceId: identifier(deviceId), hash: await digest(tokenOf(token)), value };
 }
 
-async function confirmHuman(request: Request, env: Env & { TURNSTILE_SECRET?: string }, token: unknown): Promise<void> {
+async function confirmHuman(request: Request, env: Env, token: unknown): Promise<void> {
   if (typeof token !== "string" || !token || token.length > 2048) throw new Error("403:Complete the check that you are a person, then try again.");
   const response = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
     method: "POST",
@@ -81,14 +81,14 @@ async function confirmHuman(request: Request, env: Env & { TURNSTILE_SECRET?: st
   if (!result.success) throw new Error("403:Complete the check that you are a person, then try again.");
 }
 
-async function connect(request: Request, env: Env, path: string): Promise<Response> {
+async function connect(request: Request, env: Env, ctx: ExecutionContext, path: string): Promise<Response> {
   const body = await bodyOf(request);
   await confirmHuman(request, env, body.challenge);
   const words = readWords(body.words);
   const token = secret();
   const credential = await credentialOf(body, token);
   const libraryId = path === "libraries" ? crypto.randomUUID() : identifier(body.libraryId);
-  const stub = env.LIBRARIES.getByName(libraryId);
+  const stub = ctx.exports.LookupLibrary.getByName(libraryId);
   const recoveryToken = secret();
   const snapshot = path === "libraries"
     ? await stub.initialize(credential, words, await digest(recoveryToken))
@@ -99,8 +99,8 @@ async function connect(request: Request, env: Env, path: string): Promise<Respon
   }, 200, { "Set-Cookie": cookie(request, `${libraryId}.${credential.id}.${token}`) });
 }
 
-async function authenticated(request: Request, env: Env, path: string): Promise<Response> {
-  const { stub, libraryId, deviceId, hash, value } = await sessionOf(request, env);
+async function authenticated(request: Request, ctx: ExecutionContext, path: string): Promise<Response> {
+  const { stub, libraryId, deviceId, hash, value } = await sessionOf(request, ctx);
   const renewed = { "Set-Cookie": cookie(request, value) };
   if (request.method === "GET" && path === "library") return json(await stub.read(deviceId, hash), 200, renewed);
   if (request.method === "GET" && path === "revision") return json(await stub.revision(deviceId, hash), 200, renewed);
@@ -133,7 +133,7 @@ async function authenticated(request: Request, env: Env, path: string): Promise<
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
     if (!url.pathname.startsWith("/api/sync/")) return env.ASSETS.fetch(request);
     if (url.pathname === "/api/sync/health" && request.method === "GET") return json({ ok: true });
@@ -147,8 +147,8 @@ export default {
         const limit = await env.SYNC_LIMIT.limit({ key: request.headers.get("CF-Connecting-IP") ?? "local" });
         if (!limit.success) return json({ error: "Please wait a minute before trying again." }, 429, { "Retry-After": "60" });
       }
-      if (request.method === "POST" && ["libraries", "join", "recover"].includes(path)) return await connect(request, env, path);
-      return await authenticated(request, env, path);
+      if (request.method === "POST" && ["libraries", "join", "recover"].includes(path)) return await connect(request, env, ctx, path);
+      return await authenticated(request, ctx, path);
     } catch (error) {
       const message = error instanceof Error ? error.message : "";
       const expected = expectedErrorPattern.exec(message);

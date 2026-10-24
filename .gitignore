@@ -8,6 +8,5 @@ playwright-report/
 test-results/
 .wrangler/
 coverage/
-worker/env.d.ts
+.cloudflare/
 .dev.vars*
-wrangler.preview.json
