@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
-import {
-  createSearch,
-  hasDictionaryAssetShape,
-  hasDictionaryDetailsShape,
-  type LookupOutcome,
-} from "./dictionary";
+import type { LookupOutcome } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
 import { useLookupSession } from "./use-lookup-session";
+const SyncControl = lazy(() => import("./sync-control").catch(() => ({ default: () => <></> })));
 import "./lookup-experience.css";
 
 if ("serviceWorker" in navigator) {
@@ -28,18 +24,15 @@ type LookupState =
   | { kind: "unavailable-offline" }
   | { kind: "failed" };
 
-function readDeepLinkQuery(): string {
-  return new URLSearchParams(window.location.search).get("q") ?? "";
-}
 
 function LookupApp() {
-  const { session, dispatch } = useLookupSession({ initialQuery: readDeepLinkQuery() });
-  const pendingDeepLinkQuery = useRef(readDeepLinkQuery());
+  const pendingDeepLinkQuery = useRef(new URLSearchParams(location.search).get("q") ?? "");
+  const { session, dispatch, storageError } = useLookupSession({ initialQuery: pendingDeepLinkQuery.current });
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
   const { query } = session;
   const outcome = useMemo<LookupOutcome | null>(
-    () => (lookupState.kind === "ready" && query.trim().length > 0 ? lookupState.search(query) : null),
+    () => (lookupState.kind === "ready" ? lookupState.search(query) : null),
     [lookupState, query],
   );
 
@@ -47,16 +40,16 @@ function LookupApp() {
     async function loadAsset(url: string): Promise<unknown> {
       const response = await fetch(url);
       if (!response.ok) {
-        throw new Error(`${url} responded ${response.status}.`);
+        throw new Error("Dictionary unavailable.");
       }
       return response.json();
     }
 
     async function load() {
       const detailsRequest = loadAsset(dictionaryDetailsAssetUrl).catch(() => null);
-      const asset = await loadAsset(dictionaryAssetUrl);
+      const [asset, { createSearch, hasDictionaryAssetShape, hasDictionaryDetailsShape }] = await Promise.all([loadAsset(dictionaryAssetUrl), import("./dictionary-search")]);
       if (!hasDictionaryAssetShape(asset)) {
-        throw new Error("Dictionary asset has an invalid format.");
+        throw new Error("Dictionary unavailable.");
       }
       setLookupState({
         kind: "ready",
@@ -98,8 +91,10 @@ function LookupApp() {
 
   return (
     <LookupExperience
+      syncControl={<Suspense fallback={null}><SyncControl /></Suspense>}
       query={query}
       status={lookupState.kind}
+      storageError={storageError}
       outcome={outcome}
       entries={lookupState.kind === "ready" ? lookupState.entries : null}
       details={dictionaryDetails}

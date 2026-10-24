@@ -1,5 +1,7 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
+test.use({ serviceWorkers: "block" });
+
 const fikaNoun = /^fika substantiv/;
 const valNoun = /^val substantiv выбор/;
 const tackThenFika = [/tack/, /fika/];
@@ -145,6 +147,7 @@ test("an extended card closes its heading across the card and keeps its details 
   await query.press("Enter");
 
   const card = page.locator(".word-card[open]");
+  await expect(card.getByText("[²fi:ka]", { exact: true })).toBeVisible();
   const heading = (await card.locator("summary").boundingBox())!;
   const details = (await card.locator(".word-card-details").boundingBox())!;
   const headword = (await card.locator("summary strong").boundingBox())!;
@@ -277,7 +280,7 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(2);
-  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18439" },
     { headword: "val", word: "18440" },
   ]);
@@ -300,7 +303,7 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("выбор");
-  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18440" },
   ]);
 });
@@ -349,6 +352,12 @@ test("every suggestion reads the same way whether it has forms or not", async ({
 });
 
 test("a library stored as spellings opens every word those spellings hold", async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!sessionStorage.getItem("legacy-library-seeded")) {
+      localStorage.setItem("svenska.lookup-library", JSON.stringify(["val", "tack"]));
+      sessionStorage.setItem("legacy-library-seeded", "yes");
+    }
+  });
   await page.goto(".");
   await page.evaluate(
     () => localStorage.setItem("svenska.lookup-library", JSON.stringify(["val", "tack"])),
@@ -357,7 +366,7 @@ test("a library stored as spellings opens every word those spellings hold", asyn
 
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(3);
-  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18439" },
     { headword: "val", word: "18440" },
     { headword: "tack", word: "103" },
@@ -403,7 +412,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
 
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
-  expect(JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
     { headword: "val", word: "18440" },
   ]);
 });
