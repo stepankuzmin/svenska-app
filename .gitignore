@@ -10,3 +10,4 @@ test-results/
 coverage/
 .cloudflare/
 .dev.vars*
+.claude/worktrees/

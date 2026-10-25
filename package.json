@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "prepare": "[ -n \"$CI\" ] || git config core.hooksPath .githooks 2>/dev/null || true",
     "build": "npm run dictionary:build && npm run worker:types && tsc -b && cf build",
     "dev": "npm run dictionary:build && vite",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
