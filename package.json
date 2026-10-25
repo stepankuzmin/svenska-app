@@ -26,7 +26,7 @@
     "worker:check": "cf deploy --prebuilt --dry-run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.104.2",
+    "@tanstack/react-query": "^5.104.5",
     "@vitejs/plugin-react": "latest",
     "fast-xml-parser": "latest",
     "idb": "^8.0.4",
@@ -42,20 +42,20 @@
     "@cloudflare/vite-plugin": "^2.0.0-beta.v.4",
     "@e18e/eslint-plugin": "^0.8.1",
     "@playwright/test": "^1.64.1",
-    "@size-limit/file": "^14.2.0",
+    "@size-limit/file": "^14.3.0",
     "@types/node": "latest",
     "@types/qrcode": "^1.5.6",
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "^5.0.5",
     "cf": "^1.0.0-beta.21",
-    "fake-indexeddb": "^6.2.5",
-    "oxlint": "^1.88.0",
+    "fake-indexeddb": "^6.2.6",
+    "oxlint": "^1.89.0",
     "size-limit": "^14.0.0",
     "tsx": "latest",
     "typescript": "latest",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "latest",
-    "wrangler": "^4.149.0"
+    "wrangler": "^4.152.0"
   }
 }
