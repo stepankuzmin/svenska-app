@@ -35,16 +35,18 @@ Card additions, removals, and ordering sync. Search text and the extended card s
 
 ## Local Worker development
 
+`npm run dev` serves the app and its SQLite-backed sync service together, with hot reload. To run the built app instead:
+
 ```sh
 npm run build
 npm run worker:dev
 ```
 
-The built app and its SQLite-backed sync service run together at `http://127.0.0.1:4173`. Local service data is kept under `.wrangler/local`; it does not use production bindings. For frontend hot reload, also run `npm run dev` in another terminal; Vite proxies `/api` and WebSockets to the local Worker.
+It serves at `http://127.0.0.1:4173`. Local runs keep service data under `.cloudflare/state` and use Turnstile test keys, not production bindings.
 
-`npm run worker:types` generates the runtime and binding declarations from `wrangler.jsonc`. Builds and typechecks run it automatically. `npm run worker:check` validates deployment packaging without publishing.
+`npm run worker:types` generates the runtime and binding declarations from `cloudflare.config.ts`. Builds and typechecks run it automatically. `npm run worker:check` validates the last build's deployment packaging without publishing.
 
-The browser tests run the built application against local Wrangler. CI deploys each eligible pull request to a separate `svenska-app-pr-N` Worker, giving it separate Durable Object and rate-limit namespaces. These preview URLs are public, as the earlier version previews were. Production keeps the `svenska-app` Worker. Preview Workers retain their data until removed through Cloudflare.
+The browser tests run the built application locally. CI deploys each eligible pull request to a separate `svenska-app-pr-N` Worker, giving it separate Durable Object and rate-limit namespaces. These preview URLs are public, as the earlier version previews were. Production keeps the `svenska-app` Worker. Preview Workers retain their data until removed through Cloudflare.
 
 See [the sync design](docs/lookup-library-sync.md) for protocol and recovery behaviour.
 

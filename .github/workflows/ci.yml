@@ -13,6 +13,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  DEPLOY_MODE: ${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || 'production' }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -61,12 +64,6 @@ jobs:
         run: npx playwright install --with-deps chromium webkit
       - name: Generate dictionary and build application
         run: npm run build
-      - name: Validate dictionary release
-        run: npm run release:check
-      - name: Validate Worker packaging
-        run: npm run worker:check
-      - name: Check size budgets
-        run: npm run check:size
       - name: Run built PWA journey
         run: npm run test:browser:release
       - name: Upload browser failure traces
@@ -76,11 +73,20 @@ jobs:
           name: browser-failure-traces
           path: test-results
           retention-days: 3
-      - name: Upload validated site
+      - name: Build the Worker to deploy
+        run: npx cf build --mode "$DEPLOY_MODE"
+      - name: Validate dictionary release
+        run: npm run release:check
+      - name: Check size budgets
+        run: npm run check:size
+      - name: Validate Worker packaging
+        run: npm run worker:check -- --mode "$DEPLOY_MODE"
+      - name: Upload validated build
         uses: actions/upload-artifact@v7
         with:
-          name: site
-          path: dist
+          name: build-output
+          path: .cloudflare/output
+          include-hidden-files: true
           retention-days: 1
 
   deploy:
@@ -96,7 +102,7 @@ jobs:
       WRANGLER_OUTPUT_FILE_PATH: wrangler-output.ndjson
     environment:
       name: ${{ github.event_name == 'pull_request' && format('pr-preview-{0}', github.event.pull_request.number) || 'production' }}
-      url: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
+      url: ${{ steps.deploy.outputs.url }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -107,42 +113,20 @@ jobs:
           cache: npm
       - name: Install deployment dependencies
         run: npm ci
-      - name: Download validated site
+      - name: Download validated build
         uses: actions/download-artifact@v8
         with:
-          name: site
-          path: dist
-      - name: Deploy an isolated preview Worker
-        if: github.event_name == 'pull_request'
-        id: preview
-        env:
-          PREVIEW_NUMBER: ${{ github.event.pull_request.number }}
+          name: build-output
+          path: .cloudflare/output
+      - name: Deploy the Worker
+        id: deploy
         run: |
-          node --input-type=module - <<'JS'
-          import { readFileSync, writeFileSync } from 'node:fs';
-          const config = JSON.parse(readFileSync('wrangler.jsonc', 'utf8'));
-          config.name += `-pr-${process.env.PREVIEW_NUMBER}`;
-          config.ratelimits = config.ratelimits.map((binding) => ({
-            ...binding,
-            namespace_id: String(Number(binding.namespace_id) + Number(process.env.PREVIEW_NUMBER) * 10_000),
-          }));
-          config.preview_urls = false;
-          config.vars = { ...config.vars, TURNSTILE_SITE_KEY: '1x00000000000000000000AA', TURNSTILE_SECRET: '1x0000000000000000000000000000000AA' };
-          writeFileSync('wrangler.preview.json', JSON.stringify(config));
-          JS
-          npx wrangler deploy --config wrangler.preview.json
-          jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
-            "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
-      - name: Deploy to production
-        if: github.event_name != 'pull_request'
-        id: production
-        run: |
-          npx wrangler deploy
-          jq -r 'select(.type == "deploy") | "url=" + .targets[0]' \
+          npx cf deploy --prebuilt --mode "$DEPLOY_MODE"
+          jq -r 'select(.type == "deploy") | "url=" + .targets[0], "name=" + .worker_name' \
             "$WRANGLER_OUTPUT_FILE_PATH" >> "$GITHUB_OUTPUT"
       - name: Link the deployment
         env:
-          URL: ${{ steps.preview.outputs.url || steps.production.outputs.url }}
+          URL: ${{ steps.deploy.outputs.url }}
         run: echo "[$URL]($URL)" >> "$GITHUB_STEP_SUMMARY"
       - name: Install preview test browsers
         if: github.event_name == 'pull_request'
@@ -150,10 +134,11 @@ jobs:
       - name: Test deployed preview pairing and sync
         if: github.event_name == 'pull_request'
         env:
-          SYNC_TEST_BASE_URL: ${{ steps.preview.outputs.url }}
+          SYNC_TEST_BASE_URL: ${{ steps.deploy.outputs.url }}
+          WORKER_NAME: ${{ steps.deploy.outputs.name }}
         run: |
           test -n "$SYNC_TEST_BASE_URL"
-          npx wrangler tail --config wrangler.preview.json --format pretty --search sync-request-failed > "$RUNNER_TEMP/sync-errors.log" 2>&1 &
+          npx wrangler tail "$WORKER_NAME" --format pretty --search sync-request-failed > "$RUNNER_TEMP/sync-errors.log" 2>&1 &
           tail_pid=$!
           trap 'kill "$tail_pid" 2>/dev/null || true' EXIT
           tail_deadline=$((SECONDS + 30))

@@ -1,0 +1,17 @@
+#!/bin/sh
+head=$(git rev-parse HEAD)
+check=
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case $local_sha in *[!0]*) ;; *) continue ;; esac
+  if [ "$(git rev-parse "$local_sha^{commit}")" != "$head" ]; then
+    echo "pre-push: check out $local_ref and push from it, because check:fast runs on the working tree" >&2
+    exit 1
+  fi
+  check=1
+done
+[ -n "$check" ] || exit 0
+if [ -n "$(git status --porcelain)" ]; then
+  echo 'pre-push: commit or stash (git stash -u) your changes first, because check:fast runs on the working tree' >&2
+  exit 1
+fi
+exec npm run check:fast

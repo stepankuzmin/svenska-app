@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "build": "npm run dictionary:build && npm run worker:types && tsc -b && vite build",
+    "prepare": "[ -n \"$CI\" ] || git config core.hooksPath .githooks 2>/dev/null || true",
+    "build": "npm run dictionary:build && npm run worker:types && tsc -b && cf build",
     "dev": "npm run dictionary:build && vite",
     "dictionary:build": "tsx scripts/build-dictionary.ts",
     "test:browser": "npm run build && playwright test",
@@ -21,9 +22,9 @@
     "check:fast": "npm run typecheck && npm run lint && npm run check:floor",
     "check:task": "npm run check:fast && npm run check:coverage && npm run build && npm run check:size",
     "check:full": "npm run check:task && npm run release:check && npm run test:browser:release",
-    "worker:types": "wrangler types worker/env.d.ts",
-    "worker:dev": "wrangler dev --ip 127.0.0.1 --port 4173 --persist-to .wrangler/local --var TURNSTILE_SITE_KEY:1x00000000000000000000AA TURNSTILE_SECRET:1x0000000000000000000000000000000AA",
-    "worker:check": "wrangler deploy --dry-run"
+    "worker:types": "cf workers types",
+    "worker:dev": "cf build --mode test && vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "worker:check": "cf deploy --prebuilt --dry-run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
@@ -38,6 +39,8 @@
     "@tanstack/query-core": "^5.104.2"
   },
   "devDependencies": {
+    "@cloudflare/build-output-utils": "^0.9.4",
+    "@cloudflare/vite-plugin": "^2.0.0-beta.v.4",
     "@e18e/eslint-plugin": "^0.8.1",
     "@playwright/test": "^1.64.1",
     "@size-limit/file": "^14.3.0",
@@ -46,6 +49,7 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "^5.0.5",
+    "cf": "^1.0.0-beta.21",
     "fake-indexeddb": "^6.2.6",
     "oxlint": "^1.89.0",
     "size-limit": "^14.0.0",

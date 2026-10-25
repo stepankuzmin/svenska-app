@@ -1,3 +1,4 @@
+import { getWorkerAssetsDir } from "@cloudflare/build-output-utils";
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
@@ -61,7 +62,7 @@ export async function validateDictionaryRelease({
 async function main(): Promise<void> {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   await validateDictionaryRelease({
-    directory: resolve(repositoryRoot, "dist"),
+    directory: getWorkerAssetsDir(repositoryRoot),
     sourceEditionDate: "2010-07-07",
   });
 }

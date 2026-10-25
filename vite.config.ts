@@ -1,3 +1,5 @@
+import { getWorkerAssetsDir } from "@cloudflare/build-output-utils";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import { build, defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
@@ -9,11 +11,11 @@ let transportVersion = "";
 
 export default defineConfig({
   build: { target: "esnext", modulePreload: { polyfill: false } },
-  server: { proxy: { "/api": { target: "http://127.0.0.1:4173", ws: true } } },
   plugins: [
     {
       name: "sync-transport-url",
       apply: "build",
+      applyToEnvironment: (environment) => environment.name === "client",
       async buildStart() {
         const output = await build({
           configFile: false, logLevel: "silent",
@@ -34,9 +36,11 @@ export default defineConfig({
       },
     },
     react(),
-    VitePWA({
+    cloudflare(),
+    ...VitePWA({
       injectRegister: false,
       registerType: "autoUpdate",
+      outDir: getWorkerAssetsDir(fileURLToPath(new URL(".", import.meta.url))),
       workbox: {
         skipWaiting: true,
         clientsClaim: true,
@@ -53,6 +57,6 @@ export default defineConfig({
         background_color: "#f1f1ef",
         display: "standalone",
       },
-    }),
+    }).map((plugin) => ({ ...plugin, applyToEnvironment: (environment: { name: string }) => environment.name === "client" })),
   ],
 });

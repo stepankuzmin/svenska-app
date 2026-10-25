@@ -4,12 +4,14 @@ import { glob } from "node:fs/promises";
 import { join, relative, resolve } from "node:path";
 import sizeLimit from "size-limit";
 import { z } from "zod";
+import { assetsDirOf } from "./build-output";
 
 const baseDir = process.argv[2];
 if (!baseDir) throw new Error("usage: size-report.ts <base checkout> [mobile.json]");
-const checks = z.array(z.object({
+const checksSchema = z.array(z.object({
   name: z.string(), path: z.union([z.string(), z.array(z.string())]), limit: z.string().optional(),
-})).parse(JSON.parse(readFileSync(".size-limit.json", "utf8")));
+}));
+const checksOf = (dir: string) => checksSchema.parse(JSON.parse(readFileSync(join(dir, ".size-limit.json"), "utf8")));
 const comparison = z.object({ current: z.number().nonnegative(), base: z.number().nonnegative() });
 const timings = process.argv[3]
   ? z.object({ cold: comparison, offline: comparison }).parse(JSON.parse(readFileSync(process.argv[3], "utf8")))
@@ -23,7 +25,7 @@ async function measure(dir: string, paths: string[]): Promise<number> {
 
 const dictionaryPattern = /[/\\]lexin-(dictionary|details)\.[^/\\]+\.json$/;
 async function assets(dir: string) {
-  const files = await Array.fromAsync(glob("dist/**/*", { cwd: resolve(dir), withFileTypes: true }));
+  const files = await Array.fromAsync(glob("**/*", { cwd: await assetsDirOf(dir), withFileTypes: true }));
   const paths = files.filter((file) => file.isFile()).map((file) => join(file.parentPath, file.name));
   const dictionary = (path: string) => dictionaryPattern.test(path);
   return {
@@ -47,10 +49,14 @@ for (const [key, label] of [["cold", "Cold mobile lookup"], ["offline", "Cached 
   console.log(timing ? row(label, timing.current, timing.base, seconds) : `| ${label} | Not measured | Not measured | – |`);
 }
 console.log("\nTimings: median of 3 fresh Pixel 7 browser contexts per mode and build, 4× CPU slowdown; cold: 1.6 Mbps down, 150 ms latency. Compressed (gzip) Vite production preview, not a physical phone or the deployed edge. Cold service workers are blocked so every download is network-throttled. Offline uses a separate context with the normal service worker, a cached reload and a different lookup. A lookup completes when its result cards are visible.\n\n<details>\n<summary>Startup size guards</summary>\n\n| Measure | Main | PR | Diff |\n|---|---|---|---|");
-for (const check of checks.filter((check) => check.limit)) {
+async function guard(dir: string, check: z.infer<typeof checksSchema>[number] | undefined) {
+  if (!check) return 0;
   const paths = typeof check.path === "string" ? [check.path] : check.path;
-  const current = await measure(".", [...new Set(await Array.fromAsync(glob(paths, { cwd: "." })))]);
-  const base = await measure(baseDir, [...new Set(await Array.fromAsync(glob(paths, { cwd: baseDir })))]);
-  console.log(row(check.name, current, base, kB));
+  return measure(dir, [...new Set(await Array.fromAsync(glob(paths, { cwd: dir })))]);
+}
+const baseChecks = checksOf(baseDir);
+for (const check of checksOf(".").filter((check) => check.limit)) {
+  const base = baseChecks.find((candidate) => candidate.name === check.name);
+  console.log(row(check.name, await guard(".", check), await guard(baseDir, base), kB));
 }
 console.log("\nEnforced by `check:size`. Application assets count each shipped file once, including optional features and the service worker; dictionary files are separate.\n\n</details>");

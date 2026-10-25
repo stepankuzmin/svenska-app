@@ -2,48 +2,48 @@
   {
     "name": "App JS",
     "path": [
-      "dist/assets/index-*.js",
-      "dist/assets/words-*.js",
-      "dist/assets/jsx-runtime-*.js",
-      "dist/assets/dictionary-search-*.js",
-      "dist/assets/session-bridge-*.js",
-      "dist/assets/store-*.js",
-      "dist/assets/model-*.js",
-      "dist/assets/load-transport-*.js",
-      "dist/assets/sync-control-*.js",
-      "dist/assets/status-*.js",
-      "dist/assets/word-card-details-*.js"
+      ".cloudflare/output/v0/workers/default/assets/assets/index-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/words-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/jsx-runtime-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/dictionary-search-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/session-bridge-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/store-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/model-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/load-transport-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/sync-control-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/status-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/word-card-details-*.js"
     ],
     "limit": "100 kB"
   },
   {
     "name": "App CSS",
-    "path": "dist/assets/index-*.css",
+    "path": ".cloudflare/output/v0/workers/default/assets/assets/index-*.css",
     "limit": "2.50 kB"
   },
   {
     "name": "Dictionary release: lookup file",
-    "path": "dist/lexin-dictionary.*.json"
+    "path": ".cloudflare/output/v0/workers/default/assets/lexin-dictionary.*.json"
   },
   {
     "name": "Dictionary release: word-detail file",
-    "path": "dist/lexin-details.*.json"
+    "path": ".cloudflare/output/v0/workers/default/assets/lexin-details.*.json"
   },
   {
     "name": "HTML",
-    "path": "dist/index.html",
+    "path": ".cloudflare/output/v0/workers/default/assets/index.html",
     "limit": "0.45 kB"
   },
   {
     "name": "Web manifest",
-    "path": "dist/manifest.webmanifest"
+    "path": ".cloudflare/output/v0/workers/default/assets/manifest.webmanifest"
   },
   {
     "name": "Service worker",
-    "path": "dist/sw.js"
+    "path": ".cloudflare/output/v0/workers/default/assets/sw.js"
   },
   {
     "name": "Workbox runtime",
-    "path": "dist/workbox-*.js"
+    "path": ".cloudflare/output/v0/workers/default/assets/workbox-*.js"
   }
 ]

@@ -6,21 +6,23 @@ import { brotliCompressSync } from "node:zlib";
 import { afterEach, expect, test } from "vitest";
 
 const scratch: string[] = [];
+const layouts = { head: ".cloudflare/output/v0/workers/default/assets", base: "dist" };
 afterEach(() => { for (const path of scratch.splice(0)) rmSync(path, { recursive: true, force: true }); });
 
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), "size-report-"));
   scratch.push(root);
-  for (const dir of ["head", "base"]) {
-    mkdirSync(join(root, dir, "dist/assets"), { recursive: true });
-    writeFileSync(join(root, dir, "dist/assets/index-123.js"), "hello app");
-    writeFileSync(join(root, dir, "dist/lexin-dictionary.123.json"), "lookup");
-    writeFileSync(join(root, dir, "dist/lexin-details.123.json"), "details");
-    writeFileSync(join(root, dir, "dist/sw.js"), "worker");
+  for (const [dir, assets] of Object.entries(layouts)) {
+    mkdirSync(join(root, dir, assets, "assets"), { recursive: true });
+    writeFileSync(join(root, dir, "vite.config.mjs"), `export default { build: { outDir: "${assets}" } };`);
+    writeFileSync(join(root, dir, assets, "assets/index-123.js"), "hello app");
+    writeFileSync(join(root, dir, assets, "lexin-dictionary.123.json"), "lookup");
+    writeFileSync(join(root, dir, assets, "lexin-details.123.json"), "details");
+    writeFileSync(join(root, dir, assets, "sw.js"), "worker");
+    writeFileSync(join(root, dir, ".size-limit.json"), JSON.stringify([
+      { name: "App JS", path: [`${assets}/assets/*.js`, `${assets}/assets/index-*.js`], limit: "65 kB" },
+    ]));
   }
-  writeFileSync(join(root, "head/.size-limit.json"), JSON.stringify([
-    { name: "App JS", path: ["dist/assets/*.js", "dist/assets/index-*.js"], limit: "65 kB" },
-  ]));
   return root;
 }
 function report(root: string, timing?: string) {
@@ -30,7 +32,7 @@ function report(root: string, timing?: string) {
 }
 const size = (...contents: string[]) => `${(contents.reduce((sum, content) => sum + brotliCompressSync(content).length, 0) / 1000).toFixed(2)} kB`;
 
-test("groups shipped assets and dictionaries without double counting overlapping guards", () => {
+test("compares with a base that builds to another folder, grouping shipped assets and dictionaries without double counting overlapping guards", () => {
   const result = report(fixture());
   expect(result).toContain(`| Application assets (brotli) | ${size("hello app", "worker")} |`);
   expect(result).toContain(`| Dictionary downloads (brotli) | ${size("lookup", "details")} |`);
