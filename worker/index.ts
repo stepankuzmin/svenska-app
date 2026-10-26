@@ -1,4 +1,4 @@
-import { readOperations, readWords } from "../src/sync/model";
+import { maximumRequestBytes, readOperations, readWords } from "../src/sync/model";
 import { LookupLibrary, type DeviceCredential } from "./library";
 export { LookupLibrary };
 
@@ -33,7 +33,7 @@ async function bodyOf(request: Request): Promise<Record<string, unknown>> {
     const chunk = await reader.read();
     if (chunk.done) break;
     length += chunk.value.byteLength;
-    if (length > 2 * 1024 * 1024) { await reader.cancel(); throw new Error("413:Request is too large."); }
+    if (length > maximumRequestBytes) { await reader.cancel(); throw new Error("413:Request is too large."); }
     chunks.push(chunk.value);
   }
   const bytes = new Uint8Array(length);
