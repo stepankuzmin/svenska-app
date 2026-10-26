@@ -135,7 +135,7 @@ export function readOperations(value: unknown): SyncOperation[] {
     if (!item || !Number.isSafeInteger(item.sequence) || (item.sequence ?? 0) < 1 ||
       !Number.isSafeInteger(item.baseRevision) || (item.baseRevision ?? -1) < 0 ||
       !["open", "remove", "import"].includes(item.kind ?? "")) throw new Error("400:Invalid operation.");
-    const words = readWords(item.words, 1000);
+    const words = readWords(item.words);
     if (words.length === 0) throw new Error("400:An operation must name a word.");
     const retained = item.retained === undefined ? undefined : readRetained(item.retained, words);
     if (retained && item.kind !== "remove") throw new Error("400:Only removal can retain sibling words.");

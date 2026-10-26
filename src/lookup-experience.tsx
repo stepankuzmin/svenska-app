@@ -17,6 +17,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
+import { isList, pastedListText, wordsOpenedBy, type PastedLine } from "./lookup-session";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
@@ -35,7 +36,9 @@ type LookupExperienceProps = {
   libraryWords: readonly LibraryWord[];
   expandedCard: string | null;
   opens: number;
+  pastedList: readonly PastedLine[] | null;
   onQueryChange: (query: string) => void;
+  onPasteList: (text: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectSuggestion: (choice: LookupChoice) => void;
   onToggleCard: (card: string) => void;
@@ -112,7 +115,7 @@ const WordCard = memo(function WordCard({
             onToggle(item.card);
           }}
         >
-          <span className="word-card-disclosure" aria-hidden="true" />
+          <span className="word-card-disclosure" aria-hidden="true"><span /></span>
           {copy}
         </summary>
 
@@ -227,6 +230,25 @@ const SuggestionMenu = memo(function SuggestionMenu({
   );
 });
 
+function PastedListStatus({ pastedList, entries }: { pastedList: readonly PastedLine[]; entries: DictionaryAsset["entries"] }) {
+  const [copied, setCopied] = useState<{ pastedList: readonly PastedLine[]; label: string } | null>(null);
+  const added = wordsOpenedBy({ kind: "pasted", pastedList }).length;
+  return (
+    <div className="lookup-status" role="status">
+      Added {added} {added === 1 ? "word" : "words"}
+      <button
+        type="button"
+        onClick={() => {
+          navigator.clipboard.writeText(pastedListText({ pastedList, entries }))
+            .then(() => setCopied({ pastedList, label: "Copied" }), () => setCopied({ pastedList, label: "Copy failed" }));
+        }}
+      >
+        {copied?.pastedList === pastedList ? copied.label : "Copy"}
+      </button>
+    </div>
+  );
+}
+
 export function LookupExperience(props: LookupExperienceProps) {
   // The field owns the urgent update; a hundred suggestion rows render behind
   // it, so a keystroke never waits on the list it will replace.
@@ -324,7 +346,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   // Focusing from a tap on the page keeps the keyboard a gesture away without
   // making the user land on the field itself.
   function focusFieldFromBackground(target: EventTarget) {
-    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, a") === null) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, a, button") === null) {
       queryInput.current?.focus();
     }
   }
@@ -357,6 +379,15 @@ export function LookupExperience(props: LookupExperienceProps) {
             setRenderedSuggestionCount(suggestionBatchSize);
           }}
           onPointerDown={() => setAutocompleteOpen(hasQuery)}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData("text/plain");
+            if (!isList(text)) {
+              return;
+            }
+
+            event.preventDefault();
+            props.onPasteList(text);
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -445,6 +476,10 @@ export function LookupExperience(props: LookupExperienceProps) {
         {props.status === "failed" ? "Dictionary did not load. Reload to retry." : null}
         {props.storageError ? "Cannot save words. Reload when online." : null}
       </div>
+
+      {props.pastedList !== null && props.entries !== null ? (
+        <PastedListStatus pastedList={props.pastedList} entries={props.entries} />
+      ) : null}
 
       {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">

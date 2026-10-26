@@ -134,7 +134,7 @@ describe("dictionary lookup", () => {
       headword: "hus",
       senses: dictionary.entries.hus,
       suggestions: [
-        { displayWord: "hus", word: { headword: "hus", word: "102" }, language: "sv", exact: true, form: "husvagn" },
+        { displayWord: "hus", word: { headword: "hus", word: "102" }, language: "sv", exact: true, form: "husvagn", related: true },
       ],
     });
   });
@@ -150,7 +150,7 @@ describe("dictionary lookup", () => {
   it("offers a word whose compound the query begins after every word whose forms contain it", () => {
     expect(choicesOf(search("hemv"))).toEqual([
       { displayWord: "hemvist", word: { headword: "hemvist", word: "109" }, language: "sv", exact: false, form: "hemvist" },
-      { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist" },
+      { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist", related: true },
     ]);
     // A substring that only a compound holds finds nothing.
     expect(search("vagn")).toEqual({ kind: "no-match" });
@@ -163,7 +163,7 @@ describe("dictionary lookup", () => {
       senses: dictionary.entries.hemvist,
       suggestions: [
         { displayWord: "hemvist", word: { headword: "hemvist", word: "109" }, language: "sv", exact: true, form: "hemvist" },
-        { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist" },
+        { displayWord: "hem", word: { headword: "hem", word: "103" }, language: "sv", exact: false, form: "hemvist", related: true },
       ],
     });
   });

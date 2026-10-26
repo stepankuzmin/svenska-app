@@ -17,13 +17,15 @@ type LookupResult = {
 // and the translation for a Russian one, and `exact` tells whether the query
 // spells it in full. `form` is the indexed Swedish form a Swedish choice
 // matched, which a suggestion shows when its forms leave it out: the
-// comparative `abnormare` offers `abnorm`.
+// comparative `abnormare` offers `abnorm`. `related` marks a choice offered
+// for a compound or derivation Lexin lists under the word, which is `form`.
 export type LookupChoice = {
   displayWord: string;
   word: LibraryWord;
   language: "ru" | "sv";
   exact: boolean;
   form?: string;
+  related?: true;
 };
 
 export type LookupOutcome =

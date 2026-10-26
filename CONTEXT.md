@@ -75,6 +75,8 @@ A Russian query shows every Swedish word with a translation containing the enter
 
 Typing previews matching words in the lookup autocomplete without adding them to the lookup library. Submitting an exact word opens that lookup and adds every word its spelling holds to the library, across headwords where several hold a Swedish spelling; choosing a suggestion adds the one word it names.
 
+Pasting several lines into the field opens, as one lookup, every Swedish word the lines spell, in the order of the lines. A line reads like a teacher's list: `- kriminalitet = brottslighet - ` names both words and leaves a blank for their Russian, and a line that only spells a compound another word lists names nothing. The field then counts the words added and offers to copy the lines back: a line that names words takes ` - ` and their Russian, separated by commas, in its blank, and every other line comes back as pasted. A `?q=` link that names several words, in repeated `q` values or in lines, reads like a pasted list.
+
 A swipe to the left across a word card removes that word from the lookup library, and nothing else does.
 
 The lookup interface contains the lookup autocomplete and the lookup library. A compact Sync devices control beside the attribution opens optional pairing, device management, and recovery. The search field receives focus when the app starts, and holds a clear control while it contains text: clearing empties the field, closes the autocomplete, and keeps the focus and the lookup library. This keeps the first keystroke path free of navigation, submit controls, and explanatory content.

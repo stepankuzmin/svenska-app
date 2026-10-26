@@ -5,6 +5,7 @@ test.use({ serviceWorkers: "block" });
 const fikaNoun = /^fika substantiv/;
 const valNoun = /^val substantiv выбор/;
 const tackThenFika = [/tack/, /fika/];
+const fikaThenTack = [/fika/, /tack/];
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
@@ -205,6 +206,91 @@ test("a q link opens its exact match rather than previewing it", async ({ page }
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("fika");
+});
+
+test("a q link naming several words opens them like a pasted list", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await page.goto("./?q=fika&q=zzz&q=tack");
+
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+  await expect(page.getByText("Added 2 words")).toBeVisible();
+  await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("");
+  expect(pageErrors).toEqual([]);
+});
+
+async function pasteIntoField(page: Page, text: string) {
+  await page.getByLabel("Swedish or Russian word").evaluate((input, pasted) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", pasted);
+    input.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+  }, text);
+}
+
+test("a pasted list opens every line's words in line order", async ({ page }) => {
+  await page.goto("./");
+  await pasteIntoField(page, "fika\nskjuta ihjäl\ntack\n");
+
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+  await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("");
+  await expect(page.getByText("Added 2 words")).toBeVisible();
+});
+
+test("a list pasted while the dictionary loads opens once it is ready", async ({ page }) => {
+  let release = () => {};
+  const loading = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/lexin-dictionary.*.json", async (route) => {
+    await loading;
+    await route.fallback();
+  });
+  await page.goto("./");
+  await pasteIntoField(page, "- fika - \n- tack - \n");
+  release();
+
+  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+});
+
+test("copying a pasted list gives back its lines with their Russian", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: async (text: string) => { document.documentElement.dataset.copied = text; } },
+    });
+  });
+  await page.goto("./");
+  await pasteIntoField(page, "fika\nskjuta ihjäl\ntack\n");
+
+  await page.getByRole("button", { name: "Copy" }).click();
+  await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+  await expect(page.getByLabel("Swedish or Russian word")).not.toBeFocused();
+  await expect(page.locator("html")).toHaveAttribute("data-copied", "fika - перерыв на кофе\nskjuta ihjäl\ntack - спасибо\n");
+
+  await pasteIntoField(page, "tack\nzzz\n");
+  await expect(page.getByText("Added 1 word")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Copy", exact: true })).toBeVisible();
+});
+
+test("a card's disclosure centres on the lowercase letters of its headword", async ({ page }) => {
+  await page.goto("./?q=fika");
+  const summary = page.locator(".word-card summary").first();
+  await expect(summary).toBeVisible();
+
+  const offset = await summary.evaluate((element) => {
+    const chevron = element.querySelector(".word-card-disclosure span")!.getBoundingClientRect();
+    const lowercase = document.createElement("span");
+    lowercase.style.cssText = "display: inline-block; block-size: 1ex; vertical-align: baseline";
+    element.querySelector(".word-card-heading strong")!.append(lowercase);
+    const middle = lowercase.getBoundingClientRect();
+    lowercase.remove();
+    return (chevron.top + chevron.bottom - middle.top - middle.bottom) / 2;
+  });
+  expect(Math.abs(offset)).toBeLessThan(0.5);
+});
+
+test("a q link naming one word on a line of its own opens it as before", async ({ page }) => {
+  await page.goto("./?q=%D0%B2%D1%8B%0A");
+
+  await expect(page.locator(".word-card-list > li")).toHaveCount(1);
+  await expect(page.locator(".word-card-list > li").first()).toContainText("ni");
 });
 
 test("a q link opens a word two index entries lead to once", async ({ page }) => {

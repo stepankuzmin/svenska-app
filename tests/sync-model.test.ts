@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOperation, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
+import { applyOperation, maximumWords, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const tea = { headword: "te", word: "123" };
@@ -87,6 +87,9 @@ describe("sync semantics", () => {
       expect(() => readWords(value, 1)).toThrow("Invalid words");
     }
     expect(readOperations([op("open", 1)])).toEqual([op("open", 1)]);
+    const many = Array.from({ length: maximumWords + 1 }, (_, index) => ({ headword: `w${index}`, word: "1" }));
+    expect(readOperations([op("open", 1, 0, many.slice(1))])[0].words).toHaveLength(maximumWords);
+    expect(() => readOperations([op("open", 1, 0, many)])).toThrow("Invalid words");
     for (const value of [null, [], [null], [op("open", 0)], [op("open", 1, -1)], [{ ...op("open", 1), kind: "unknown" }], [op("open", 1, 0, [])]]) {
       expect(() => readOperations(value)).toThrow();
     }
