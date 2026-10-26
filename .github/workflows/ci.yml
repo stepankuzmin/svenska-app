@@ -235,6 +235,7 @@ jobs:
         env:
           SYNC_TEST_BASE_URL: ${{ needs.deploy.outputs.url }}
           WORKER_NAME: ${{ needs.deploy.outputs.name }}
+        shell: bash
         run: |
           test -n "$SYNC_TEST_BASE_URL"
           npx wrangler tail "$WORKER_NAME" --format pretty --search sync-request-failed > "$RUNNER_TEMP/sync-errors.log" 2>&1 &
