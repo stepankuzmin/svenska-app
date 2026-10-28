@@ -1,0 +1,99 @@
+.pasted-list {
+  background: var(--lookup-card);
+  border: 1px solid var(--lookup-line);
+  border-radius: .75rem;
+  margin-block-end: 1rem;
+}
+
+.pasted-list-lines {
+  list-style: none;
+  margin: 0;
+  padding: .35rem 0;
+}
+
+.pasted-line {
+  color: var(--lookup-ink);
+  font-size: var(--text-body);
+  line-height: 1.3;
+  padding: .45rem .8rem .45rem 2rem;
+  position: relative;
+}
+
+.pasted-line span + span::before { content: "; " / ""; }
+
+.pasted-line label { cursor: pointer; display: block; }
+
+.pasted-line input {
+  accent-color: var(--lookup-blue);
+  block-size: 1.05rem;
+  inline-size: 1.05rem;
+  inset-inline-start: .65rem;
+  margin: 0;
+  position: absolute;
+  top: .6rem;
+  z-index: 1;
+}
+
+.pasted-line label::after {
+  content: "";
+  inset: 0;
+  position: absolute;
+}
+
+.pasted-line[data-state="known"] { color: var(--lookup-muted); }
+.pasted-line[data-state="known"]::before {
+  content: "✓" / "";
+  inset-inline-start: .8rem;
+  position: absolute;
+}
+
+.pasted-line[data-state="unmatched"] {
+  color: var(--lookup-muted);
+  font-style: italic;
+}
+
+.pasted-list-preview {
+  font: inherit;
+  font-size: var(--text-body);
+  line-height: 1.4;
+  margin: 0;
+  padding: .8rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.pasted-list-actions {
+  border-block-start: 1px solid var(--lookup-soft-line);
+  display: flex;
+  gap: .5rem;
+  justify-content: flex-end;
+  padding: .6rem .8rem;
+}
+
+.pasted-list-actions button {
+  background: none;
+  border: 0;
+  border-radius: .5rem;
+  color: var(--lookup-blue);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-body);
+  min-block-size: 2.75rem;
+  padding-inline: .9rem;
+}
+
+.pasted-list-actions .pasted-list-primary {
+  background: var(--lookup-blue);
+  color: #fff;
+  font-weight: 600;
+}
+
+.pasted-list-actions .pasted-list-primary:disabled {
+  background: var(--lookup-control);
+  color: var(--lookup-muted);
+  cursor: default;
+}
+
+@media (prefers-color-scheme: dark) {
+  .pasted-list-actions .pasted-list-primary { background: #075eb8; }
+}

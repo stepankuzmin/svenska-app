@@ -74,9 +74,9 @@ function LookupApp() {
     });
   }, []);
 
-  // A ?q= link or a pasted list waits here for the dictionary. A link naming
-  // one word opens its exact match the way submitting the field does, so an
-  // iOS Shortcut can hand the app a word and land on the card.
+  // A link naming one word opens its exact match the way submitting the field
+  // does, so an iOS Shortcut can hand the app a word and land on the card.
+  // Several words open a review, as a pasted list does.
   useEffect(() => {
     if (lookupState.kind !== "ready" || pendingLookup.length === 0) {
       return;
@@ -84,7 +84,7 @@ function LookupApp() {
 
     setPendingLookup("");
     dispatch(isList(pendingLookup)
-      ? { kind: "pasted", pastedList: pastedLinesOf(pendingLookup, lookupState.search) }
+      ? { kind: "pasted", lines: pastedLinesOf(pendingLookup, lookupState.search) }
       : { kind: "deep-linked", outcome: lookupState.search(pendingLookup) });
   }, [lookupState, pendingLookup]);
 
@@ -108,6 +108,8 @@ function LookupApp() {
       pastedList={session.pastedList}
       onQueryChange={(nextQuery) => dispatch({ kind: "query-changed", query: nextQuery })}
       onPasteList={setPendingLookup}
+      onAddList={(lines, words) => dispatch({ kind: "list-added", lines, words })}
+      onCloseList={() => dispatch({ kind: "list-closed" })}
       onSubmit={submit}
       onSelectSuggestion={(choice) => dispatch({ kind: "picked", choice })}
       onToggleCard={(card) => dispatch({ kind: "card-toggled", card })}

@@ -17,7 +17,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
-import { isList, pastedListText, wordsOpenedBy, type PastedLine } from "./lookup-session";
+import { isList, type PastedLine, type PastedList } from "./lookup-session";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
@@ -36,7 +36,9 @@ type LookupExperienceProps = {
   libraryWords: readonly LibraryWord[];
   expandedCard: string | null;
   opens: number;
-  pastedList: readonly PastedLine[] | null;
+  pastedList: PastedList | null;
+  onAddList: (lines: readonly PastedLine[], words: readonly LibraryWord[]) => void;
+  onCloseList: () => void;
   onQueryChange: (query: string) => void;
   onPasteList: (text: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
@@ -47,6 +49,10 @@ type LookupExperienceProps = {
 
 const WordCardDetails = lazy(() => import("./word-card-details").catch(() => ({
   default: () => <div className="word-card-details" role="status">Reload to view word details.</div>,
+})));
+
+const PastedListReview = lazy(() => import("./pasted-list-review").catch(() => ({
+  default: () => <div className="lookup-status" role="status">Reload to review the pasted list.</div>,
 })));
 
 const suggestionBatchSize = 100;
@@ -230,25 +236,6 @@ const SuggestionMenu = memo(function SuggestionMenu({
   );
 });
 
-function PastedListStatus({ pastedList, entries }: { pastedList: readonly PastedLine[]; entries: DictionaryAsset["entries"] }) {
-  const [copied, setCopied] = useState<{ pastedList: readonly PastedLine[]; label: string } | null>(null);
-  const added = wordsOpenedBy({ kind: "pasted", pastedList }).length;
-  return (
-    <div className="lookup-status" role="status">
-      Added {added} {added === 1 ? "word" : "words"}
-      <button
-        type="button"
-        onClick={() => {
-          navigator.clipboard.writeText(pastedListText({ pastedList, entries }))
-            .then(() => setCopied({ pastedList, label: "Copied" }), () => setCopied({ pastedList, label: "Copy failed" }));
-        }}
-      >
-        {copied?.pastedList === pastedList ? copied.label : "Copy"}
-      </button>
-    </div>
-  );
-}
-
 export function LookupExperience(props: LookupExperienceProps) {
   // The field owns the urgent update; a hundred suggestion rows render behind
   // it, so a keystroke never waits on the list it will replace.
@@ -346,7 +333,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   // Focusing from a tap on the page keeps the keyboard a gesture away without
   // making the user land on the field itself.
   function focusFieldFromBackground(target: EventTarget) {
-    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, a, button") === null) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, .pasted-list, a, button") === null) {
       queryInput.current?.focus();
     }
   }
@@ -386,6 +373,8 @@ export function LookupExperience(props: LookupExperienceProps) {
             }
 
             event.preventDefault();
+            // The keyboard would cover the review the list opens.
+            event.currentTarget.blur();
             props.onPasteList(text);
           }}
           onKeyDown={(event) => {
@@ -478,7 +467,15 @@ export function LookupExperience(props: LookupExperienceProps) {
       </div>
 
       {props.pastedList !== null && props.entries !== null ? (
-        <PastedListStatus pastedList={props.pastedList} entries={props.entries} />
+        <Suspense fallback={null}>
+          <PastedListReview
+            pastedList={props.pastedList}
+            entries={props.entries}
+            libraryWords={props.libraryWords}
+            onAdd={props.onAddList}
+            onClose={props.onCloseList}
+          />
+        </Suspense>
       ) : null}
 
       {library.length > 0 ? (

@@ -12,15 +12,19 @@ export type LookupSession = {
   libraryWords: readonly LibraryWord[];
   expandedCard: string | null;
   opens: number;
-  pastedList: readonly PastedLine[] | null;
+  pastedList: PastedList | null;
 };
 
 export type PastedLine = { line: string; words: readonly LibraryWord[] };
 
+export type PastedList = { lines: readonly PastedLine[]; added: boolean };
+
 const lineBreak = /\r?\n/u;
-const listMarker = /^\s*(?:[-*+]|\d+[.)])\s+/u;
-const emptyGloss = /\s+-\s*$/u;
-const gloss = /\s-\s/u;
+const nonWordMarks = /[^\p{L}\p{M}\s-]+/u;
+const looseHyphen = /(?<!\p{L})-|-(?!\p{L})/u;
+const separator = new RegExp(`${nonWordMarks.source}|${looseHyphen.source}`, "u");
+const russian = /\p{Script=Cyrillic}/u;
+const emptyGloss = /\s*[-–—:]\s*$/u;
 
 export type LookupSessionEvent =
   | { kind: "query-changed"; query: string }
@@ -28,7 +32,9 @@ export type LookupSessionEvent =
   | { kind: "submitted"; outcome: LookupOutcome | null }
   | { kind: "picked"; choice: Pick<LookupChoice, "word"> }
   | { kind: "deep-linked"; outcome: LookupOutcome }
-  | { kind: "pasted"; pastedList: readonly PastedLine[] }
+  | { kind: "pasted"; lines: readonly PastedLine[] }
+  | { kind: "list-added"; lines: readonly PastedLine[]; words: readonly LibraryWord[] }
+  | { kind: "list-closed" }
   | { kind: "card-toggled"; card: string }
   | { kind: "word-removed"; card: string };
 
@@ -42,11 +48,11 @@ function open(
   query: string,
 ): LookupSession {
   return {
+    ...session,
     query,
     libraryWords: addToLookupLibrary({ libraryWords: session.libraryWords, openedWords: words }),
     expandedCard: card,
     opens: session.opens + 1,
-    pastedList: null,
   };
 }
 
@@ -70,8 +76,7 @@ export function isList(text: string): boolean {
 }
 
 export function termsOf(line: string): string[] {
-  const terms = line.replace(listMarker, "").replace(emptyGloss, "");
-  return gloss.test(terms) ? [] : terms.split("=").map((term) => term.trim()).filter((term) => term.length > 0);
+  return line.split(separator).map((term) => term.trim()).filter((term) => term.length > 0);
 }
 
 export function pastedLinesOf(text: string, search: (query: string) => LookupOutcome): PastedLine[] {
@@ -82,25 +87,30 @@ export function pastedLinesOf(text: string, search: (query: string) => LookupOut
 }
 
 export function pastedListText({
-  pastedList,
+  lines,
   entries,
 }: {
-  pastedList: readonly PastedLine[];
+  lines: readonly PastedLine[];
   entries: DictionaryAsset["entries"];
 }): string {
-  return pastedList.map(({ line, words }) => {
+  return lines.map(({ line, words }) => {
     const translations = [...new Set(wordCards({ libraryWords: words, entries, details: null })
       .flatMap((card) => card.senses.map((sense) => sense.translation))
       .filter((translation) => translation.length > 0))];
-    return translations.length === 0 ? line : `${line.replace(emptyGloss, "").trimEnd()} - ${translations.join(", ")}`;
+    return russian.test(line) || translations.length === 0 ? line : `${line.replace(emptyGloss, "").trimEnd()} - ${translations.join(", ")}`;
   }).join("\n");
+}
+
+export function newWordsOf(words: readonly LibraryWord[], libraryWords: readonly LibraryWord[]): LibraryWord[] {
+  const known = new Set(libraryWords.map(wordKey));
+  return uniqueWords(words).filter((word) => !known.has(wordKey(word)));
 }
 
 export function wordsOpenedBy(event: LookupSessionEvent): LibraryWord[] {
   if (event.kind === "picked") return [event.choice.word];
   if (event.kind === "submitted") return exactWordsOf(event.outcome, false);
   if (event.kind === "deep-linked") return exactWordsOf(event.outcome, true);
-  if (event.kind === "pasted") return uniqueWords(event.pastedList.flatMap(({ words }) => words));
+  if (event.kind === "list-added") return [...event.words];
   return [];
 }
 
@@ -113,7 +123,7 @@ export function reduceLookupSession({
 }): LookupSession {
   switch (event.kind) {
     case "query-changed":
-      return { ...session, query: event.query, expandedCard: null, pastedList: null };
+      return { ...session, query: event.query, expandedCard: null };
     case "dictionary-loaded": {
       const libraryWords = resolveLibraryWords({ libraryWords: session.libraryWords, dictionary: event.dictionary });
       return libraryWords === session.libraryWords ? session : { ...session, libraryWords };
@@ -127,11 +137,15 @@ export function reduceLookupSession({
         ? session
         : open(session, words, wordKey(words[0]), query);
     }
-    case "pasted": {
+    case "pasted":
+      return { ...session, query: "", expandedCard: null, pastedList: { lines: event.lines, added: false } };
+    case "list-added": {
       const words = wordsOpenedBy(event);
       const opened = words.length === 0 ? session : open(session, words, wordKey(words[0]), "");
-      return { ...opened, pastedList: event.pastedList };
+      return { ...opened, pastedList: { lines: event.lines, added: true } };
     }
+    case "list-closed":
+      return { ...session, pastedList: null };
     case "picked":
       return open(session, [event.choice.word], wordKey(event.choice.word), "");
     case "card-toggled":

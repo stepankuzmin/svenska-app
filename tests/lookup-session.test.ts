@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LookupChoice, LookupOutcome } from "../src/dictionary";
-import { pastedLinesOf, pastedListText, reduceLookupSession, termsOf, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
+import { newWordsOf, pastedLinesOf, pastedListText, reduceLookupSession, termsOf, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
 
 const sense = (word: string) => ({ word, partOfSpeech: "subst.", meaning: "", translation: "" });
 const entries = {
@@ -121,25 +121,43 @@ describe("lookup session", () => {
     ]);
   });
 
-  it("opens every word of a pasted list as one lookup and keeps the list until the field changes", () => {
+  it("reviews a pasted list without adding a word", () => {
     const session = startLookupSession({ query: "fik", libraryWords: [katt] });
-    const pastedList = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }, { line: "val", words: [val1, val2, fika] }];
-    const next = run(session, { kind: "pasted", pastedList });
-    expect(next).toEqual({ query: "", libraryWords: [fika, val1, val2, katt], expandedCard: "fika#5", opens: 1, pastedList });
-    expect(run(next, { kind: "query-changed", query: "k" }).pastedList).toBeNull();
+    const lines = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }];
+    expect(run(session, { kind: "pasted", lines })).toEqual({ ...session, query: "", pastedList: { lines, added: false } });
   });
 
-  it("keeps a pasted list that opens no word without opening anything", () => {
+  it("adds every reviewed word as one lookup and keeps the list to copy until it closes", () => {
     const session = startLookupSession({ query: "", libraryWords: [katt] });
-    const pastedList = [{ line: "skjuta ihjäl", words: [] }];
-    expect(run(session, { kind: "pasted", pastedList })).toEqual({ ...session, pastedList });
+    const lines = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }, { line: "val", words: [val1, val2, fika] }];
+    const added = run(run(session, { kind: "pasted", lines }), { kind: "list-added", lines, words: [fika, val1, val2] });
+    expect(added).toEqual({ query: "", libraryWords: [fika, val1, val2, katt], expandedCard: "fika#5", opens: 1, pastedList: { lines, added: true } });
+    expect(run(added, { kind: "query-changed", query: "k" }).pastedList).toEqual({ lines, added: true });
+    expect(run(added, { kind: "list-closed" }).pastedList).toBeNull();
   });
 
-  it("reads the terms of a list line", () => {
+  it("cancels a review without adding a word", () => {
+    const session = startLookupSession({ query: "", libraryWords: [katt] });
+    const reviewed = run(session, { kind: "pasted", lines: [{ line: "fika", words: [fika] }] });
+    expect(run(reviewed, { kind: "list-closed" })).toEqual(session);
+  });
+
+  it("replaces an open review with the next pasted list", () => {
+    const session = startLookupSession({ query: "", libraryWords: [] });
+    const next = [{ line: "val", words: [val1] }];
+    const reviewed = run(run(session, { kind: "pasted", lines: [{ line: "fika", words: [fika] }] }), { kind: "pasted", lines: next });
+    expect(reviewed.pastedList).toEqual({ lines: next, added: false });
+  });
+
+  it("counts only the words the library does not hold yet", () => {
+    expect(newWordsOf([fika, val1, fika, katt], [katt])).toEqual([fika, val1]);
+  });
+
+  it("reads every run of letters on a line as a term", () => {
     expect(termsOf("- kriminalitet = brottslighet - ")).toEqual(["kriminalitet", "brottslighet"]);
     expect(termsOf("2. skjuta ihjäl")).toEqual(["skjuta ihjäl"]);
-    expect(termsOf("brott - перелом")).toEqual([]);
-    expect(termsOf("- kriminalitet = brottslighet - преступность")).toEqual([]);
+    expect(termsOf("* brott - перелом, преступление")).toEqual(["brott", "перелом", "преступление"]);
+    expect(termsOf("- **sopkärl** (= ämbar = hink) - ")).toEqual(["sopkärl", "ämbar", "hink"]);
     expect(termsOf("- e-post - ")).toEqual(["e-post"]);
     expect(termsOf("- ")).toEqual([]);
   });
@@ -155,14 +173,17 @@ describe("lookup session", () => {
     };
     expect(pastedListText({
       entries: translated,
-      pastedList: [
+      lines: [
         { line: "- val - ", words: [val1, val2] },
         { line: "skjuta ihjäl", words: [] },
         { line: "", words: [] },
         { line: "fika  ", words: [fika] },
         { line: "droger", words: [{ headword: "drog", word: "9" }] },
+        { line: "val - кит", words: [val1] },
+        { line: "fika –", words: [fika] },
+        { line: "fika:", words: [fika] },
       ],
-    })).toBe("- val - кит, выбор\nskjuta ihjäl\n\nfika - перерыв на кофе\ndroger - наркотик");
+    })).toBe("- val - кит, выбор\nskjuta ihjäl\n\nfika - перерыв на кофе\ndroger - наркотик\nval - кит\nfika - перерыв на кофе\nfika - перерыв на кофе");
   });
 
   it("ignores a deep link that names no exact word", () => {
