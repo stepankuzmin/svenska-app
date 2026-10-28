@@ -236,6 +236,7 @@ test.describe("a pasted list on a phone", () => {
 
   test("a review shows every line's state and adds nothing until asked", async ({ page }) => {
     await page.goto("./?q=tack");
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
     await pasteIntoField(page, "- fika - \nskjuta ihjäl\ntack\nспасибо\n");
 
     await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("list")).toMatchAriaSnapshot(`
@@ -325,6 +326,7 @@ test.describe("a pasted list on a phone", () => {
   test("a list the library already holds still copies with Russian", async ({ page }) => {
     await page.goto("./?q=fika&q=tack");
     await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
     await page.getByRole("button", { name: "Done" }).click();
     await pasteIntoField(page, "fika\ntack\n");
 
