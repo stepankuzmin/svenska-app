@@ -117,7 +117,7 @@ describe("opening words", () => {
 });
 
 function removeWord(libraryWords: readonly (typeof whale)[], card: string) {
-  const session = { query: "", libraryWords, expandedCard: null, opens: 0 };
+  const session = { query: "", libraryWords, expandedCard: null, opens: 0, pastedList: null };
   return reduceLookupSession({ session, event: { kind: "word-removed", card } }).libraryWords;
 }
 

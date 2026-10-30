@@ -1,5 +1,5 @@
 import { QueryClient } from "@tanstack/query-core";
-import type { LibrarySnapshot } from "./model";
+import { batchOf, type LibrarySnapshot } from "./model";
 import type { LibraryStore, Remote } from "./store";
 
 export const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, networkMode: "always", staleTime: 0 } } });
@@ -105,7 +105,7 @@ export function createRemote(store: LibraryStore): Remote {
       const state = await store.reload();
       if (stopped) return;
       if (state.snapshot.deviceId !== expected.snapshot.deviceId || state.snapshot.libraryId !== libraryId) { store.releaseRemote(remote); return; }
-      const operations = state.pending.slice(0, 100);
+      const operations = batchOf(state.pending);
       if (operations.length === 0) break;
       store.setStatus("saving");
       const confirmed = await request<LibrarySnapshot>("operations", { operations });

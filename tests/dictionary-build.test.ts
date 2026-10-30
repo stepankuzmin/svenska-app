@@ -288,6 +288,7 @@ describe("Lexin source edition import", () => {
       language: "sv",
       exact: true,
       form: "beroendeframkallande",
+      related: true,
     });
   });
 

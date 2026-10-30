@@ -17,6 +17,7 @@ import {
 } from "react";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
+import { isList, type PastedLine, type PastedList } from "./lookup-session";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
@@ -35,7 +36,11 @@ type LookupExperienceProps = {
   libraryWords: readonly LibraryWord[];
   expandedCard: string | null;
   opens: number;
+  pastedList: PastedList | null;
+  onAddList: (lines: readonly PastedLine[], words: readonly LibraryWord[]) => void;
+  onCloseList: () => void;
   onQueryChange: (query: string) => void;
+  onPasteList: (text: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectSuggestion: (choice: LookupChoice) => void;
   onToggleCard: (card: string) => void;
@@ -44,6 +49,10 @@ type LookupExperienceProps = {
 
 const WordCardDetails = lazy(() => import("./word-card-details").catch(() => ({
   default: () => <div className="word-card-details" role="status">Reload to view word details.</div>,
+})));
+
+const PastedListReview = lazy(() => import("./pasted-list-review").catch(() => ({
+  default: () => <div className="lookup-status" role="status">Reload to review the pasted list.</div>,
 })));
 
 const suggestionBatchSize = 100;
@@ -112,7 +121,7 @@ const WordCard = memo(function WordCard({
             onToggle(item.card);
           }}
         >
-          <span className="word-card-disclosure" aria-hidden="true" />
+          <span className="word-card-disclosure" aria-hidden="true"><span /></span>
           {copy}
         </summary>
 
@@ -324,7 +333,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   // Focusing from a tap on the page keeps the keyboard a gesture away without
   // making the user land on the field itself.
   function focusFieldFromBackground(target: EventTarget) {
-    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, a") === null) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, .pasted-list, a, button") === null) {
       queryInput.current?.focus();
     }
   }
@@ -357,6 +366,17 @@ export function LookupExperience(props: LookupExperienceProps) {
             setRenderedSuggestionCount(suggestionBatchSize);
           }}
           onPointerDown={() => setAutocompleteOpen(hasQuery)}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData("text/plain");
+            if (!isList(text)) {
+              return;
+            }
+
+            event.preventDefault();
+            // The keyboard would cover the review the list opens.
+            event.currentTarget.blur();
+            props.onPasteList(text);
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
               return;
@@ -445,6 +465,18 @@ export function LookupExperience(props: LookupExperienceProps) {
         {props.status === "failed" ? "Dictionary did not load. Reload to retry." : null}
         {props.storageError ? "Cannot save words. Reload when online." : null}
       </div>
+
+      {props.pastedList !== null && props.entries !== null ? (
+        <Suspense fallback={null}>
+          <PastedListReview
+            pastedList={props.pastedList}
+            entries={props.entries}
+            libraryWords={props.libraryWords}
+            onAdd={props.onAddList}
+            onClose={props.onCloseList}
+          />
+        </Suspense>
+      ) : null}
 
       {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">

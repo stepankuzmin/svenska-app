@@ -4,6 +4,8 @@ const wordNumberPattern = /^\d{0,12}$/;
 
 export const protocolVersion = 2;
 export const maximumWords = 20_000;
+export const maximumRequestBytes = 2 * 1024 * 1024;
+const maximumBatch = 100;
 export class SnapshotValidationError extends Error { name = "SnapshotValidationError"; }
 
 export type WordRecord = LibraryWord & {
@@ -129,13 +131,24 @@ function readRetained(value: unknown, sources: LibraryWord[]) {
     return { source: item.source, word: item.word };
   });
 }
+export function batchOf(pending: readonly SyncOperation[]): SyncOperation[] {
+  const batch: SyncOperation[] = [];
+  let bytes = '{"operations":[]}'.length;
+  for (const operation of pending.slice(0, maximumBatch)) {
+    bytes += new TextEncoder().encode(JSON.stringify(operation)).length + 1;
+    if (batch.length > 0 && bytes > maximumRequestBytes) break;
+    batch.push(operation);
+  }
+  return batch;
+}
+
 export function readOperations(value: unknown): SyncOperation[] {
-  if (!Array.isArray(value) || value.length === 0 || value.length > 100) throw new Error("400:Invalid operations.");
+  if (!Array.isArray(value) || value.length === 0 || value.length > maximumBatch) throw new Error("400:Invalid operations.");
   return value.map((item: Partial<SyncOperation>) => {
     if (!item || !Number.isSafeInteger(item.sequence) || (item.sequence ?? 0) < 1 ||
       !Number.isSafeInteger(item.baseRevision) || (item.baseRevision ?? -1) < 0 ||
       !["open", "remove", "import"].includes(item.kind ?? "")) throw new Error("400:Invalid operation.");
-    const words = readWords(item.words, 1000);
+    const words = readWords(item.words);
     if (words.length === 0) throw new Error("400:An operation must name a word.");
     const retained = item.retained === undefined ? undefined : readRetained(item.retained, words);
     if (retained && item.kind !== "remove") throw new Error("400:Only removal can retain sibling words.");

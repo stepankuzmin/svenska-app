@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applyOperation, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
+import { applyOperation, batchOf, maximumRequestBytes, maximumWords, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const tea = { headword: "te", word: "123" };
@@ -80,6 +80,15 @@ describe("sync semantics", () => {
     }
     expect(() => readOperations([{ ...removal, kind: "open" }])).toThrow("Only removal");
   });
+  it("batches queued operations into requests the Worker accepts", () => {
+    const words = Array.from({ length: maximumWords }, (_, index) => ({ headword: `ordförråd${index}`, word: "12345" }));
+    const batch = batchOf([1, 2, 3].map((sequence) => op("open", sequence, 0, words)));
+    expect(batch.map(({ sequence }) => sequence)).toEqual([1, 2]);
+    expect(new TextEncoder().encode(JSON.stringify({ operations: batch })).length).toBeLessThanOrEqual(maximumRequestBytes);
+    expect(batchOf(Array.from({ length: 150 }, (_, index) => op("open", index + 1)))).toHaveLength(100);
+    const oversized = op("open", 1, 0, words.map(({ headword }) => ({ headword: headword.padEnd(200, "x"), word: "1" })));
+    expect(batchOf([oversized, op("open", 2)])).toEqual([oversized]);
+  });
   it("validates bounded words and operations before accepting network input", () => {
     expect(readWords([whale, whale])).toEqual([whale]);
     expect(readWords([{ headword: "val", word: "" }])).toHaveLength(1);
@@ -87,6 +96,9 @@ describe("sync semantics", () => {
       expect(() => readWords(value, 1)).toThrow("Invalid words");
     }
     expect(readOperations([op("open", 1)])).toEqual([op("open", 1)]);
+    const many = Array.from({ length: maximumWords + 1 }, (_, index) => ({ headword: `w${index}`, word: "1" }));
+    expect(readOperations([op("open", 1, 0, many.slice(1))])[0].words).toHaveLength(maximumWords);
+    expect(() => readOperations([op("open", 1, 0, many)])).toThrow("Invalid words");
     for (const value of [null, [], [null], [op("open", 0)], [op("open", 1, -1)], [{ ...op("open", 1), kind: "unknown" }], [op("open", 1, 0, [])]]) {
       expect(() => readOperations(value)).toThrow();
     }

@@ -15,7 +15,7 @@ function withLibraryMotion(apply: () => void) {
 
 export function useLookupSession({ initialQuery }: { initialQuery: string }) {
   const [session, setSession] = useState<LookupSession>(() => ({
-    query: initialQuery, libraryWords: readLookupLibrary(), expandedCard: null, opens: 0,
+    query: initialQuery, libraryWords: readLookupLibrary(), expandedCard: null, opens: 0, pastedList: null,
   }));
   const latest = useRef(session);
   const [storageError, setStorageError] = useState(false);

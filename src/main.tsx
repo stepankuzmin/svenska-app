@@ -1,9 +1,10 @@
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupOutcome } from "./dictionary";
 import { dictionaryAssetUrl, dictionaryDetailsAssetUrl } from "./generated/dictionary-asset";
 import { LookupExperience } from "./lookup-experience";
+import { isList, pastedLinesOf } from "./lookup-session";
 import { useLookupSession } from "./use-lookup-session";
 const SyncControl = lazy(() => import("./sync-control").catch(() => ({ default: () => <></> })));
 import "./lookup-experience.css";
@@ -24,12 +25,13 @@ type LookupState =
   | { kind: "unavailable-offline" }
   | { kind: "failed" };
 
+const linkedText = new URLSearchParams(location.search).getAll("q").join("\n");
 
 function LookupApp() {
-  const pendingDeepLinkQuery = useRef(new URLSearchParams(location.search).get("q") ?? "");
-  const { session, dispatch, storageError } = useLookupSession({ initialQuery: pendingDeepLinkQuery.current });
+  const { session, dispatch, storageError } = useLookupSession({ initialQuery: isList(linkedText) ? "" : linkedText });
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
+  const [pendingLookup, setPendingLookup] = useState(linkedText);
   const { query } = session;
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" ? lookupState.search(query) : null),
@@ -72,17 +74,19 @@ function LookupApp() {
     });
   }, []);
 
-  // A ?q= link opens its exact match the way submitting the field does, so an
-  // iOS Shortcut can hand the app a word and land on the card.
+  // A link naming one word opens its exact match the way submitting the field
+  // does, so an iOS Shortcut can hand the app a word and land on the card.
+  // Several words open a review, as a pasted list does.
   useEffect(() => {
-    if (lookupState.kind !== "ready" || pendingDeepLinkQuery.current.length === 0) {
+    if (lookupState.kind !== "ready" || pendingLookup.length === 0) {
       return;
     }
 
-    const lookupQuery = pendingDeepLinkQuery.current;
-    pendingDeepLinkQuery.current = "";
-    dispatch({ kind: "deep-linked", outcome: lookupState.search(lookupQuery) });
-  }, [lookupState]);
+    setPendingLookup("");
+    dispatch(isList(pendingLookup)
+      ? { kind: "pasted", lines: pastedLinesOf(pendingLookup, lookupState.search) }
+      : { kind: "deep-linked", outcome: lookupState.search(pendingLookup) });
+  }, [lookupState, pendingLookup]);
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,7 +105,11 @@ function LookupApp() {
       libraryWords={session.libraryWords}
       expandedCard={session.expandedCard}
       opens={session.opens}
+      pastedList={session.pastedList}
       onQueryChange={(nextQuery) => dispatch({ kind: "query-changed", query: nextQuery })}
+      onPasteList={setPendingLookup}
+      onAddList={(lines, words) => dispatch({ kind: "list-added", lines, words })}
+      onCloseList={() => dispatch({ kind: "list-closed" })}
       onSubmit={submit}
       onSelectSuggestion={(choice) => dispatch({ kind: "picked", choice })}
       onToggleCard={(card) => dispatch({ kind: "card-toggled", card })}

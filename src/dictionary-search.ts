@@ -200,7 +200,7 @@ function offerRelatedWords({ entries, swedishQuery, offer }: {
 
     const rank = normalizedDisplayWord === swedishQuery ? relatedRank : relatedPrefixRank;
     for (const word of words) {
-      offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form) }, rank);
+      offer({ displayWord: cleanLexinText(word.headword), word, language: "sv", form: cleanLexinText(form), related: true }, rank);
     }
   }
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LookupChoice, LookupOutcome } from "../src/dictionary";
-import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
+import { newWordsOf, pastedLinesOf, pastedListText, reduceLookupSession, termsOf, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
 
 const sense = (word: string) => ({ word, partOfSpeech: "subst.", meaning: "", translation: "" });
 const entries = {
@@ -20,7 +20,7 @@ const choice = (word: typeof val1, exact: boolean): LookupChoice => ({
 });
 
 function startLookupSession({ query, libraryWords }: Pick<LookupSession, "query" | "libraryWords">): LookupSession {
-  return { query, libraryWords, expandedCard: null, opens: 0 };
+  return { query, libraryWords, expandedCard: null, opens: 0, pastedList: null };
 }
 
 function run(session: LookupSession, event: LookupSessionEvent) {
@@ -43,6 +43,7 @@ describe("lookup session", () => {
       libraryWords: [val1, val2, katt],
       expandedCard: "val#1",
       opens: 1,
+      pastedList: null,
     });
   });
 
@@ -54,6 +55,7 @@ describe("lookup session", () => {
       libraryWords: [val2, katt],
       expandedCard: "val#2",
       opens: 1,
+      pastedList: null,
     });
   });
 
@@ -68,6 +70,7 @@ describe("lookup session", () => {
       libraryWords: [val2, fika, katt],
       expandedCard: "val#2",
       opens: 1,
+      pastedList: null,
     });
   });
 
@@ -84,6 +87,7 @@ describe("lookup session", () => {
       libraryWords: [val2, katt],
       expandedCard: "val#2",
       opens: 1,
+      pastedList: null,
     });
   });
 
@@ -101,6 +105,85 @@ describe("lookup session", () => {
     const next = run(session, { kind: "deep-linked", outcome });
     expect(next.libraryWords).toEqual([fika, katt]);
     expect(next.expandedCard).toBe("fika#5");
+  });
+
+  it("names the Swedish words every pasted line spells", () => {
+    const outcomes: Record<string, LookupOutcome> = {
+      fika: { kind: "result", headword: "fika", senses: entries.fika, suggestions: [choice(fika, true)] },
+      val: { ...result, suggestions: [choice(val1, true), choice(val2, true)] },
+      кит: { ...result, suggestions: [{ ...choice(val1, true), language: "ru" }] },
+      valfångst: { kind: "choices", choices: [{ ...choice(val1, true), form: "valfångst", related: true }] },
+    };
+    expect(pastedLinesOf("- fika = val - \nкит\nvalfångst", (term) => outcomes[term] ?? { kind: "no-match" })).toEqual([
+      { line: "- fika = val - ", words: [fika, val1, val2] },
+      { line: "кит", words: [] },
+      { line: "valfångst", words: [] },
+    ]);
+  });
+
+  it("reviews a pasted list without adding a word", () => {
+    const session = startLookupSession({ query: "fik", libraryWords: [katt] });
+    const lines = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }];
+    expect(run(session, { kind: "pasted", lines })).toEqual({ ...session, query: "", pastedList: { lines, added: false } });
+  });
+
+  it("adds every reviewed word as one lookup and keeps the list to copy until it closes", () => {
+    const session = startLookupSession({ query: "", libraryWords: [katt] });
+    const lines = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }, { line: "val", words: [val1, val2, fika] }];
+    const added = run(run(session, { kind: "pasted", lines }), { kind: "list-added", lines, words: [fika, val1, val2] });
+    expect(added).toEqual({ query: "", libraryWords: [fika, val1, val2, katt], expandedCard: "fika#5", opens: 1, pastedList: { lines, added: true } });
+    expect(run(added, { kind: "query-changed", query: "k" }).pastedList).toEqual({ lines, added: true });
+    expect(run(added, { kind: "list-closed" }).pastedList).toBeNull();
+  });
+
+  it("cancels a review without adding a word", () => {
+    const session = startLookupSession({ query: "", libraryWords: [katt] });
+    const reviewed = run(session, { kind: "pasted", lines: [{ line: "fika", words: [fika] }] });
+    expect(run(reviewed, { kind: "list-closed" })).toEqual(session);
+  });
+
+  it("replaces an open review with the next pasted list", () => {
+    const session = startLookupSession({ query: "", libraryWords: [] });
+    const next = [{ line: "val", words: [val1] }];
+    const reviewed = run(run(session, { kind: "pasted", lines: [{ line: "fika", words: [fika] }] }), { kind: "pasted", lines: next });
+    expect(reviewed.pastedList).toEqual({ lines: next, added: false });
+  });
+
+  it("counts only the words the library does not hold yet", () => {
+    expect(newWordsOf([fika, val1, fika, katt], [katt])).toEqual([fika, val1]);
+  });
+
+  it("reads every run of letters on a line as a term", () => {
+    expect(termsOf("- kriminalitet = brottslighet - ")).toEqual(["kriminalitet", "brottslighet"]);
+    expect(termsOf("2. skjuta ihjäl")).toEqual(["skjuta ihjäl"]);
+    expect(termsOf("* brott - перелом, преступление")).toEqual(["brott", "перелом", "преступление"]);
+    expect(termsOf("- **sopkärl** (= ämbar = hink) - ")).toEqual(["sopkärl", "ämbar", "hink"]);
+    expect(termsOf("- e-post - ")).toEqual(["e-post"]);
+    expect(termsOf("- ")).toEqual([]);
+  });
+
+  it("copies each pasted line back with its Russian and every other line as pasted", () => {
+    const translated = {
+      val: [{ ...sense("1"), translation: "кит" }, { ...sense("2"), translation: "выбор" }],
+      fika: [{ ...sense("5"), translation: "перерыв на кофе" }],
+      drog: [
+        { word: "9", partOfSpeech: "se", meaning: "", translation: "тянуть · тащить" },
+        { word: "9", partOfSpeech: "subst.", meaning: "", translation: "наркотик" },
+      ],
+    };
+    expect(pastedListText({
+      entries: translated,
+      lines: [
+        { line: "- val - ", words: [val1, val2] },
+        { line: "skjuta ihjäl", words: [] },
+        { line: "", words: [] },
+        { line: "fika  ", words: [fika] },
+        { line: "droger", words: [{ headword: "drog", word: "9" }] },
+        { line: "val - кит", words: [val1] },
+        { line: "fika –", words: [fika] },
+        { line: "fika:", words: [fika] },
+      ],
+    })).toBe("- val - кит, выбор\nskjuta ihjäl\n\nfika - перерыв на кофе\ndroger - наркотик\nval - кит\nfika - перерыв на кофе\nfika - перерыв на кофе");
   });
 
   it("ignores a deep link that names no exact word", () => {

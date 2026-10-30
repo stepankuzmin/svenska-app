@@ -5,6 +5,11 @@ test.use({ serviceWorkers: "block" });
 const fikaNoun = /^fika substantiv/;
 const valNoun = /^val substantiv выбор/;
 const tackThenFika = [/tack/, /fika/];
+const fikaThenTack = [/fika/, /tack/];
+const onlyTack = [/tack/];
+const fikaRow = /^fika/;
+const valRow = /^val/;
+const valsThenFikaThenTack = [/кит/, /выбор/, /fika/, /tack/];
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
@@ -205,6 +210,185 @@ test("a q link opens its exact match rather than previewing it", async ({ page }
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeVisible();
   await expect(page.getByRole("listbox")).toHaveCount(0);
   await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("fika");
+});
+
+async function pasteIntoField(page: Page, text: string) {
+  await page.getByLabel("Swedish or Russian word").evaluate((input, pasted) => {
+    const clipboardData = new DataTransfer();
+    clipboardData.setData("text/plain", pasted);
+    input.dispatchEvent(new ClipboardEvent("paste", { clipboardData, bubbles: true, cancelable: true }));
+  }, text);
+}
+
+test.describe("a pasted list on a phone", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  test("a q link naming several words opens a review before adding them", async ({ page }) => {
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.goto("./?q=fika&q=zzz&q=tack");
+
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("");
+    expect(pageErrors).toEqual([]);
+  });
+
+  test("a review shows every line's state and adds nothing until asked", async ({ page }) => {
+    await page.goto("./?q=tack");
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await pasteIntoField(page, "- fika - \nskjuta ihjäl\ntack\nспасибо\n");
+
+    await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("list")).toMatchAriaSnapshot(`
+      - list:
+        - listitem "fika перерыв на кофе, will be added":
+          - checkbox "fika перерыв на кофе" [checked]
+          - strong: fika
+          - text: перерыв на кофе
+        - listitem "skjuta ihjäl, no match": skjuta ihjäl
+        - listitem "tack спасибо, already in library":
+          - strong: tack
+          - text: спасибо
+        - listitem "спасибо, no match": спасибо
+    `);
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("region", { name: "Pasted list" })).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+  });
+
+  test("an unticked line adds nothing and copies as pasted", async ({ page }) => {
+    await page.goto("./");
+    await pasteIntoField(page, "fika\ntack\n");
+
+    await page.getByRole("checkbox", { name: fikaRow }).click();
+    await expect(page.getByLabel("Swedish or Russian word")).not.toBeFocused();
+    await page.getByRole("button", { name: "Add 1 word" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".pasted-list-preview")).toHaveText("fika\ntack - спасибо\n");
+  });
+
+  test("adding a reviewed list shows its copy and copies it with Russian", async ({ page, context, browserName }) => {
+    if (browserName === "chromium") await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    // WebKit denies clipboard reads to scripts, so a real paste reads it.
+    async function readClipboard() {
+      await page.evaluate(() => document.body.append(Object.assign(document.createElement("textarea"), { id: "clipboard" })));
+      await page.locator("#clipboard").focus();
+      await page.keyboard.press("ControlOrMeta+V");
+      const text = await page.locator("#clipboard").inputValue();
+      await page.locator("#clipboard").evaluate((element) => element.remove());
+      return text;
+    }
+    await page.goto("./");
+    await pasteIntoField(page, "fika\nskjuta ihjäl\ntack\n");
+
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\nskjuta ihjäl\ntack - спасибо\n");
+
+    await page.getByRole("button", { name: "Copy list with Russian" }).click();
+    await expect(page.getByRole("button", { name: "Copied" })).toBeVisible();
+    expect(await readClipboard()).toBe("fika - перерыв на кофе\nskjuta ihjäl\ntack - спасибо\n");
+
+    await page.getByLabel("Swedish or Russian word").fill("val");
+    await expect(page.getByRole("region", { name: "Pasted list" })).toBeVisible();
+    await page.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("region", { name: "Pasted list" })).toHaveCount(0);
+  });
+
+  test("a list pasted while the dictionary loads opens its review once it is ready", async ({ page }) => {
+    let release = () => {};
+    const loading = new Promise<void>((resolve) => { release = resolve; });
+    await page.route("**/lexin-dictionary.*.json", async (route) => {
+      await loading;
+      await route.fallback();
+    });
+    await page.goto("./");
+    await pasteIntoField(page, "- fika - \n- tack - \n");
+    release();
+
+    await expect(page.getByRole("button", { name: "Add 2 words" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Library" })).toHaveCount(0);
+  });
+
+  test("adding a list leaves a word the library holds where it was", async ({ page }) => {
+    await page.goto("./?q=fika&q=tack");
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await page.getByRole("button", { name: "Done" }).click();
+    await pasteIntoField(page, "tack\nval\n");
+
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(valsThenFikaThenTack);
+  });
+
+  test("a list the library already holds still copies with Russian", async ({ page }) => {
+    await page.goto("./?q=fika&q=tack");
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await page.getByRole("button", { name: "Done" }).click();
+    await pasteIntoField(page, "fika\ntack\n");
+
+    await page.getByRole("button", { name: "Show list with Russian" }).click();
+    await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\ntack - спасибо\n");
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+  });
+
+  test("a list pasted over an open review replaces it", async ({ page }) => {
+    await page.goto("./");
+    await pasteIntoField(page, "fika\ntack\n");
+    await pasteIntoField(page, "val\nzzz\n");
+
+    await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("listitem")).toHaveText([valRow, "zzz"]);
+  });
+
+  test("a list of only Russian lines offers nothing to add", async ({ page }) => {
+    await page.goto("./");
+    await pasteIntoField(page, "спасибо\nкит\n");
+
+    await expect(page.getByRole("button", { name: "Add 0 words" })).toBeDisabled();
+    await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("listitem")).toHaveText(["спасибо", "кит"]);
+  });
+
+  test("adding a list with reduced motion moves no card", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.addInitScript(() => {
+      document.startViewTransition = () => { throw new Error("view transition under reduced motion"); };
+    });
+    const pageErrors: string[] = [];
+    page.on("pageerror", (error) => pageErrors.push(error.message));
+    await page.goto("./");
+    await pasteIntoField(page, "fika\ntack\n");
+
+    await page.getByRole("button", { name: "Add 2 words" }).click();
+    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    expect(pageErrors).toEqual([]);
+  });
+});
+
+test("a card's disclosure centres on the lowercase letters of its headword", async ({ page }) => {
+  await page.goto("./?q=fika");
+  const summary = page.locator(".word-card summary").first();
+  await expect(summary).toBeVisible();
+
+  const offset = await summary.evaluate((element) => {
+    const chevron = element.querySelector(".word-card-disclosure span")!.getBoundingClientRect();
+    const lowercase = document.createElement("span");
+    lowercase.style.cssText = "display: inline-block; block-size: 1ex; vertical-align: baseline";
+    element.querySelector(".word-card-heading strong")!.append(lowercase);
+    const middle = lowercase.getBoundingClientRect();
+    lowercase.remove();
+    return (chevron.top + chevron.bottom - middle.top - middle.bottom) / 2;
+  });
+  expect(Math.abs(offset)).toBeLessThan(0.5);
+});
+
+test("a q link naming one word on a line of its own opens it as before", async ({ page }) => {
+  await page.goto("./?q=%D0%B2%D1%8B%0A");
+
+  await expect(page.locator(".word-card-list > li")).toHaveCount(1);
+  await expect(page.locator(".word-card-list > li").first()).toContainText("ni");
 });
 
 test("a q link opens a word two index entries lead to once", async ({ page }) => {
