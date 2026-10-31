@@ -27,7 +27,7 @@
     "worker:check": "cf deploy --prebuilt --dry-run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.104.5",
+    "@tanstack/react-query": "^5.105.0",
     "@vitejs/plugin-react": "latest",
     "fast-xml-parser": "latest",
     "idb": "^8.0.4",
@@ -50,8 +50,8 @@
     "@types/react-dom": "latest",
     "@vitest/coverage-v8": "^5.0.5",
     "cf": "^1.0.0-beta.26",
-    "fake-indexeddb": "^6.2.6",
-    "oxlint": "^1.89.0",
+    "fake-indexeddb": "^6.2.7",
+    "oxlint": "^1.90.0",
     "size-limit": "^14.0.0",
     "tsx": "latest",
     "typescript": "latest",
