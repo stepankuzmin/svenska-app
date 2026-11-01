@@ -199,9 +199,7 @@ export default function Review({
                   {current.phonetics.length > 0 ? <p className="review-forms">[{current.phonetics.join(", ")}]</p> : null}
                   {current.forms.length > 1 ? <p className="review-forms">{current.forms.join(", ")}</p> : null}
                 </div>
-              ) : (
-                <p className="review-hint">Recall the Swedish, then tap</p>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -221,7 +219,6 @@ export default function Review({
               </button>
             )}
           </div>
-          <p className="review-tip">{revealed ? "Swipe left if you forgot, right if you remembered" : " "}</p>
         </>
       )}
     </dialog>
@@ -238,7 +235,6 @@ function ReviewSummary({
   now: number;
 }) {
   const today = state.days[dayKey(now)] ?? { remembered: 0, forgot: 0, reviewed: 0 };
-  const waiting = cards.filter((card) => state.schedules[card.card] === undefined).length;
   const tallies = Object.values(state.days);
   const remembered = tallies.reduce((sum, day) => sum + day.remembered, 0);
   const total = remembered + tallies.reduce((sum, day) => sum + day.forgot, 0);
@@ -250,9 +246,6 @@ function ReviewSummary({
   return (
     <section className="review-summary" aria-labelledby="review-summary-heading">
       <h2 id="review-summary-heading">All caught up</h2>
-      <p className="review-summary-note">
-        {waiting > 0 ? `${waiting} new ${waiting === 1 ? "word waits" : "words wait"} for tomorrow.` : "Come back tomorrow for the next reviews."}
-      </p>
       <dl className="review-stats">
         <div><dt>Remembered today</dt><dd>{today.remembered}</dd></div>
         <div><dt>Forgot today</dt><dd>{today.forgot}</dd></div>

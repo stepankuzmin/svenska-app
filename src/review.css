@@ -159,8 +159,7 @@ html:has(.review[open]) { overflow: hidden; }
   margin: 0;
 }
 
-.review-forms,
-.review-hint {
+.review-forms {
   color: var(--lookup-muted);
   font-size: var(--text-secondary);
   margin: 0;
@@ -203,26 +202,13 @@ html:has(.review[open]) { overflow: hidden; }
   outline-offset: 2px;
 }
 
-.review-tip {
-  color: var(--lookup-muted);
-  font-size: var(--text-label);
-  margin-block: .75rem 0;
-  text-align: center;
-}
-
 .review-summary {
   padding-block: 2rem;
 }
 
 .review-summary h2 {
   font-size: 1.5rem;
-  margin: 0;
-}
-
-.review-summary-note {
-  color: var(--lookup-muted);
-  font-size: var(--text-body);
-  margin-block: .35rem 1.5rem;
+  margin: 0 0 1.5rem;
 }
 
 .review-stats {
