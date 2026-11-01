@@ -18,6 +18,7 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
 import { isList, type PastedLine, type PastedList } from "./lookup-session";
+import { readReviewState, reviewQueue, writeReviewState } from "./review-schedule";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
 import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
@@ -54,6 +55,88 @@ const WordCardDetails = lazy(() => import("./word-card-details").catch(() => ({
 const PastedListReview = lazy(() => import("./pasted-list-review").catch(() => ({
   default: () => <div className="lookup-status" role="status">Reload to review the pasted list.</div>,
 })));
+
+const Review = lazy(() => import("./review").catch(() => ({
+  default: () => <div className="lookup-status" role="status">Reload to review words.</div>,
+})));
+
+const reviewHash = "#review";
+
+const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: readonly WordCardContent[] }) {
+  const cards = useMemo(() => library.filter((card) => card.translation !== ""), [library]);
+  const [state, setState] = useState(readReviewState);
+  const [open, setOpen] = useState(() => location.hash === reviewHash);
+  const [now, setNow] = useState(Date.now);
+  const pushed = useRef(false);
+  const keys = useMemo(() => cards.map((card) => card.card), [cards]);
+  const { next, counts } = reviewQueue(state, keys, now);
+  const due = counts.new + counts.learning + counts.review;
+
+  useEffect(() => {
+    const follow = () => {
+      setOpen(location.hash === reviewHash);
+      setNow(Date.now());
+    };
+    const refresh = () => setNow(Date.now());
+    const reread = () => setState(readReviewState());
+    window.addEventListener("popstate", follow);
+    window.addEventListener("storage", reread);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("popstate", follow);
+      window.removeEventListener("storage", reread);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  function close() {
+    if (pushed.current) {
+      pushed.current = false;
+      history.back();
+      return;
+    }
+    history.replaceState(null, "", location.pathname + location.search);
+    setOpen(false);
+    setNow(Date.now());
+  }
+
+  if (cards.length === 0) return null;
+
+  return (
+    <>
+      <button
+        type="button"
+        className="review-start"
+        onClick={() => {
+          history.pushState(null, "", reviewHash);
+          pushed.current = true;
+          setOpen(true);
+          setNow(Date.now());
+        }}
+      >
+        {"Review "}
+        <span className="word-card-type">{due > 0 ? `${due} due` : "Done for today"}</span>
+      </button>
+      {open ? (
+        <Suspense fallback={null}>
+          <Review
+            cards={cards}
+            state={state}
+            now={now}
+            next={next}
+            counts={counts}
+            onChange={(next) => {
+              setState(next);
+              setNow(Date.now());
+              writeReviewState(next);
+            }}
+            onClose={close}
+          />
+        </Suspense>
+      ) : null}
+    </>
+  );
+});
 
 const suggestionBatchSize = 100;
 
@@ -481,6 +564,7 @@ export function LookupExperience(props: LookupExperienceProps) {
       {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 className="visually-hidden" id="lookup-library-heading">Library</h2>
+          <ReviewLauncher library={library} />
           <ul className="word-card-list" role="list">
             {library.map((item, index) => (
               <WordCard
