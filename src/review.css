@@ -51,7 +51,7 @@ html:has(.review[open]) { overflow: hidden; }
   touch-action: manipulation;
 }
 
-.review-text-button:disabled { color: var(--lookup-muted); cursor: default; opacity: .5; }
+.review-text-button:disabled { color: var(--lookup-muted); cursor: default; }
 
 .review:focus { outline: none; }
 
@@ -98,18 +98,18 @@ html:has(.review[open]) { overflow: hidden; }
   position: relative;
   text-align: center;
   touch-action: pan-y;
-  transition: opacity 200ms var(--ease-out), transform 300ms var(--ease-out);
+  transition: opacity 200ms var(--ease-out), scale 150ms var(--ease-out);
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
 
   @starting-style {
     opacity: 0;
-    transform: scale(.96);
+    scale: .96;
   }
 }
 
-.review-card[data-dragging] { cursor: grabbing; transition: none; }
+.review-card[data-pressed] { cursor: grabbing; scale: .98; }
 
 .review-stamp {
   border: 2px solid currentColor;
@@ -147,9 +147,12 @@ html:has(.review[open]) { overflow: hidden; }
   gap: .35rem;
   inline-size: 100%;
   padding-block-start: 1rem;
-  transition: opacity 150ms var(--ease-out);
+  transition: opacity 150ms var(--ease-out), visibility 150ms;
+}
 
-  @starting-style { opacity: 0; }
+.review-answer:not(.is-shown) {
+  opacity: 0;
+  visibility: hidden;
 }
 
 .review-swedish {

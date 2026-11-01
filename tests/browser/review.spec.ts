@@ -53,7 +53,7 @@ test("a review shows the Russian, reveals the Swedish, and swipes record the ans
 
   const review = page.getByRole("dialog", { name: "Review" });
   await expect(review.locator(".review-russian")).toHaveText("перерыв на кофе");
-  await expect(review.locator(".review-swedish")).toHaveCount(0);
+  await expect(review.locator(".review-swedish")).toBeHidden();
 
   await review.locator(".review-card").click();
   await expect(review.locator(".review-swedish")).toHaveText("en fika");
@@ -107,11 +107,10 @@ test("an undo during a swipe leaves the next swipe working", async ({ page }) =>
   await page.getByRole("button", { name: "Show Swedish" }).click();
   await page.getByRole("button", { name: rememberedButton }).click();
   await page.getByRole("button", { name: "Show Swedish" }).click();
-  const slowExit = await page.addStyleTag({ content: ".review-card { transition-duration: 3s !important; }" });
   await swipe(page, 240);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".review-swedish")).toHaveText("en fika");
-  await slowExit.evaluate((style: Element) => style.remove());
+  await expect(page.locator(".review-card")).toHaveCSS("transform", "none");
   await swipe(page, 240);
   await expect(page.locator(".review-russian")).toHaveText("спасибо");
 });
@@ -175,12 +174,57 @@ test("the review button counts what fell due while the page stayed open", async 
   await expect(page.locator(".review-counts")).toHaveText("0 new0 learning2 to review");
 });
 
+test("showing the Swedish leaves the Russian where it was", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  const russian = page.locator(".review-russian");
+  const before = await russian.boundingBox();
+  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await expect(page.locator(".review-swedish")).toBeVisible();
+  expect(await russian.boundingBox()).toEqual(before);
+});
+
+test("a flick decides the answer by the way the finger moves when it lets go", async ({ page }) => {
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  await page.getByRole("button", { name: "Show Swedish" }).click();
+  const box = (await page.locator(".review-card").boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 150, y, { steps: 10 });
+  await page.waitForTimeout(150);
+  await page.mouse.move(x + 60, y, { steps: 2 });
+  await page.mouse.up();
+  await expect(page.locator(".review-russian")).toHaveText("спасибо");
+  const days = await page.evaluate(() => JSON.parse(localStorage.getItem("svenska.review")!).days);
+  expect(Object.values(days)).toEqual([{ remembered: 0, forgot: 1, reviewed: 0 }]);
+});
+
+test("a flick after a pause carries the card off", async ({ page }) => {
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  await page.getByRole("button", { name: "Show Swedish" }).click();
+  const box = (await page.locator(".review-card").boundingBox())!;
+  const x = box.x + box.width / 2;
+  const y = box.y + box.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 20, y, { steps: 4 });
+  await page.waitForTimeout(600);
+  await page.mouse.move(x + 60, y, { steps: 2 });
+  await page.mouse.up();
+  await expect(page.locator(".review-russian")).toHaveText("спасибо");
+});
+
 test("a card that hides its answer springs back from a swipe", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
   await swipe(page, 240);
   await expect(page.locator(".review-russian")).toHaveText("перерыв на кофе");
-  await expect(page.locator(".review-swedish")).toHaveCount(0);
+  await expect(page.locator(".review-swedish")).toBeHidden();
 });
 
 test("the back gesture closes the review, and a finished review shows the tally", async ({ page }) => {

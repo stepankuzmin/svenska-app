@@ -1,10 +1,154 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { answer, dayKey, schedule, undoAnswer, waitLabel, type Answered, type ReviewCounts, type ReviewState } from "./review-schedule";
-import { carriesWordOff, swipeLockDistance } from "./swipe-to-remove";
+import { swipeLockDistance } from "./swipe-to-remove";
 import type { WordCardContent } from "./word-cards";
 import "./review.css";
 
-type Drag = { pointerId: number; startX: number; startTime: number; dragging: boolean };
+type Drag = { pointerId: number; startX: number; grabX: number; dragging: boolean; samples: { x: number; t: number }[] };
+
+const commitDistance = 96;
+const springFrequency = (2 * Math.PI) / 0.35;
+
+function rubberband(offset: number, size: number): number {
+  return (offset * size * 0.55) / (size + 0.55 * Math.abs(offset));
+}
+
+function projected(velocity: number): number {
+  return (velocity / 1000) * 0.998 / (1 - 0.998);
+}
+
+function releaseVelocity(samples: readonly { x: number; t: number }[], releasedAt: number): number {
+  const recent = samples.findIndex((sample) => releasedAt - sample.t <= 100);
+  const first = samples[recent === -1 ? samples.length - 1 : Math.max(0, recent - 1)];
+  const last = samples.at(-1);
+  return first === undefined || last === undefined || releasedAt === first.t ? 0 : ((last.x - first.x) / (releasedAt - Math.max(first.t, releasedAt - 100))) * 1000;
+}
+
+function ReviewCard({
+  revealed,
+  enterFrom,
+  onReveal,
+  onGrade,
+  children,
+}: {
+  revealed: boolean;
+  enterFrom: number;
+  onReveal: () => void;
+  onGrade: (remembered: boolean) => void;
+  children: ReactNode;
+}) {
+  const surface = useRef<HTMLDivElement>(null);
+  const motion = useRef({ x: 0, v: 0, frame: 0 });
+  const drag = useRef<Drag | null>(null);
+
+  function show(x: number) {
+    const element = surface.current;
+    motion.current.x = x;
+    if (element === null) return;
+    const shown = revealed ? x : rubberband(x, element.offsetWidth);
+    element.style.transform = shown === 0 ? "" : `translateX(${shown}px) rotate(${shown / 24}deg)`;
+    element.style.setProperty("--drag", String(revealed ? Math.max(-1, Math.min(1, x / commitDistance)) : 0));
+  }
+
+  function animate(target: number, velocity: number, leave?: () => void) {
+    const element = surface.current;
+    cancelAnimationFrame(motion.current.frame);
+    if (element === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      show(target);
+      leave?.();
+      return;
+    }
+    const offscreen = (window.innerWidth + element.offsetWidth) / 2;
+    let last = performance.now();
+    motion.current.v = velocity;
+    const step = (now: number) => {
+      const elapsed = Math.min((now - last) / 1000, 1 / 30);
+      last = now;
+      const { x, v } = motion.current;
+      motion.current.v = v + (-springFrequency * springFrequency * (x - target) - 2 * springFrequency * v) * elapsed;
+      const next = x + motion.current.v * elapsed;
+      if (leave !== undefined && Math.abs(next) >= offscreen) {
+        show(next);
+        leave();
+      } else if (Math.abs(next - target) < 0.5 && Math.abs(motion.current.v) < 10) {
+        show(target);
+        leave?.();
+      } else {
+        show(next);
+        motion.current.frame = requestAnimationFrame(step);
+      }
+    };
+    motion.current.frame = requestAnimationFrame(step);
+  }
+
+  useLayoutEffect(() => {
+    if (enterFrom !== 0) {
+      show(enterFrom * window.innerWidth);
+      animate(0, 0);
+    }
+    return () => cancelAnimationFrame(motion.current.frame);
+  }, []);
+
+  function begin(event: ReactPointerEvent<HTMLDivElement>) {
+    if (drag.current !== null || !event.isPrimary) return;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.currentTarget.dataset.pressed = "true";
+    cancelAnimationFrame(motion.current.frame);
+    drag.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      grabX: event.clientX - motion.current.x,
+      dragging: motion.current.x !== 0,
+      samples: [],
+    };
+  }
+
+  function move(event: ReactPointerEvent<HTMLDivElement>) {
+    const current = drag.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
+    if (!current.dragging && Math.abs(event.clientX - current.startX) <= swipeLockDistance) return;
+    current.dragging = true;
+    const x = event.clientX - current.grabX;
+    current.samples.push({ x, t: event.timeStamp });
+    show(x);
+  }
+
+  function end(event: ReactPointerEvent<HTMLDivElement>) {
+    const current = drag.current;
+    drag.current = null;
+    delete event.currentTarget.dataset.pressed;
+    if (current === null) return;
+    if (!current.dragging) {
+      onReveal();
+      return;
+    }
+    const velocity = releaseVelocity(current.samples, event.timeStamp);
+    const landing = motion.current.x + projected(velocity);
+    if (revealed && Math.abs(landing) > commitDistance) {
+      const remembered = landing > 0;
+      animate(Math.sign(landing) * window.innerWidth * 2, velocity, () => onGrade(remembered));
+    } else {
+      animate(0, velocity);
+    }
+  }
+
+  return (
+    <div
+      ref={surface}
+      className="review-card"
+      onPointerDown={begin}
+      onPointerMove={move}
+      onPointerUp={end}
+      onPointerCancel={(event) => {
+        drag.current = null;
+        delete event.currentTarget.dataset.pressed;
+        animate(0, 0);
+      }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export default function Review({
   cards,
@@ -24,14 +168,12 @@ export default function Review({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const surface = useRef<HTMLDivElement>(null);
-  const drag = useRef<Drag | null>(null);
   const [revealedCard, setRevealedCard] = useState<string | null>(null);
   const [answered, setAnswered] = useState(0);
   const [undo, setUndo] = useState<Answered | null>(null);
-  const [retry, setRetry] = useState<string | null>(null);
+  const [retry, setRetry] = useState<Answered | null>(null);
   const byKey = useMemo(() => new Map(cards.map((card) => [card.card, card])), [cards]);
-  const current = byKey.get(retry ?? next ?? "");
+  const current = byKey.get(retry?.card ?? next ?? "");
   const revealed = current !== undefined && revealedCard === current.card;
 
   useEffect(() => {
@@ -39,13 +181,10 @@ export default function Review({
     dialog.current?.focus();
   }, []);
 
-  const latestKeyDown = useRef(keyDown);
-  latestKeyDown.current = keyDown;
   useEffect(() => {
-    const listen = (event: KeyboardEvent) => latestKeyDown.current(event);
-    document.addEventListener("keydown", listen);
-    return () => document.removeEventListener("keydown", listen);
-  }, []);
+    document.addEventListener("keydown", keyDown);
+    return () => document.removeEventListener("keydown", keyDown);
+  });
 
   function grade(remembered: boolean) {
     if (current === undefined) return;
@@ -64,76 +203,10 @@ export default function Review({
   function undoLast() {
     if (undo === null) return;
     onChange(undoAnswer(state, undo));
-    setRetry(undo.card);
+    setRetry(undo);
     setUndo(null);
     setRevealedCard(undo.card);
     setAnswered((count) => count + 1);
-  }
-
-  function hold(distance: number) {
-    const element = surface.current;
-    if (element === null) return;
-    const shown = revealed ? distance : Math.sign(distance) * Math.sqrt(Math.abs(distance)) * 3;
-    element.dataset.dragging = "true";
-    element.style.transform = `translateX(${shown}px) rotate(${shown / 24}deg)`;
-    element.style.setProperty("--drag", String(revealed ? Math.max(-1, Math.min(1, distance / 96)) : 0));
-  }
-
-  function settle() {
-    const element = surface.current;
-    if (element === null) return;
-    delete element.dataset.dragging;
-    element.style.removeProperty("transform");
-    element.style.removeProperty("--drag");
-  }
-
-  function leave(remembered: boolean) {
-    const element = surface.current;
-    if (element === null || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      grade(remembered);
-      return;
-    }
-    element.dataset.leaving = "true";
-    delete element.dataset.dragging;
-    element.style.transform = `translateX(${remembered ? "" : "-"}120vw) rotate(${remembered ? 16 : -16}deg)`;
-    const finish = (event: TransitionEvent) => {
-      if (event.propertyName !== "transform") return;
-      element.removeEventListener("transitionend", finish);
-      grade(remembered);
-    };
-    element.addEventListener("transitionend", finish);
-  }
-
-  function begin(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag.current !== null || surface.current?.dataset.leaving || !event.isPrimary) return;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    drag.current = { pointerId: event.pointerId, startX: event.clientX, startTime: event.timeStamp, dragging: false };
-  }
-
-  function move(event: ReactPointerEvent<HTMLDivElement>) {
-    const current = drag.current;
-    if (current === null || event.pointerId !== current.pointerId) return;
-    const distance = event.clientX - current.startX;
-    if (!current.dragging) {
-      if (Math.abs(distance) <= swipeLockDistance) return;
-      current.dragging = true;
-    }
-    hold(distance);
-  }
-
-  function end(event: ReactPointerEvent<HTMLDivElement>) {
-    const current = drag.current;
-    drag.current = null;
-    if (current === null) return;
-    if (!current.dragging) {
-      reveal();
-      return;
-    }
-    const distance = event.clientX - current.startX;
-    const elapsed = event.timeStamp - current.startTime;
-    if (revealed && carriesWordOff({ distance, elapsed })) leave(false);
-    else if (revealed && carriesWordOff({ distance: -distance, elapsed })) leave(true);
-    else settle();
   }
 
   function keyDown(event: KeyboardEvent) {
@@ -178,29 +251,16 @@ export default function Review({
       ) : (
         <>
           <div className="review-deck">
-            <div
-              key={`${current.card}:${answered}`}
-              ref={surface}
-              className="review-card"
-              onPointerDown={begin}
-              onPointerMove={move}
-              onPointerUp={end}
-              onPointerCancel={() => {
-                drag.current = null;
-                settle();
-              }}
-            >
+            <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
               <span className="review-stamp review-stamp-remembered" aria-hidden="true">Remembered</span>
               <span className="review-stamp review-stamp-forgot" aria-hidden="true">Forgot</span>
               <p className="review-russian" lang="ru">{current.translation}</p>
-              {revealed ? (
-                <div className="review-answer" lang="sv">
-                  <p className="review-swedish">{current.citation}</p>
-                  {current.phonetics.length > 0 ? <p className="review-forms">[{current.phonetics.join(", ")}]</p> : null}
-                  {current.forms.length > 1 ? <p className="review-forms">{current.forms.join(", ")}</p> : null}
-                </div>
-              ) : null}
-            </div>
+              <div className={revealed ? "review-answer is-shown" : "review-answer"} lang="sv">
+                <p className="review-swedish">{current.citation}</p>
+                {current.phonetics.length > 0 ? <p className="review-forms">[{current.phonetics.join(", ")}]</p> : null}
+                {current.forms.length > 1 ? <p className="review-forms">{current.forms.join(", ")}</p> : null}
+              </div>
+            </ReviewCard>
           </div>
 
           <div className="review-actions">
