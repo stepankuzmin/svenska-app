@@ -219,6 +219,19 @@ test("a flick after a pause carries the card off", async ({ page }) => {
   await expect(page.locator(".review-russian")).toHaveText("спасибо");
 });
 
+test("a card settles on time when frames come slowly", async ({ page }) => {
+  await page.addInitScript(() => {
+    const frame = window.requestAnimationFrame.bind(window);
+    window.requestAnimationFrame = (callback) => window.setTimeout(frame, 300, callback);
+  });
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.getByRole("button", { name: rememberedButton }).click();
+  await page.keyboard.press("ControlOrMeta+z");
+  await expect(page.locator(".review-card")).toHaveCSS("transform", "none");
+});
+
 test("a card that hides its answer springs back from a swipe", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();

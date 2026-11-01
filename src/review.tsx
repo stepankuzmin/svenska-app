@@ -62,11 +62,13 @@ function ReviewCard({
     let last = performance.now();
     motion.current.v = velocity;
     const step = (now: number) => {
-      const elapsed = Math.min((now - last) / 1000, 1 / 30);
+      const elapsed = Math.max(now - last, 0) / 1000;
       last = now;
-      const { x, v } = motion.current;
-      motion.current.v = v + (-springFrequency * springFrequency * (x - target) - 2 * springFrequency * v) * elapsed;
-      const next = x + motion.current.v * elapsed;
+      const offset = motion.current.x - target;
+      const slope = motion.current.v + springFrequency * offset;
+      const decay = Math.exp(-springFrequency * elapsed);
+      const next = target + (offset + slope * elapsed) * decay;
+      motion.current.v = (slope - springFrequency * (offset + slope * elapsed)) * decay;
       if (leave !== undefined && Math.abs(next) >= offscreen) {
         show(next);
         leave();
