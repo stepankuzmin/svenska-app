@@ -254,6 +254,14 @@ body {
   color: var(--lookup-ink);
 }
 
+.review-start {
+  background: none;
+  border: 0;
+  color: var(--lookup-blue);
+  font: inherit;
+  padding: .4rem .65rem .9rem;
+}
+
 .word-card-list,
 .word-card-details ul {
   list-style: none;

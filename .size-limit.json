@@ -13,7 +13,8 @@
       ".cloudflare/output/v0/workers/default/assets/assets/sync-control-*.js",
       ".cloudflare/output/v0/workers/default/assets/assets/status-*.js",
       ".cloudflare/output/v0/workers/default/assets/assets/word-card-details-*.js",
-      ".cloudflare/output/v0/workers/default/assets/assets/pasted-list-review-*.js"
+      ".cloudflare/output/v0/workers/default/assets/assets/pasted-list-review-*.js",
+      ".cloudflare/output/v0/workers/default/assets/assets/review-*.js"
     ],
     "limit": "100 kB"
   },
@@ -25,6 +26,10 @@
   {
     "name": "Pasted list CSS",
     "path": ".cloudflare/output/v0/workers/default/assets/assets/pasted-list-review-*.css"
+  },
+  {
+    "name": "Review CSS",
+    "path": ".cloudflare/output/v0/workers/default/assets/assets/review-*.css"
   },
   {
     "name": "Dictionary release: lookup file",
