@@ -19,12 +19,18 @@ const xml = source([
   { writtenForm: "fast", kellyPartOfSpeech: "subj", rawFreq: "6043" },
   { writtenForm: "brunch", kellyPartOfSpeech: "noun-en", rawFreq: "", wpm: "1000000,00" },
   { writtenForm: "test", kellyPartOfSpeech: "noun-en/-ett", rawFreq: "20" },
+  { writtenForm: "politik", kellyPartOfSpeech: "noun-en", rawFreq: "41855" },
+  { writtenForm: "te", kellyPartOfSpeech: "noun-ett", rawFreq: "45826" },
+  { writtenForm: "en", kellyPartOfSpeech: "det", rawFreq: "1654320" },
+  { writtenForm: "en", kellyPartOfSpeech: "pronoun", rawFreq: "29676" },
 ]);
 
 it("imports measured counts by citation and type, excluding manual entries with artificial frequencies", () => {
   expect(kellyFrequencies(xml)).toEqual({
     "en val#subst.": 1565, "ett val#subst.": 30773, "att vara#verb": 2624032,
     "fast#konj.": 15972, "en test#subst.": 20, "ett test#subst.": 20,
+    "en politik#subst.": 41855, "ett te#subst.": 45826,
+    "en#artikel": 1654320, "en#pron.": 29676,
   });
   expect(() => kellyFrequencies(source([{ writtenForm: "test", kellyPartOfSpeech: "unknown", rawFreq: "1" }])))
     .toThrow("Unknown Kelly word type");
@@ -39,6 +45,8 @@ it("writes a reproducible frequency dataset from a source file", async () => {
     await importKelly(input, pathToFileURL(`${root}/data/`));
     expect(JSON.parse(await readFile(join(root, "data/frequencies.json"), "utf8")))
       .toEqual({ "en val#subst.": 1565, "ett val#subst.": 30773, "att vara#verb": 2624032,
-        "fast#konj.": 15972, "en test#subst.": 20, "ett test#subst.": 20 });
+        "fast#konj.": 15972, "en test#subst.": 20, "ett test#subst.": 20,
+        "en politik#subst.": 41855, "ett te#subst.": 45826,
+        "en#artikel": 1654320, "en#pron.": 29676 });
   } finally { await rm(root, { recursive: true }); }
 });

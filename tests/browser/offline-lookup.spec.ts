@@ -3,6 +3,9 @@ import { expect, test, type Page } from "@playwright/test";
 const bokHeadword = /^en bok$/;
 const connectOnce = /connect once/i;
 const didNotLoad = /did not load/i;
+const varaForms = /en vara, varan/;
+const latestFirst = [/^en vara/, /^du/];
+const frequentFirst = [/^du/, /^en vara/];
 
 async function searchFor(page: Page, query: string) {
   const field = page.getByLabel("Swedish or Russian word");
@@ -63,6 +66,23 @@ test("lookup remains available after an online visit and offline reload", async 
   await expect(page.getByRole("listbox")).toBeVisible();
   await field.fill("definitely-not-a-swedish-word");
   await expect(page.getByRole("listbox")).toHaveCount(0);
+});
+
+test("the shipped frequency data sorts words after an offline reload", async ({ context, page }) => {
+  await page.goto(".");
+  await page.waitForFunction("navigator.serviceWorker?.controller !== null");
+  await searchFor(page, "du");
+  await page.getByLabel("Swedish or Russian word").fill("vara");
+  await page.getByRole("option").filter({ hasText: varaForms }).click();
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveText(latestFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("frequency");
+  await expect(cards).toHaveText(frequentFirst);
+  await context.setOffline(true);
+  await page.reload();
+  await expect(cards).toHaveText(latestFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("frequency");
+  await expect(cards).toHaveText(frequentFirst);
 });
 
 test("a first offline visit explains that one connection is required", async ({ context, page }) => {

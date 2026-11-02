@@ -13,7 +13,7 @@ const sourceSchema = z.object({
 const wordTypes: Record<string, string> = {
   numeral: "räkn.", adjective: "adj.", "noun-en": "subst.", "noun-ett": "subst.", noun: "subst.",
   "noun-en/-ett": "subst.", "proper name": "namn", conj: "konj.", subj: "konj.",
-  verb: "verb", "aux verb": "verb", prep: "prep.", pronoun: "pron.", det: "pron.",
+  verb: "verb", "aux verb": "verb", prep: "prep.", pronoun: "pron.", det: "artikel",
   adverb: "adv.", particle: "adv.", interj: "interj.", particip: "adj.",
 };
 
@@ -27,9 +27,11 @@ export function kellyFrequencies(xml: string): Record<string, number> {
     if (!Number.isSafeInteger(frequency) || frequency <= 0) continue;
     const partOfSpeech = wordTypes[features.kellyPartOfSpeech];
     if (!partOfSpeech) throw new Error(`Unknown Kelly word type: ${features.kellyPartOfSpeech}`);
+    const article = features.kellyPartOfSpeech === "noun-en" ? "en"
+      : features.kellyPartOfSpeech === "noun-ett" ? "ett" : features.gram;
     const prefixes = partOfSpeech === "verb" ? ["att "]
       : features.kellyPartOfSpeech === "noun-en/-ett" ? ["en ", "ett "]
-        : features.gram === "en" || features.gram === "ett" ? [`${features.gram} `] : [""];
+        : article === "en" || article === "ett" ? [`${article} `] : [""];
     for (const prefix of prefixes) {
       const key = `${normalizeSwedishLookupText(prefix + features.writtenForm)}#${partOfSpeech}`;
       frequencies[key] = (frequencies[key] ?? 0) + frequency;

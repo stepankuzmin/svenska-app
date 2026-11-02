@@ -18,6 +18,22 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it.each([undefined, 100])("preserves a resolved word's date %s after removing a legacy sibling", async (addedAt) => {
+    const date = addedAt === undefined ? {} : { addedAt };
+    const store = create(undefined, [{ headword: "val", word: "", ...date }]); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared" });
+    store.setDictionary({
+      entries: { val: [whale, election].map(({ word }) => ({ word, partOfSpeech: "", meaning: "", translation: "" })) },
+      wordAliases: {},
+    });
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    await store.remove("val#18440");
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+    const reopened = create(crypto.randomUUID(), []); await reopened.ready;
+    await reopened.accept({ ...reopened.state().snapshot, libraryId: "shared", records: recordsOf(store.getSnapshot().words) });
+    expect(reopened.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+  });
+
   it("dates new lookups once and keeps their dates across reloads and device snapshots", async () => {
     const clock = vi.spyOn(Date, "now").mockReturnValue(100);
     const name = crypto.randomUUID();

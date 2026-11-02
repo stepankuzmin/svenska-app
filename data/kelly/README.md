@@ -5,7 +5,7 @@ Derived from [Kelly](https://spraakbanken.gu.se/en/resources/kelly), by Elena Vo
 Source: https://svn.spraakbanken.gu.se/sb-arkiv/pub/lmf/kelly/kelly.xml, downloaded 2026-11-01.
 Source SHA-256: `e1fc52d0879956f396916997f130ec64d1d18bca23136effbfd369168e712282`.
 
-`frequencies.json` keeps positive corpus counts by normalized citation form and Lexin word type. The importer combines counts when Kelly types map to the same Lexin type. Noun articles distinguish `en val` from `ett val`. Manually added words without corpus counts stay unranked.
+`frequencies.json` keeps positive corpus counts by normalized citation form and word type. The importer combines counts when Kelly types map to the same type, while keeping determiners separate from pronouns. Noun articles distinguish `en val` from `ett val`. Manually added words without corpus counts stay unranked.
 
 To regenerate:
 

@@ -135,10 +135,18 @@ export class LibraryStore {
   }
   async enqueue(kind: SyncOperation["kind"], words: LibraryWord[], retained?: SyncOperation["retained"]): Promise<void> {
     await this.ready;
-    const queue = (state: LibraryState): LibraryState => compactLocal({
-      ...state, sequence: state.sequence + 1,
-      pending: [...state.pending, { sequence: state.sequence + 1, baseRevision: state.snapshot.revision, kind, words, ...(retained?.length ? { retained } : {}) }],
-    });
+    const queue = (state: LibraryState): LibraryState => {
+      let queuedWords = words;
+      if (kind === "open") {
+        const existing = new Map((this.dictionary ? this.connectionWords(state) : visibleWords(state))
+          .map((word) => [wordKey(word), word]));
+        queuedWords = words.map((word) => existing.get(wordKey(word)) ?? word);
+      }
+      return compactLocal({
+        ...state, sequence: state.sequence + 1,
+        pending: [...state.pending, { sequence: state.sequence + 1, baseRevision: state.snapshot.revision, kind, words: queuedWords, ...(retained?.length ? { retained } : {}) }],
+      });
+    };
     if (!this.durable) { this.current = queue(this.current); this.storageFailed(); return; }
     let attempted: LibraryState | undefined;
     let full = false;

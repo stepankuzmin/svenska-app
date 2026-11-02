@@ -197,10 +197,10 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await query.press("Enter");
   await expect(library.getByText("tack", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeHidden();
-  await expect(library.getByRole("listitem")).toHaveText(tackThenFika);
+  await expect(library.locator(".word-card-list > li")).toHaveText(tackThenFika);
 
   await page.reload();
-  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(tackThenFika);
+  await expect(page.locator(".word-card-list > li")).toHaveText(tackThenFika);
   await expect(query).toBeFocused();
 });
 
@@ -257,14 +257,14 @@ test.describe("a pasted list on a phone", () => {
     await page.goto("./?q=fika&q=zzz&q=tack");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("");
     expect(pageErrors).toEqual([]);
   });
 
   test("a review shows every line's state and adds nothing until asked", async ({ page }) => {
     await page.goto("./?q=tack");
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
     await pasteIntoField(page, "- fika - \nskjuta ihjäl\ntack\nспасибо\n");
 
     await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("list")).toMatchAriaSnapshot(`
@@ -279,11 +279,11 @@ test.describe("a pasted list on a phone", () => {
           - text: спасибо
         - listitem "спасибо, no match": спасибо
     `);
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
 
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("region", { name: "Pasted list" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
   });
 
   test("an unticked line adds nothing and copies as pasted", async ({ page }) => {
@@ -293,7 +293,7 @@ test.describe("a pasted list on a phone", () => {
     await page.getByRole("checkbox", { name: fikaRow }).click();
     await expect(page.getByLabel("Swedish or Russian word")).not.toBeFocused();
     await page.getByRole("button", { name: "Add 1 word" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika\ntack - спасибо\n");
   });
 
@@ -312,7 +312,7 @@ test.describe("a pasted list on a phone", () => {
     await pasteIntoField(page, "fika\nskjuta ihjäl\ntack\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\nskjuta ihjäl\ntack - спасибо\n");
 
     await page.getByRole("button", { name: "Copy list with Russian" }).click();
@@ -343,24 +343,24 @@ test.describe("a pasted list on a phone", () => {
   test("adding a list leaves a word the library holds where it was", async ({ page }) => {
     await page.goto("./?q=fika&q=tack");
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await page.getByRole("button", { name: "Done" }).click();
     await pasteIntoField(page, "tack\nval\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(valsThenFikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(valsThenFikaThenTack);
   });
 
   test("a list the library already holds still copies with Russian", async ({ page }) => {
     await page.goto("./?q=fika&q=tack");
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await page.getByRole("button", { name: "Done" }).click();
     await pasteIntoField(page, "fika\ntack\n");
 
     await page.getByRole("button", { name: "Show list with Russian" }).click();
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\ntack - спасибо\n");
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
   });
 
   test("a list pasted over an open review replaces it", async ({ page }) => {
@@ -390,7 +390,7 @@ test.describe("a pasted list on a phone", () => {
     await pasteIntoField(page, "fika\ntack\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     expect(pageErrors).toEqual([]);
   });
 });
