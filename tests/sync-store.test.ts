@@ -18,6 +18,22 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it("dates new lookups once and keeps their dates across reloads and device snapshots", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const name = crypto.randomUUID();
+    const store = create(name, []); await store.ready;
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    clock.mockReturnValue(200);
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    expect(store.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    const reopened = create(name, []); await reopened.ready;
+    expect(reopened.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    const other = create(crypto.randomUUID(), []); await other.ready;
+    await other.accept({ ...other.state().snapshot, libraryId: "shared", records: recordsOf(store.getSnapshot().words) });
+    expect(other.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    await other.accept({ ...other.state().snapshot, revision: 1, records: recordsOf([{ ...whale, addedAt: 50 }]) });
+    expect(other.getSnapshot().words).toEqual([{ ...whale, addedAt: 50 }]);
+  });
   it("keeps over-capacity openings out of the shared outbox and permits replacement after removal", async () => {
     const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
     const store = create(crypto.randomUUID(), words); await store.ready;

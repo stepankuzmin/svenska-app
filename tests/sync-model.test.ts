@@ -1,16 +1,32 @@
 import { describe, expect, it } from "vitest";
 import { applyOperation, batchOf, maximumRequestBytes, maximumWords, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
+import type { LibraryWord } from "../src/words";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const tea = { headword: "te", word: "123" };
 const snapshot: LibrarySnapshot = { protocol: 2, libraryId: "library", deviceId: "phone", revision: 0, acknowledged: 0, records: [] };
-function op(kind: SyncOperation["kind"], sequence: number, baseRevision = 0, words = [whale]): SyncOperation {
+function op(kind: SyncOperation["kind"], sequence: number, baseRevision = 0, words: LibraryWord[] = [whale]): SyncOperation {
   return { kind, sequence, baseRevision, words };
 }
 function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it("preserves added dates through import, replay, compaction and reopening", () => {
+    const dated = { ...whale, addedAt: 100 };
+    const opened = applyOperation([], op("open", 1, 0, [dated]), "phone", 1);
+    const reopened = applyOperation(opened, op("open", 2, 1, [{ ...whale, addedAt: 200 }]), "phone", 2);
+    expect(words(reopened)).toEqual([dated]);
+    expect(words(recordsOf(words(reopened)))).toEqual([dated]);
+    expect(words(applyOperation([], op("import", 1, 0, [dated]), "computer", 1))).toEqual([dated]);
+    const removed = applyOperation(reopened, op("remove", 3, 2), "phone", 3);
+    expect(words(applyOperation(removed, op("open", 4, 3, [{ ...whale, addedAt: 300 }]), "phone", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+    expect(readWords([dated])).toEqual([dated]);
+    for (const addedAt of [-1, 0, null, "100", 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => readWords([{ ...whale, addedAt }])).toThrow("Invalid words");
+    }
+  });
   it("rejects a legacy protocol response before consuming any queued edits", () => {
     const pending = [op("open", 1)];
     const state = { snapshot, sequence: 1, pending };

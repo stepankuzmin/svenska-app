@@ -254,7 +254,7 @@ body {
   color: var(--lookup-ink);
 }
 
-.review-start {
+.lookup-action {
   background: none;
   border: 0;
   color: var(--lookup-blue);

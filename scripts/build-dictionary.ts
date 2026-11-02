@@ -6,7 +6,7 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
-import { infinitiveOf, verbInflections } from "../src/word-forms.ts";
+import { citationForm, infinitiveOf, verbInflections } from "../src/word-forms.ts";
 import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
@@ -627,7 +627,7 @@ function indexOtherSpellings({ base, headword, partOfSpeech, sense, indexedInfle
   return forms;
 }
 
-export function buildDictionaryAssets({ xml }: { xml: string }): {
+export function buildDictionaryAssets({ xml, frequencies = {} }: { xml: string; frequencies?: Readonly<Record<string, number>> }): {
   dictionary: DictionaryAsset;
   details: DictionaryDetailsAsset;
 } {
@@ -734,6 +734,11 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     for (const [word, known] of joined) {
       wordAliases[wordKey({ headword, word })] = known;
     }
+    senses.forEach((sense, index) => {
+      const citation = citationForm({ headword, senses: [{ ...sense, ...detailEntries[headword][index] }] });
+      const frequency = frequencies[`${normalizeSwedishLookupText(citation?.form ?? headword)}#${sense.partOfSpeech}`];
+      if (frequency !== undefined) sense.frequency = frequency;
+    });
   }
   borrowTranslations({ entries, senseForms, variants, indexSpellings, crossReferences });
   indexCrossReferences({ entries, crossReferences, russianIndex });
@@ -772,7 +777,10 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
 async function main(): Promise<void> {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const xml = await readFile(resolve(repositoryRoot, "data/lexin/swe_rus-2010-07-07.xml"), "utf8");
-  const { dictionary, details } = buildDictionaryAssets({ xml });
+  const frequencies = z.record(z.string(), z.number().int().positive()).parse(
+    JSON.parse(await readFile(resolve(repositoryRoot, "data/kelly/frequencies.json"), "utf8")),
+  );
+  const { dictionary, details } = buildDictionaryAssets({ xml, frequencies });
   const serializedDictionary = `${JSON.stringify(dictionary)}\n`;
   const serializedDetails = `${JSON.stringify(details)}\n`;
   const dictionaryDigest = createHash("sha256").update(serializedDictionary).digest("hex").slice(0, 16);

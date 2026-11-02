@@ -10,13 +10,15 @@ const onlyTack = [/tack/];
 const fikaRow = /^fika/;
 const valRow = /^val/;
 const valsThenFikaThenTack = [/кит/, /выбор/, /fika/, /tack/];
+const newestFirst = [/fika/, /tack/, /abborre/];
+const mostFrequentFirst = [/tack/, /fika/, /abborre/];
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
     abborre: [{ word: "101", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе", frequency: 10 }],
+    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо", frequency: 100 }],
     framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
     ni: [{ word: "10630", partOfSpeech: "pronomen", meaning: "", translation: "вы" }],
     festival: [{ word: "3001", partOfSpeech: "substantiv", meaning: "", translation: "фестиваль" }],
@@ -200,6 +202,32 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await page.reload();
   await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(tackThenFika);
   await expect(query).toBeFocused();
+});
+
+test("sorting uses the original addition date or corpus frequency and survives library reloads", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(1000);
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  const cards = page.locator(".word-card-list > li");
+  for (const [word, now] of [["abborre", 1000], ["tack", 2000], ["fika", 3000]] as const) {
+    await page.clock.setFixedTime(now);
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await expect(cards).toHaveText(newestFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("frequency");
+  await expect(cards).toHaveText(mostFrequentFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("added");
+  await page.clock.setFixedTime(4000);
+  await query.fill("tack");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+  await expect(cards).toHaveText(newestFirst);
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]").find((word: { headword: string }) => word.headword === "tack").addedAt).toBe(2000);
+  await page.reload();
+  await expect(cards).toHaveText(newestFirst);
 });
 
 test("a q link opens its exact match rather than previewing it", async ({ page }) => {
@@ -465,8 +493,8 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(2);
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18439" },
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18439", addedAt: expect.any(Number) },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 
   await page.reload();
@@ -488,7 +516,7 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("выбор");
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 });
 
@@ -597,7 +625,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 });
 
@@ -657,7 +685,7 @@ test("the card a swipe uncovers can be removed from the keyboard", async ({ page
   await expect.poll(async () => {
     await page.keyboard.press("Tab");
     return remove.evaluate((button) => button.matches(":focus-visible"));
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: 5000, intervals: [50] }).toBe(true);
 
   await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveCSS("transform", "none");
   await page.keyboard.press("Enter");
