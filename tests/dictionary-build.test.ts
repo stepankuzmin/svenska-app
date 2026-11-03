@@ -12,12 +12,16 @@ import {
 type Assets = ReturnType<typeof buildDictionaryAssets>;
 
 let assets: Assets;
+let corpusAssets: Assets;
 let search: ReturnType<typeof createSearch>;
 
 beforeAll(async () => {
   const xml = await readFile(new URL("./fixtures/lexin-small.xml", import.meta.url), "utf8");
   assets = buildDictionaryAssets({ xml });
   search = createSearch({ dictionary: assets.dictionary });
+  const corpusXml = await readFile(new URL("../data/lexin/swe_rus-2010-07-07.xml", import.meta.url), "utf8");
+  const frequencies = JSON.parse(await readFile(new URL("../data/kelly/frequencies.json", import.meta.url), "utf8"));
+  corpusAssets = buildDictionaryAssets({ xml: corpusXml, frequencies });
 });
 
 function closestSuggestion(query: string) {
@@ -26,11 +30,9 @@ function closestSuggestion(query: string) {
 }
 
 describe("Lexin source edition import", () => {
-  it("joins corpus counts to the words their cards show", async () => {
-    const xml = await readFile(new URL("../data/lexin/swe_rus-2010-07-07.xml", import.meta.url), "utf8");
-    const frequencies = JSON.parse(await readFile(new URL("../data/kelly/frequencies.json", import.meta.url), "utf8"));
-    const { dictionary, details } = buildDictionaryAssets({ xml, frequencies });
-    for (const [headword, expected] of [["de", 381431], ["dem", 152922], ["oss", 106515], ["idag", 98627], ["politik", 41855], ["te", 45826], ["varje", 57195], ["varenda", 33219]] as const) {
+  it("joins corpus counts to the words their cards show", () => {
+    const { dictionary, details } = corpusAssets;
+    for (const [headword, expected] of [["de", 381431], ["dem", 152922], ["oss", 106515], ["idag", 98627], ["politik", 41855], ["te", 45826], ["varje", 57195], ["varenda", 33219], ["herr", 11204], ["andning", 2244]] as const) {
       expect(dictionary.entries[headword][0].frequency).toBe(expected);
     }
     expect(dictionary.entries["måste"].map((sense) => sense.frequency)).toEqual([759, 252510, 252510]);
@@ -57,7 +59,7 @@ describe("Lexin source edition import", () => {
   it("joins corpus frequencies by a verb's infinitive and a noun's article", async () => {
     const xml = await readFile(new URL("./fixtures/lexin-small.xml", import.meta.url), "utf8");
     const { dictionary } = buildDictionaryAssets({ xml, frequencies: {
-      "en bok#subst.": 54561, "att besluta#verb": 8369,
+      "en bok#subst.": 54561, "bok#subst.": 999, "att besluta#verb": 8369,
     } });
     expect(dictionary.entries.bok.map((sense) => sense.frequency)).toEqual([54561, undefined]);
     expect(dictionary.entries.beslutar[0].frequency).toBe(8369);

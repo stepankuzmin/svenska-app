@@ -12,7 +12,7 @@ test.describe.configure({ mode: "serial" });
 
 async function openWord(page: Page, word: string) {
   await page.getByLabel("Swedish or Russian word").fill(word);
-  await page.getByRole("option").first().click();
+  await page.getByRole("listbox").getByRole("option").first().click();
   await expect(page.locator(".word-card-list > li").filter({ hasText: word }).first()).toBeVisible();
 }
 async function openSync(page: Page) {

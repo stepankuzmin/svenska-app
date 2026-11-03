@@ -49,7 +49,12 @@ export function wordsOf({
 }
 
 export function uniqueWords(libraryWords: readonly LibraryWord[]): LibraryWord[] {
-  const byKey = new Map(libraryWords.map((libraryWord) => [wordKey(libraryWord), libraryWord]));
+  const byKey = new Map<string, LibraryWord>();
+  for (const libraryWord of libraryWords) {
+    const key = wordKey(libraryWord);
+    const previous = byKey.get(key);
+    if (previous === undefined || (libraryWord.addedAt ?? 0) < (previous.addedAt ?? 0)) byKey.set(key, libraryWord);
+  }
   return [...byKey.values()];
 }
 

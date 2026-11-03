@@ -57,8 +57,11 @@ export function applyOperation(
 function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, deviceId: string, revision: number): void {
   operation.retained?.forEach(({ source, word }, index) => {
     const previous = next.get(wordKey(source));
-    if (previous?.present && !next.has(wordKey(word))) {
+    const existing = next.get(wordKey(word));
+    if (previous?.present && existing === undefined) {
       next.set(wordKey(word), { ...previous, ...word, index: previous.index + index / 1000 });
+    } else if (previous?.present && existing?.present && (previous.addedAt ?? 0) < (existing.addedAt ?? 0)) {
+      next.set(wordKey(word), { ...existing, addedAt: previous.addedAt });
     }
   });
   operation.words.forEach((word, index) => {

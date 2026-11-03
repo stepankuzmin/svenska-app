@@ -10,6 +10,7 @@ import { citationForm, infinitiveOf, verbInflections } from "../src/word-forms.t
 import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
+const leadingNounArticle = /^(en|ett) /;
 
 function frequencyOf({ form, partOfSpeech, frequencies }: {
   form: string;
@@ -21,6 +22,8 @@ function frequencyOf({ form, partOfSpeech, frequencies }: {
   const frequency = frequencies[`${normalizedForm}#${type}`] ??
     (type === "pron." ? frequencies[`${normalizedForm}#artikel`] : undefined);
   if (frequency !== undefined || partOfSpeech !== "subst.") return frequency;
+  const bareForm = normalizedForm.replace(leadingNounArticle, "");
+  if (bareForm !== normalizedForm) return frequencies[`${bareForm}#${type}`];
   const counts = ["en ", "ett "].flatMap((article) => {
     const count = frequencies[`${normalizeSwedishLookupText(article + form)}#${type}`];
     return count === undefined ? [] : [count];

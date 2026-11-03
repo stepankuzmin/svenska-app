@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LibraryStore } from "../src/sync/store";
-import { recordsOf } from "../src/sync/model";
+import { applyOperation, recordsOf } from "../src/sync/model";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const stores: LibraryStore[] = [];
@@ -18,6 +18,23 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it.each([undefined, 100])("preserves the earlier date %s when imported identities overlap", async (addedAt) => {
+    const date = addedAt === undefined ? {} : { addedAt };
+    const legacy = { headword: "val", word: "", ...date };
+    const store = create(undefined, []); await store.ready;
+    const records = applyOperation(recordsOf([legacy]), {
+      kind: "import", sequence: 1, baseRevision: 0, words: [{ ...whale, addedAt: 200 }],
+    }, "other-device", 1);
+    await store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1, records });
+    store.setDictionary({
+      entries: { val: [whale, election].map(({ word }) => ({ word, partOfSpeech: "", meaning: "", translation: "" })) },
+      wordAliases: {},
+    });
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }, { ...election, ...date }]);
+    await store.remove("val#18440");
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+  });
+
   it.each([undefined, 100])("preserves a resolved word's date %s after removing a legacy sibling", async (addedAt) => {
     const date = addedAt === undefined ? {} : { addedAt };
     const store = create(undefined, [{ headword: "val", word: "", ...date }]); await store.ready;
