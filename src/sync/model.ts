@@ -67,7 +67,12 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
   operation.words.forEach((word, index) => {
     const key = wordKey(word);
     const previous = next.get(key);
-    if (operation.kind === "import" && previous !== undefined) return;
+    if (operation.kind === "import" && previous !== undefined) {
+      if (previous.present && (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
+        next.set(key, { ...previous, addedAt: word.addedAt });
+      }
+      return;
+    }
     const record = previous ?? recordsOf([word])[0];
     if (operation.kind === "remove") {
       next.set(key, {

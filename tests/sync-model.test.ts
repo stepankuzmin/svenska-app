@@ -12,6 +12,19 @@ function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it.each([
+    { addedAt: undefined, expected: whale },
+    { addedAt: 100, expected: { ...whale, addedAt: 100 } },
+    { addedAt: 300, expected: { ...whale, addedAt: 200 } },
+  ])("merges imported date $addedAt without reordering or reviving known words", ({ addedAt, expected }) => {
+    const original = recordsOf([tea, { ...whale, addedAt: 200 }]);
+    const importedWord = { ...whale, ...(addedAt === undefined ? {} : { addedAt }) };
+    const operation = op("import", 1, 0, [importedWord]);
+    expect(words(applyOperation(original, operation, "computer", 1))).toEqual([tea, expected]);
+    const removed = applyOperation(original, op("remove", 1), "phone", 1);
+    expect(words(applyOperation(removed, operation, "computer", 2))).toEqual([tea]);
+  });
+
   it("preserves added dates through import, replay, compaction and reopening", () => {
     const dated = { ...whale, addedAt: 100 };
     const opened = applyOperation([], op("open", 1, 0, [dated]), "phone", 1);
