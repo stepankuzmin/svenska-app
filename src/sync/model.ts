@@ -21,6 +21,7 @@ export type SyncOperation = {
   baseRevision: number;
   kind: "open" | "remove" | "import";
   words: LibraryWord[];
+  wordDates?: boolean;
   retained?: { source: LibraryWord; word: LibraryWord }[];
 };
 export type LibrarySnapshot = {
@@ -68,7 +69,8 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
     const key = wordKey(word);
     const previous = next.get(key);
     if (operation.kind === "import" && previous !== undefined) {
-      if (previous.present && previous.removedRevision === 0 && (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
+      if (previous.present && previous.removedRevision === 0 && (word.addedAt !== undefined || operation.wordDates) &&
+        (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
         next.set(key, { ...previous, addedAt: word.addedAt });
       }
       return;

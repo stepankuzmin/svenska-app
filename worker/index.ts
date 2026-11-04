@@ -92,7 +92,7 @@ async function connect(request: Request, env: Env, ctx: ExecutionContext, path: 
   const recoveryToken = secret();
   const snapshot = path === "libraries"
     ? await stub.initialize(credential, words, await digest(recoveryToken))
-    : await stub.join(credential, await digest(tokenOf(body.token)), words, path === "recover");
+    : await stub.join(credential, await digest(tokenOf(body.token)), words, path === "recover", body.wordDates === true);
   return json({
     snapshot,
     recoveryCode: path === "libraries" ? `${libraryId}.${recoveryToken}` : undefined,

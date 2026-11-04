@@ -146,7 +146,7 @@ export class LookupLibrary extends DurableObject<Env> {
     return { expiresAt };
   }
 
-  join(credential: DeviceCredential, invitationHash: string, words: LibraryWord[], recovery: boolean): LibrarySnapshot {
+  join(credential: DeviceCredential, invitationHash: string, words: LibraryWord[], recovery: boolean, wordDates = false): LibrarySnapshot {
     const result = this.ctx.storage.transactionSync(() => {
       const state = this.load();
       if (recovery) {
@@ -166,7 +166,7 @@ export class LookupLibrary extends DurableObject<Env> {
       if (words.length > 0) {
         state.revision++;
         state.records = applyOperation(state.records, {
-          sequence: credential.sequence, baseRevision: state.revision, kind: "import", words,
+          sequence: credential.sequence, baseRevision: state.revision, kind: "import", words, wordDates,
         }, device.id, state.revision);
       }
       checkCapacity(state.records);

@@ -147,7 +147,7 @@ export function createRemote(store: LibraryStore): Remote {
         store.setStatus("connecting");
         try {
           const result = await request<{ snapshot: LibrarySnapshot; recoveryCode?: string }>(kind, {
-            ...details, deviceId: state.snapshot.deviceId, sequence: state.connectionSequence, words: store.connectionWords({ ...state, pending: [] }),
+            ...details, deviceId: state.snapshot.deviceId, sequence: state.connectionSequence, wordDates: true, words: store.connectionWords({ ...state, pending: [] }),
           });
           if (stopped || !await store.accept(result.snapshot, state)) throw new Error("This connection was cancelled. Connect again to sync devices.");
           return result;

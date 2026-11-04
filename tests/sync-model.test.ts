@@ -12,6 +12,12 @@ function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it("preserves shared dates when an older client reconnects without them", () => {
+    const original = recordsOf([{ ...whale, addedAt: 100 }]);
+    expect(words(applyOperation(original, op("import", 1, 1, [whale]), "computer", 2)))
+      .toEqual([{ ...whale, addedAt: 100 }]);
+  });
+
   it.each([undefined, 100])("keeps a re-added date when pairing an older library dated %s", (addedAt) => {
     const opened = applyOperation([], op("open", 1, 0, [{ ...whale, addedAt: 100 }]), "phone", 1);
     const removed = applyOperation(opened, op("remove", 2, 1), "phone", 2);
@@ -51,7 +57,7 @@ describe("sync semantics", () => {
   ])("merges imported date $addedAt without reordering or reviving known words", ({ addedAt, expected }) => {
     const original = recordsOf([tea, { ...whale, addedAt: 200 }]);
     const importedWord = { ...whale, ...(addedAt === undefined ? {} : { addedAt }) };
-    const operation = op("import", 1, 0, [importedWord]);
+    const operation: SyncOperation = { ...op("import", 1, 0, [importedWord]), wordDates: true };
     expect(words(applyOperation(original, operation, "computer", 1))).toEqual([tea, expected]);
     const removed = applyOperation(original, op("remove", 1), "phone", 1);
     expect(words(applyOperation(removed, operation, "computer", 2))).toEqual([tea]);

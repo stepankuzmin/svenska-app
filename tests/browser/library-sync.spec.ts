@@ -425,6 +425,42 @@ test("joining a spelling-only library does not restore a meaning removed on anot
   } finally { await secondContext.close(); }
 });
 
+test("old clients cannot erase dates when rejoining, while current clients preserve undated history", async ({ context }) => {
+  const headers = { Origin: origin };
+  const dated = { ...whale, addedAt: 100 };
+  const created = await context.request.post("/api/sync/libraries", {
+    headers, data: { deviceId: randomUUID(), challenge, label: "Primary", sequence: 0, words: [dated] },
+  });
+  expect(created.ok()).toBe(true);
+  const older = await newDevice(context);
+  const current = await newDevice(context);
+  try {
+    const firstInvite = await (await context.request.post("/api/sync/invitations", { headers, data: {} })).json();
+    const joined = await older.request.post(`${origin}/api/sync/join`, {
+      headers, data: { ...firstInvite, deviceId: randomUUID(), challenge, label: "Older", sequence: 0, words: [] },
+    });
+    expect(joined.ok()).toBe(true);
+    const snapshot = (await joined.json() as { snapshot: LibrarySnapshot }).snapshot;
+    const oldWords = snapshot.records.filter((record) => record.present).map(({ headword, word }) => ({ headword, word }));
+    const disconnected = await older.request.post(`${origin}/api/sync/disconnect`, { headers, data: {} });
+    expect(disconnected.ok()).toBe(true);
+    const secondInvite = await (await context.request.post("/api/sync/invitations", { headers, data: {} })).json();
+    const rejoined = await older.request.post(`${origin}/api/sync/join`, {
+      headers, data: { ...secondInvite, deviceId: randomUUID(), challenge, label: "Older", sequence: 0, words: oldWords },
+    });
+    expect(rejoined.ok()).toBe(true);
+    expect((await rejoined.json() as { snapshot: LibrarySnapshot }).snapshot.records.filter((record) => record.present))
+      .toMatchObject([dated]);
+    const thirdInvite = await (await context.request.post("/api/sync/invitations", { headers, data: {} })).json();
+    const imported = await current.request.post(`${origin}/api/sync/join`, {
+      headers, data: { ...thirdInvite, deviceId: randomUUID(), challenge, label: "Current", sequence: 0, words: [whale], wordDates: true },
+    });
+    expect(imported.ok()).toBe(true);
+    const records = (await imported.json() as { snapshot: LibrarySnapshot }).snapshot.records;
+    expect(visibleWords({ snapshot: { ...snapshot, records }, sequence: 0, pending: [] })).toEqual([whale]);
+  } finally { await Promise.all([older.close(), current.close()]); }
+});
+
 test("a second tab saves offline changes and shares the durable queue", async ({ page, context }) => {
   await page.goto(".");
   await openSync(page);
