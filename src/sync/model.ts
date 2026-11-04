@@ -68,7 +68,7 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
     const key = wordKey(word);
     const previous = next.get(key);
     if (operation.kind === "import" && previous !== undefined) {
-      if (previous.present && (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
+      if (previous.present && previous.removedRevision === 0 && (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
         next.set(key, { ...previous, addedAt: word.addedAt });
       }
       return;
@@ -84,7 +84,10 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
     const ownRemoval = record.removedBy === deviceId && record.removedSequence < operation.sequence;
     if (record.removedRevision > operation.baseRevision && !ownRemoval) return;
     const order = operation.kind === "import" ? -revision : revision;
-    const addedAt = previous?.present ? previous.addedAt : word.addedAt;
+    let addedAt = previous?.present ? previous.addedAt : word.addedAt;
+    if (previous?.present && addedAt !== undefined && word.addedAt !== undefined) {
+      addedAt = Math.min(addedAt, word.addedAt);
+    }
     next.set(key, { ...record, addedAt, present: true, order, index });
   });
 }

@@ -59,6 +59,9 @@ describe("durable local library", () => {
     clock.mockReturnValue(200);
     await store.dispatch({ kind: "picked", choice: { word: whale } });
     expect(store.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    clock.mockReturnValue(50);
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    expect(store.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
     const reopened = create(name, []); await reopened.ready;
     expect(reopened.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
     const other = create(crypto.randomUUID(), []); await other.ready;

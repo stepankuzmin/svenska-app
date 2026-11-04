@@ -12,6 +12,38 @@ function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it.each([undefined, 100])("keeps a re-added date when pairing an older library dated %s", (addedAt) => {
+    const opened = applyOperation([], op("open", 1, 0, [{ ...whale, addedAt: 100 }]), "phone", 1);
+    const removed = applyOperation(opened, op("remove", 2, 1), "phone", 2);
+    const reopened = applyOperation(removed, op("open", 3, 2, [{ ...whale, addedAt: 300 }]), "phone", 3);
+    const imported = { ...whale, ...(addedAt === undefined ? {} : { addedAt }) };
+    expect(words(applyOperation(reopened, op("import", 1, 0, [imported]), "computer", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+  });
+
+  it.each(["open", "import"] as const)("preserves dates from %s when an older client reopens without one", (kind) => {
+    const original = applyOperation([], op(kind, 1, 0, [{ ...whale, addedAt: 200 }]), "phone", 1);
+    const reopened = applyOperation(original, op("open", 2, 1, [{ ...whale, addedAt: 200 }]), "phone", 2);
+    expect(words(applyOperation(original, op("open", 1, 1, [whale]), "computer", 2)))
+      .toEqual([{ ...whale, addedAt: 200 }]);
+    expect(words(applyOperation(reopened, op("open", 1, 1, [whale]), "computer", 3)))
+      .toEqual([{ ...whale, addedAt: 200 }]);
+  });
+
+  it.each([
+    { first: { ...whale, addedAt: 100 }, second: { ...whale, addedAt: 200 }, expected: { ...whale, addedAt: 100 } },
+    { first: { ...whale, addedAt: 200 }, second: { ...whale, addedAt: 100 }, expected: { ...whale, addedAt: 100 } },
+    { first: whale, second: { ...whale, addedAt: 100 }, expected: whale },
+    { first: { ...whale, addedAt: 100 }, second: whale, expected: { ...whale, addedAt: 100 } },
+  ])("keeps the earliest concurrent addition in either arrival order: $first.addedAt, $second.addedAt", ({ first, second, expected }) => {
+    const opened = applyOperation([], op("open", 1, 0, [first]), "phone", 1);
+    expect(words(applyOperation(opened, op("open", 1, 0, [second]), "computer", 2))).toEqual([expected]);
+    const removed = applyOperation(opened, op("remove", 2, 1), "phone", 2);
+    const reopened = applyOperation(removed, op("open", 3, 2, [{ ...whale, addedAt: 300 }]), "phone", 3);
+    expect(words(applyOperation(reopened, op("open", 1, 0, [second]), "computer", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+  });
+
   it.each([
     { addedAt: undefined, expected: whale },
     { addedAt: 100, expected: { ...whale, addedAt: 100 } },
