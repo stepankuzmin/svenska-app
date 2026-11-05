@@ -110,3 +110,37 @@ test("a pull keeps the browser from scrolling, and a swipe up leaves it free", a
   expect(await gesture(page, [[100, 100], [100, 150]])).toEqual([false, true]);
   expect(await gesture(page, [[100, 300], [100, 250]])).toEqual([false, false]);
 });
+
+test("the spinner keeps its place on the page while a released pull settles", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto(".");
+  await expect(page.locator(".pull-to-sync")).toBeAttached();
+  await gesture(page, [[100, 100], [100, 500]]);
+  const gaps = await page.evaluate(() => new Promise<number[]>((resolve) => {
+    const main = document.querySelector(".minimal-lookup")!;
+    const spinner = document.querySelector(".pull-to-sync svg")!;
+    const samples: number[] = [];
+    const sample = () => {
+      const { top, height } = spinner.getBoundingClientRect();
+      samples.push(top + height / 2 - main.getBoundingClientRect().top);
+      if (samples.length < 15) requestAnimationFrame(sample);
+      else resolve(samples);
+    };
+    sample();
+  }));
+  expect(Math.max(...gaps) - Math.min(...gaps)).toBeLessThan(1);
+});
+
+test("the page stays under the finger during a pull", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto(".");
+  await expect(page.locator(".pull-to-sync")).toBeAttached();
+  await gesture(page, [[100, 100], [100, 400]], false);
+  const main = page.locator(".minimal-lookup");
+  await expect(main).toHaveCSS("transition-duration", "0s");
+  expect(await main.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).m42)).toBeGreaterThan(100);
+});

@@ -3,10 +3,8 @@
   transition: transform 280ms cubic-bezier(.32, .72, 0, 1);
 }
 
-.pull-to-sync svg { transition: translate 280ms cubic-bezier(.32, .72, 0, 1); }
-
 .minimal-lookup[data-pulling],
-.minimal-lookup[data-pulling] .pull-to-sync :is(svg, rect) {
+.minimal-lookup[data-pulling] .pull-to-sync rect {
   transition: none;
 }
 
@@ -22,6 +20,8 @@
   position: absolute;
 }
 
+.pull-to-sync svg { margin-block-end: calc(1rem - env(safe-area-inset-top, 0px)); }
+
 .pull-to-sync rect {
   fill: var(--lookup-muted);
   opacity: 0;
@@ -31,8 +31,7 @@
 .pull-to-sync[data-syncing] svg { animation: pull-to-sync-spin 1s steps(12) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .minimal-lookup,
-  .pull-to-sync svg { transition: none; }
+  .minimal-lookup { transition: none; }
 }
 
 @keyframes pull-to-sync-spin {

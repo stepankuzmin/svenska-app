@@ -6,7 +6,6 @@ import "./pull-to-sync.css";
 const commitDistance = 100;
 const restDistance = 60;
 const shortestSpin = 500;
-const spinnerSize = 28;
 const tickCount = 12;
 
 function resisted(pull: number): number {
@@ -20,19 +19,16 @@ function commitPoint(): number {
 
 export default function PullToSync() {
   const gapRef = useRef<HTMLDivElement>(null);
-  const spinnerRef = useRef<SVGSVGElement>(null);
 
   useSubscription(() => {
     const gap = gapRef.current!;
-    const spinner = spinnerRef.current!;
     const page = gap.closest<HTMLElement>(".minimal-lookup")!;
-    const ticks = [...spinner.children] as SVGElement[];
+    const ticks = [...gap.querySelectorAll("rect")];
     let start: { x: number; y: number } | null = null;
     let distance = 0;
 
     function show(offset: number) {
       page.style.transform = offset === 0 ? "" : `translateY(${offset}px)`;
-      spinner.style.translate = `0 calc(${(spinnerSize - offset) / 2}px + env(safe-area-inset-top, 0px))`;
     }
 
     function reveal(progress: number) {
@@ -108,7 +104,7 @@ export default function PullToSync() {
 
   return (
     <div ref={gapRef} className="pull-to-sync" aria-hidden="true">
-      <svg ref={spinnerRef} width={spinnerSize} height={spinnerSize} viewBox="0 0 28 28">
+      <svg width="28" height="28" viewBox="0 0 28 28">
         {Array.from({ length: tickCount }, (_, index) => (
           <rect key={index} x="12.75" y="1" width="2.5" height="7.5" rx="1.25" transform={`rotate(${index * 30} 14 14)`} />
         ))}
