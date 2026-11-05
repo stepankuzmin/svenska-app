@@ -1,12 +1,11 @@
-.minimal-lookup {
-  position: relative;
-  transition: transform 280ms cubic-bezier(.32, .72, 0, 1);
+.minimal-lookup { position: relative; }
+
+.word-card-list > li {
+  contain-intrinsic-block-size: auto 3rem;
+  content-visibility: auto;
 }
 
-.minimal-lookup[data-pulling],
-.minimal-lookup[data-pulling] .pull-to-sync rect {
-  transition: none;
-}
+.minimal-lookup[data-pulling] .pull-to-sync rect { transition-duration: 80ms; }
 
 .pull-to-sync {
   align-items: flex-end;
@@ -31,10 +30,6 @@
 .pull-to-sync[data-syncing] g {
   animation: pull-to-sync-spin 1s steps(12) infinite;
   transform-origin: 14px 14px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .minimal-lookup { transition: none; }
 }
 
 @keyframes pull-to-sync-spin {

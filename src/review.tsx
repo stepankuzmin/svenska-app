@@ -1,28 +1,16 @@
 import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { answer, dayKey, schedule, undoAnswer, waitLabel, type Answered, type ReviewCounts, type ReviewState } from "./review-schedule";
+import { releaseVelocity, rubberband, springStep } from "./gesture-motion";
 import { swipeLockDistance } from "./swipe-to-remove";
 import { useListener } from "./use-subscription";
 import type { WordCardContent } from "./word-cards";
 import "./review.css";
 
-type Drag = { pointerId: number; startX: number; grabX: number; dragging: boolean; samples: { x: number; t: number }[] };
+type Drag = { pointerId: number; startX: number; grabX: number; dragging: boolean; samples: { position: number; t: number }[] };
 
 const commitDistance = 96;
-const springFrequency = (2 * Math.PI) / 0.35;
-
-function rubberband(offset: number, size: number): number {
-  return (offset * size * 0.55) / (size + 0.55 * Math.abs(offset));
-}
-
 function projected(velocity: number): number {
   return (velocity / 1000) * 0.998 / (1 - 0.998);
-}
-
-function releaseVelocity(samples: readonly { x: number; t: number }[], releasedAt: number): number {
-  const recent = samples.findIndex((sample) => releasedAt - sample.t <= 100);
-  const first = samples[recent === -1 ? samples.length - 1 : Math.max(0, recent - 1)];
-  const last = samples.at(-1);
-  return first === undefined || last === undefined || releasedAt === first.t ? 0 : ((last.x - first.x) / (releasedAt - Math.max(first.t, releasedAt - 100))) * 1000;
 }
 
 type Round = { revealedCard: string | null; answered: number; undo: Answered | null; retry: Answered | null };
@@ -76,11 +64,9 @@ function ReviewCard({
     const step = (now: number) => {
       const elapsed = Math.max(now - last, 0) / 1000;
       last = now;
-      const offset = motion.current.x - target;
-      const slope = motion.current.v + springFrequency * offset;
-      const decay = Math.exp(-springFrequency * elapsed);
-      const next = target + (offset + slope * elapsed) * decay;
-      motion.current.v = (slope - springFrequency * (offset + slope * elapsed)) * decay;
+      const spring = springStep(motion.current.x - target, motion.current.v, elapsed);
+      const next = target + spring.offset;
+      motion.current.v = spring.velocity;
       if (leave !== undefined && Math.abs(next) >= offscreen) {
         show(next);
         leave();
@@ -123,7 +109,7 @@ function ReviewCard({
     if (!current.dragging && Math.abs(event.clientX - current.startX) <= swipeLockDistance) return;
     current.dragging = true;
     const x = event.clientX - current.grabX;
-    current.samples.push({ x, t: event.timeStamp });
+    current.samples.push({ position: x, t: event.timeStamp });
     show(x);
   }
 
@@ -213,6 +199,7 @@ export default function Review({
   }
 
   function keyDown(event: KeyboardEvent) {
+    dialog.current!.dataset.keyboard = "true";
     if (event.target instanceof HTMLButtonElement && (event.key === "Enter" || event.key === " ")) return;
     if ((event.metaKey || event.ctrlKey) && event.key === "z") {
       event.preventDefault();
@@ -232,6 +219,7 @@ export default function Review({
       className="review"
       aria-label="Review"
       tabIndex={-1}
+      onPointerDown={(event) => { delete event.currentTarget.dataset.keyboard; }}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -253,7 +241,7 @@ export default function Review({
         <ReviewSummary cards={cards} state={state} now={now} />
       ) : (
         <div className="review-deck">
-          <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
+          <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null || dialog.current?.dataset.keyboard ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
             <span className="review-stamp review-stamp-remembered" aria-hidden="true">Remembered · {waitLabel(schedule(scheduled, true, now), now)}</span>
             <span className="review-stamp review-stamp-forgot" aria-hidden="true">Forgot · {waitLabel(schedule(scheduled, false, now), now)}</span>
             <p className="review-russian" lang="ru">{current.translation}</p>

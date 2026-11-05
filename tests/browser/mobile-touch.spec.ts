@@ -143,6 +143,88 @@ test("the page stays under the finger during a pull", async ({ page }) => {
   await expect(page.locator(".pull-to-sync")).toBeAttached();
   await gesture(page, [[100, 100], [100, 400]], false);
   const main = page.locator(".minimal-lookup");
-  await expect(main).toHaveCSS("transition-duration", "0s");
+  await expect(main).toHaveAttribute("data-pulling", "true");
   expect(await main.evaluate((element) => new DOMMatrix(getComputedStyle(element).transform).m42)).toBeGreaterThan(100);
+});
+
+const openPage = async (page: Page) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto(".");
+  await expect(page.locator(".pull-to-sync")).toBeAttached();
+};
+
+const pageOffset = (page: Page) => page.locator(".minimal-lookup").evaluate((main) => new DOMMatrix(getComputedStyle(main).transform).m42);
+
+test("a page held still eases off when let go instead of leaping", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 500]], false);
+  const steps = await page.evaluate(() => new Promise<number[]>((resolve) => {
+    const main = document.querySelector(".minimal-lookup")!;
+    const top = () => main.getBoundingClientRect().top;
+    setTimeout(() => {
+      document.body.dispatchEvent(Object.assign(new Event("touchend", { bubbles: true }), { touches: [] }));
+      const tops = [top()];
+      const sample = () => {
+        tops.push(top());
+        if (tops.length < 4) requestAnimationFrame(sample);
+        else resolve(tops.slice(1).map((value, index) => tops[index] - value));
+      };
+      requestAnimationFrame(sample);
+    }, 150);
+  }));
+  expect(steps[0]).toBeLessThan(steps[2]);
+  expect(steps[0]).toBeLessThan(8);
+});
+
+test("the spinner turns until the page has slid all the way back", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 500]]);
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toBeAttached();
+  const offsets = await page.evaluate(() => new Promise<number[]>((resolve) => {
+    const main = document.querySelector(".minimal-lookup")!;
+    const seen: number[] = [];
+    const sample = () => {
+      if (document.querySelector(".pull-to-sync[data-syncing]") === null) resolve(seen);
+      else {
+        seen.push(main.getBoundingClientRect().top);
+        requestAnimationFrame(sample);
+      }
+    };
+    sample();
+  }));
+  expect(offsets.at(-1)).toBeLessThan(2);
+  expect(Math.max(...offsets)).toBeGreaterThan(59);
+});
+
+test("the page rests a moment before it slides back", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 500]]);
+  await page.waitForTimeout(400);
+  expect(await pageOffset(page)).toBe(60);
+});
+
+test("a page sliding back can be caught and pulled again", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 200]]);
+  const caught = await pageOffset(page);
+  await gesture(page, [[100, 100], [100, 120]], false);
+  expect(await pageOffset(page)).toBeGreaterThanOrEqual(caught);
+});
+
+test("a caught page pushed up slides away instead of freezing", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 200]]);
+  await gesture(page, [[100, 300], [100, 240]], false);
+  await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "none");
+});
+
+test("a tap on a page sliding back starts no sync", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 500], [400, 500]], false);
+  await gesture(page, [[100, 300]]);
+  await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "none");
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toHaveCount(0);
 });

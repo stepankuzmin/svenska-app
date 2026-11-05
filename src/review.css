@@ -55,6 +55,8 @@ html:has(.review[open]) { overflow: hidden; }
 
 .review:focus { outline: none; }
 
+.review[data-keyboard] :is(.review-card, .review-answer) { transition: none; }
+
 .review-counts {
   color: var(--lookup-muted);
   display: flex;
