@@ -1,13 +1,17 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useReducer, useRef, useState, useSyncExternalStore } from "react";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { libraryStore } from "./store";
 import type { loadTransport } from "./load-transport";
+import { mergeState } from "../use-subscription";
 import "./panel.css";
 
 const mobilePattern = /Mobi/;
 type PanelProps = { onClose: () => void; transport: Awaited<ReturnType<typeof loadTransport>> };
 
+type PanelState = {
+  label: string; busy: boolean; message: string; link: string; qr: string; recovery: string; recoveryInput: string; joinInput: string;
+};
 type Device = { id: string; label: string; current: boolean };
 type Invitation = { libraryId: string; token: string; expiresAt: number };
 const statusText = {
@@ -50,14 +54,10 @@ function Panel({ onClose, transport }: PanelProps) {
   const dialog = useRef<HTMLDialogElement>(null);
   const challenge = useRef<HTMLDivElement>(null);
   const [pairing] = useState(pairingFromFragment);
-  const [label, setLabel] = useState(mobilePattern.test(navigator.userAgent) ? "Phone" : "Computer");
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [link, setLink] = useState("");
-  const [qr, setQr] = useState("");
-  const [recovery, setRecovery] = useState("");
-  const [recoveryInput, setRecoveryInput] = useState("");
-  const [joinInput, setJoinInput] = useState("");
+  const [{ label, busy, message, link, qr, recovery, recoveryInput, joinInput }, update] = useReducer(mergeState<PanelState>, {
+    label: mobilePattern.test(navigator.userAgent) ? "Phone" : "Computer",
+    busy: false, message: "", link: "", qr: "", recovery: "", recoveryInput: "", joinInput: "",
+  });
   const devices = useQuery({
     queryKey: ["devices", store.state().snapshot.libraryId],
     queryFn: () => syncRequest<Device[]>("devices"), enabled: view.connected && view.status !== "revoked",
@@ -68,11 +68,10 @@ function Panel({ onClose, transport }: PanelProps) {
     dialog.current?.showModal();
   }, []);
   async function act(action: () => Promise<void>): Promise<void> {
-    setBusy(true);
-    setMessage("");
+    update({ busy: true, message: "" });
     try { await action(); }
-    catch (error) { setMessage(error instanceof Error ? error.message : "Please try again."); }
-    finally { setBusy(false); }
+    catch (error) { update({ message: error instanceof Error ? error.message : "Please try again." }); }
+    finally { update({ busy: false }); }
   }
   async function confirmHuman(): Promise<string> {
     const [{ siteKey }, api] = await Promise.all([syncRequest<{ siteKey: string }>("challenge"), loadTurnstile()]);
@@ -86,16 +85,16 @@ function Panel({ onClose, transport }: PanelProps) {
   }
   async function connect(kind: "libraries" | "join" | "recover", details?: { libraryId: string; token: string }): Promise<void> {
     const result = await (await store.startRemote()).connect(kind, { label, ...details, challenge: await confirmHuman() });
-    if (result.recoveryCode) setRecovery(result.recoveryCode);
-    setMessage("Connected. Card changes will sync automatically.");
+    if (result.recoveryCode) update({ recovery: result.recoveryCode });
+    update({ message: "Connected. Card changes will sync automatically." });
     await queryClient.invalidateQueries({ queryKey: ["devices"] });
   }
   async function invite(): Promise<void> {
     const invitation = await syncRequest<Invitation>("invitations", {});
     const url = new URL(location.pathname, location.origin);
     url.hash = new URLSearchParams({ pair: `${invitation.libraryId}.${invitation.token}` }).toString();
-    setLink(url.href);
-    setQr(await QRCode.toDataURL(url.href, { width: 240, margin: 2 }));
+    update({ link: url.href });
+    update({ qr: await QRCode.toDataURL(url.href, { width: 240, margin: 2 }) });
   }
   function detailsOf(input: string): { libraryId: string; token: string } {
     const text = input.trim();
@@ -105,56 +104,56 @@ function Panel({ onClose, transport }: PanelProps) {
   }
 
   return <dialog className="sync-panel" ref={dialog} onCancel={onClose} onClose={onClose} aria-labelledby="sync-title">
-    <header><h2 id="sync-title">Sync devices</h2><button type="button" onClick={onClose} aria-label="Close sync">Close</button></header>
+    <header><h2 id="sync-title">Sync devices</h2><button type="button" className="sync-text-button" onClick={onClose} aria-label="Close sync">Close</button></header>
     <p role="status">{view.error || statusText[view.status]}</p>
     {view.pending > 0 && view.connected ? <p>{view.pending} changes waiting to sync.</p> : null}
     {message && message !== view.error ? <p role="status">{message}</p> : null}
     {pairing && view.connected && store.state().snapshot.libraryId !== pairing.libraryId ? <p>Disconnect this device before joining the library in this link. Your local words will be kept.</p> : null}
     {!view.connected ? <>
       <div ref={challenge} />
-      <label>Device name<input value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} /></label>
+      <label>Device name<input value={label} maxLength={80} onChange={(event) => update({ label: event.target.value })} /></label>
       <p>Connect your devices once. Later changes sync automatically.</p>
-      {pairing ? <button disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("join", pairing))}>Connect this device</button>
-        : <button disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("libraries"))}>Enable sync</button>}
+      {pairing ? <button className="sync-primary" disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("join", pairing))}>Connect this device</button>
+        : <button className="sync-primary" disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("libraries"))}>Enable sync</button>}
       {!pairing ? <>
-        <label>Pairing link<input value={joinInput} onChange={(event) => setJoinInput(event.target.value)} autoComplete="off" /></label>
+        <label>Pairing link<input value={joinInput} onChange={(event) => update({ joinInput: event.target.value })} autoComplete="off" /></label>
         <button disabled={busy || !view.readyForSync || !joinInput.trim() || !label.trim()} onClick={() => void act(() => connect("join", detailsOf(joinInput)))}>Join another device</button>
       </> : null}
       <details><summary>Recover a library</summary>
-        <label>Recovery code<input value={recoveryInput} onChange={(event) => setRecoveryInput(event.target.value)} autoComplete="off" /></label>
+        <label>Recovery code<input value={recoveryInput} onChange={(event) => update({ recoveryInput: event.target.value })} autoComplete="off" /></label>
         <button disabled={busy || !view.readyForSync || !recoveryInput.trim() || !label.trim()} onClick={() => void act(() => connect("recover", detailsOf(recoveryInput)))}>Recover library</button>
       </details>
     </> : <>
-      <button disabled={busy || view.status === "revoked"} onClick={() => void act(invite)}>Connect another device</button>
+      <button className="sync-primary" disabled={busy || view.status === "revoked"} onClick={() => void act(invite)}>Connect another device</button>
       {link ? <section aria-label="Pairing link">
         <p>Scan this code on your other device. The link works once and expires after 10 minutes.</p>
         <img src={qr} width="240" height="240" alt="QR code to connect another device" />
         <label>Pairing link<input readOnly value={link} onFocus={(event) => event.currentTarget.select()} /></label>
         <button onClick={() => void act(async () => {
-          await navigator.clipboard.writeText(link); setMessage("Pairing link copied.");
+          await navigator.clipboard.writeText(link); update({ message: "Pairing link copied." });
         })}>Copy link</button>
         {navigator.share ? <button onClick={() => void act(() => navigator.share({ title: "Connect Svenska.app", url: link }))}>Share link</button> : null}
       </section> : null}
-      {devices.data ? <section aria-label="Connected devices"><h3>Connected devices</h3><ul>
-        {devices.data.map((device) => <li key={device.id}>{device.label}{device.current ? " (this device)" : ""}
-          {!device.current ? <button disabled={busy} onClick={() => void act(async () => {
+      {devices.data ? <section aria-label="Connected devices"><h3>Connected devices</h3><ul role="list">
+        {devices.data.map((device) => <li key={device.id}><span>{device.label}</span>
+          {device.current ? <small>This device</small> : <button className="sync-text-button sync-destructive" aria-label={`Disconnect ${device.label}`} disabled={busy} onClick={() => void act(async () => {
             await syncRequest(`devices/${device.id}`, undefined, "DELETE"); await devices.refetch();
-          })}>Disconnect {device.label}</button> : null}
+          })}>Disconnect</button>}
         </li>)}
       </ul></section> : null}
       {devices.isError ? <p>Could not load connected devices.</p> : null}
       <details><summary>Recovery</summary>
         <p>Keep a recovery code somewhere safe. It can reconnect your library if you clear browser storage. Generating a new code replaces the previous one.</p>
         <button disabled={busy || view.status === "revoked"} onClick={() => void act(async () => {
-          const result = await syncRequest<{ recoveryCode: string }>("recovery-code", {}); setRecovery(result.recoveryCode);
+          const result = await syncRequest<{ recoveryCode: string }>("recovery-code", {}); update({ recovery: result.recoveryCode });
         })}>Generate recovery code</button>
       </details>
-      <button disabled={busy} onClick={() => void act(async () => {
+      <button className="sync-destructive" disabled={busy} onClick={() => void act(async () => {
         if (view.status === "revoked") await store.detach();
         else await (await store.startRemote()).disconnect();
-        setLink(""); setQr(""); setRecovery("");
+        update({ link: "", qr: "", recovery: "" });
       })}>Disconnect this device</button>
-      <p>Disconnecting keeps your words on this device.</p>
+      <p className="sync-note">Disconnecting keeps your words on this device.</p>
     </>}
     {recovery ? <label>Recovery code<input readOnly value={recovery} onFocus={(event) => event.currentTarget.select()} /></label> : null}
   </dialog>;

@@ -10,6 +10,8 @@ const election = { headword: "val", word: "18440" };
 const challenge = "XXXX.DUMMY.TOKEN.XXXX";
 test.describe.configure({ mode: "serial" });
 
+const syncRead = /api\/sync\/(revision|library)$/;
+
 async function openWord(page: Page, word: string) {
   await page.getByLabel("Swedish or Russian word").fill(word);
   await page.getByRole("option").first().click();
@@ -71,6 +73,25 @@ test("a tab opened before pairing keeps receiving changes after the pairing tab 
     await expect(existing.locator(".word-card-list > li")).toHaveCount(1);
     await expect(existing.locator(".word-card-list > li")).toContainText("hund");
   } finally { await otherContext.close(); }
+});
+
+test("pulling the page down syncs a connected library at once", async ({ page }) => {
+  await page.goto(".");
+  await openSync(page);
+  await page.getByRole("button", { name: "Enable sync", exact: true }).click();
+  await expect(page.getByText("Your devices are in sync.", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Close sync" }).click();
+  const synced = page.waitForRequest(syncRead, { timeout: 5000 });
+  await page.evaluate(() => {
+    const touch = (type: string, clientY?: number) => document.body.dispatchEvent(Object.assign(
+      new Event(type, { bubbles: true }),
+      { touches: clientY === undefined ? [] : [{ clientX: 100, clientY }] },
+    ));
+    touch("touchstart", 100);
+    touch("touchmove", 300);
+    touch("touchend");
+  });
+  await synced;
 });
 
 test("simultaneous connection attempts in two tabs create only one shared library", async ({ browser }) => {

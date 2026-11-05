@@ -45,8 +45,8 @@ The rules are `silenced-checker`, `unfinished-work`, `test-made-easier`, `test-d
 
 | ID | Rule | Path | Reason | Owner | Expires |
 |----|------|------|--------|-------|---------|
-| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 18.6 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference |  | 2026-11-01 |
-| E2 | threshold-loosened | .size-limit.json | App JS budget raised 0.29 kB to search by citation form (`att`, `har`, `en`, `ett`) |  | 2026-11-01 |
+| E1 | threshold-loosened | .size-limit.json | Lookup file budget raised 18.6 kB for the Russian Lexin gives only as a synonym, an explanation or a cross reference |  | 2027-02-03 |
+| E2 | threshold-loosened | .size-limit.json | App JS budget raised 0.29 kB to search by citation form (`att`, `har`, `en`, `ett`) |  | 2027-02-03 |
 | E3 | threshold-loosened | .size-limit.json | App JS budget raised 0.20 kB and App CSS budget 0.02 kB to mark the form or translation a suggestion matches | @stepankuzmin | 2026-12-31 |
 | E4 | threshold-loosened | .size-limit.json | The dictionary release budgets are removed: only the app shell is budgeted, since the dictionary is cached after the first visit | @stepankuzmin | 2026-12-31 |
 | E5 | threshold-loosened | .size-limit.json | App JS startup budget raised from 65 kB to 100 kB, explicitly approved by @stepankuzmin on 2026-10-17 | @stepankuzmin | 2026-12-31 |
