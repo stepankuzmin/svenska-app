@@ -1,4 +1,5 @@
-import { lazy, Suspense, useEffect, useMemo, useState, type FormEvent } from "react";
+import { lazy, Suspense, useMemo, useRef, useState, type FormEvent } from "react";
+import { useSubscription } from "./use-subscription";
 import { createRoot } from "react-dom/client";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import type { LookupOutcome } from "./dictionary";
@@ -31,14 +32,20 @@ function LookupApp() {
   const { session, dispatch, storageError } = useLookupSession({ initialQuery: isList(linkedText) ? "" : linkedText });
   const [lookupState, setLookupState] = useState<LookupState>({ kind: "loading" });
   const [dictionaryDetails, setDictionaryDetails] = useState<DictionaryDetailsAsset["entries"] | null>(null);
-  const [pendingLookup, setPendingLookup] = useState(linkedText);
+  const pendingLookup = useRef(linkedText);
   const { query } = session;
   const outcome = useMemo<LookupOutcome | null>(
     () => (lookupState.kind === "ready" ? lookupState.search(query) : null),
     [lookupState, query],
   );
 
-  useEffect(() => {
+  function lookUp(text: string, search: (query: string) => LookupOutcome) {
+    dispatch(isList(text)
+      ? { kind: "pasted", lines: pastedLinesOf(text, search) }
+      : { kind: "deep-linked", outcome: search(text) });
+  }
+
+  useSubscription(() => {
     async function loadAsset(url: string): Promise<unknown> {
       const response = await fetch(url);
       if (!response.ok) {
@@ -53,12 +60,11 @@ function LookupApp() {
       if (!hasDictionaryAssetShape(asset)) {
         throw new Error("Dictionary unavailable.");
       }
-      setLookupState({
-        kind: "ready",
-        search: createSearch({ dictionary: asset }),
-        entries: asset.entries,
-      });
+      const search = createSearch({ dictionary: asset });
+      setLookupState({ kind: "ready", search, entries: asset.entries });
       dispatch({ kind: "dictionary-loaded", dictionary: asset });
+      if (pendingLookup.current.length > 0) lookUp(pendingLookup.current, search);
+      pendingLookup.current = "";
 
       const details = await detailsRequest;
       if (
@@ -72,21 +78,7 @@ function LookupApp() {
     load().catch(() => {
       setLookupState({ kind: navigator.onLine ? "failed" : "unavailable-offline" });
     });
-  }, []);
-
-  // A link naming one word opens its exact match the way submitting the field
-  // does, so an iOS Shortcut can hand the app a word and land on the card.
-  // Several words open a review, as a pasted list does.
-  useEffect(() => {
-    if (lookupState.kind !== "ready" || pendingLookup.length === 0) {
-      return;
-    }
-
-    setPendingLookup("");
-    dispatch(isList(pendingLookup)
-      ? { kind: "pasted", lines: pastedLinesOf(pendingLookup, lookupState.search) }
-      : { kind: "deep-linked", outcome: lookupState.search(pendingLookup) });
-  }, [lookupState, pendingLookup]);
+  });
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -107,7 +99,10 @@ function LookupApp() {
       opens={session.opens}
       pastedList={session.pastedList}
       onQueryChange={(nextQuery) => dispatch({ kind: "query-changed", query: nextQuery })}
-      onPasteList={setPendingLookup}
+      onPasteList={(text) => {
+        if (lookupState.kind === "ready") lookUp(text, lookupState.search);
+        else pendingLookup.current = text;
+      }}
       onAddList={(lines, words) => dispatch({ kind: "list-added", lines, words })}
       onCloseList={() => dispatch({ kind: "list-closed" })}
       onSubmit={submit}

@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { answer, dayKey, schedule, undoAnswer, waitLabel, type Answered, type ReviewCounts, type ReviewState } from "./review-schedule";
 import { swipeLockDistance } from "./swipe-to-remove";
+import { useListener } from "./use-subscription";
 import type { WordCardContent } from "./word-cards";
 import "./review.css";
 
@@ -22,6 +23,17 @@ function releaseVelocity(samples: readonly { x: number; t: number }[], releasedA
   const first = samples[recent === -1 ? samples.length - 1 : Math.max(0, recent - 1)];
   const last = samples.at(-1);
   return first === undefined || last === undefined || releasedAt === first.t ? 0 : ((last.x - first.x) / (releasedAt - Math.max(first.t, releasedAt - 100))) * 1000;
+}
+
+type Round = { revealedCard: string | null; answered: number; undo: Answered | null; retry: Answered | null };
+type RoundEvent = { kind: "revealed"; card: string } | { kind: "graded"; undo: Answered } | { kind: "undone"; undo: Answered };
+
+function reduceRound(round: Round, event: RoundEvent): Round {
+  switch (event.kind) {
+    case "revealed": return { ...round, revealedCard: event.card };
+    case "graded": return { revealedCard: null, answered: round.answered + 1, undo: event.undo, retry: null };
+    case "undone": return { revealedCard: event.undo.card, answered: round.answered + 1, undo: null, retry: event.undo };
+  }
 }
 
 function ReviewCard({
@@ -170,10 +182,7 @@ export default function Review({
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [revealedCard, setRevealedCard] = useState<string | null>(null);
-  const [answered, setAnswered] = useState(0);
-  const [undo, setUndo] = useState<Answered | null>(null);
-  const [retry, setRetry] = useState<Answered | null>(null);
+  const [{ revealedCard, answered, undo, retry }, dispatch] = useReducer(reduceRound, { revealedCard: null, answered: 0, undo: null, retry: null });
   const byKey = useMemo(() => new Map(cards.map((card) => [card.card, card])), [cards]);
   const current = byKey.get(retry?.card ?? next ?? "");
   const revealed = current !== undefined && revealedCard === current.card;
@@ -183,33 +192,24 @@ export default function Review({
     dialog.current?.focus();
   }, []);
 
-  useEffect(() => {
-    document.addEventListener("keydown", keyDown);
-    return () => document.removeEventListener("keydown", keyDown);
-  });
+  useListener<KeyboardEvent>(document, "keydown", keyDown);
 
   function grade(remembered: boolean) {
     if (current === undefined) return;
     const at = Date.now();
-    setUndo({ card: current.card, previous: state.schedules[current.card], day: dayKey(at), remembered });
-    setRetry(null);
+    dispatch({ kind: "graded", undo: { card: current.card, previous: state.schedules[current.card], day: dayKey(at), remembered } });
     onChange(answer(state, current.card, remembered, at));
-    setRevealedCard(null);
-    setAnswered((count) => count + 1);
   }
 
   function reveal() {
-    if (current !== undefined) setRevealedCard(current.card);
+    if (current !== undefined) dispatch({ kind: "revealed", card: current.card });
   }
 
   function undoLast() {
     if (undo === null) return;
     onChange(undoAnswer(state, undo));
-    setRetry(undo);
-    setUndo(null);
+    dispatch({ kind: "undone", undo });
     dialog.current?.focus();
-    setRevealedCard(undo.card);
-    setAnswered((count) => count + 1);
   }
 
   function keyDown(event: KeyboardEvent) {

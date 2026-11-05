@@ -35,3 +35,45 @@ test("a tap opens a suggested word without the field grabbing focus first", asyn
   await expect(page.getByRole("region", { name: "Library" })).toBeVisible();
   await expect(page.locator(".word-card[open] summary strong")).toHaveText("en fika");
 });
+
+test("pulling the top of the page down shows the sync spinner, and a short pull does not", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto(".");
+  await expect(page.locator(".pull-to-sync")).toBeAttached();
+  const pull = (distance: number) => page.evaluate((y) => {
+    const touch = (type: string, clientY?: number) => document.body.dispatchEvent(Object.assign(
+      new Event(type, { bubbles: true }),
+      { touches: clientY === undefined ? [] : [{ clientX: 100, clientY }] },
+    ));
+    touch("touchstart", 100);
+    touch("touchmove", 100 + y);
+    touch("touchend");
+  }, distance);
+
+  await pull(60);
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toHaveCount(0);
+  await pull(200);
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toBeInViewport();
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toHaveCount(0);
+});
+
+test("a small sideways wobble at the start of a pull still syncs", async ({ page }) => {
+  await page.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await page.goto(".");
+  await expect(page.locator(".pull-to-sync")).toBeAttached();
+  await page.evaluate(() => {
+    const touch = (type: string, clientX?: number, clientY?: number) => document.body.dispatchEvent(Object.assign(
+      new Event(type, { bubbles: true }),
+      { touches: clientY === undefined ? [] : [{ clientX, clientY }] },
+    ));
+    touch("touchstart", 100, 100);
+    touch("touchmove", 103, 101);
+    touch("touchmove", 100, 300);
+    touch("touchend");
+  });
+  await expect(page.locator(".pull-to-sync[data-syncing]")).toBeInViewport();
+});
