@@ -1,8 +1,9 @@
 import { flushSync } from "react-dom";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { readLookupLibrary } from "./lookup-library";
 import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "./lookup-session";
 import type { createSessionBridge } from "./sync/session-bridge";
+import { useSubscription } from "./use-subscription";
 import { sameWords } from "./words";
 
 function withLibraryMotion(apply: () => void) {
@@ -31,7 +32,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
       }),
     ).catch(() => { if (active.current) setStorageError(true); return null; });
   }
-  useEffect(() => {
+  useSubscription(() => {
     active.current = true;
     void storage();
     return () => {
@@ -39,7 +40,7 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
       void bridge.current?.then((value) => value?.close());
       bridge.current = null;
     };
-  }, []);
+  });
 
   function dispatch(event: LookupSessionEvent) {
     const current = latest.current;

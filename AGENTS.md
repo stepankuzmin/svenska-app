@@ -10,6 +10,12 @@ Read `CONSTRAINTS.md` before writing code. Do not weaken it to make a change pas
 
 Read `DESIGN_SYSTEM.md` before changing styles, and take colours and type sizes from its tokens.
 
+## React state
+
+Never set state from `useEffect`. Derive the value during render, or set it in the event handler that caused the change. Subscribe to anything outside React through `useSubscription` or `useListener` in `src/use-subscription.ts`; their callbacks are event handlers. Keep raw `useEffect` for effects that only touch the DOM.
+
+Use `useReducer` by default for component state, and `useState` only for a single independent value.
+
 ## Autonomous work and pull requests
 
 A run is autonomous when a scheduled routine or trigger starts it, or when the user tells you to work on your own, autonomously, or without asking. Treat a delegated change as yours to finish. The goal is a pull request that is ready for human review, not a branch that needs more work.

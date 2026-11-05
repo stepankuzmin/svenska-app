@@ -3,7 +3,6 @@ import { expect, test, type Page } from "@playwright/test";
 test.use({ serviceWorkers: "block" });
 
 const reviewButton = /^Review/;
-const rememberedButton = /^Remembered/;
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
@@ -57,13 +56,14 @@ test("a review shows the Russian, reveals the Swedish, and swipes record the ans
 
   await review.locator(".review-card").click();
   await expect(review.locator(".review-swedish")).toHaveText("en fika");
-  await expect(review.getByRole("button", { name: "Forgot 1 min" })).toBeVisible();
-  await expect(review.getByRole("button", { name: "Remembered 10 min" })).toBeVisible();
+  await expect(review.locator(".review-stamp-forgot")).toHaveText("Forgot · 1 min");
+  await expect(review.locator(".review-stamp-remembered")).toHaveText("Remembered · 10 min");
+  await expect(review.getByRole("button")).toHaveText(["Done", "Undo"]);
 
   await swipe(page, 240);
   await expect(review.locator(".review-russian")).toHaveText("спасибо");
 
-  await review.getByRole("button", { name: "Show Swedish" }).click();
+  await review.locator(".review-card").click();
   await swipe(page, -240);
   await expect(review.locator(".review-counts")).toHaveText("0 new2 learning0 to review");
 
@@ -95,13 +95,13 @@ test("two open tabs keep the answers of both", async ({ page, context }) => {
   await expect(other.getByRole("button", { name: "Review 2 due" })).toBeVisible();
 
   await page.getByRole("button", { name: "Review 2 due" }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.locator(".review-card").click();
   await page.keyboard.press("ArrowRight");
   await page.getByRole("button", { name: "Done" }).click();
 
   await other.bringToFront();
   await other.getByRole("button", { name: reviewButton }).click();
-  await other.getByRole("button", { name: "Show Swedish" }).click();
+  await other.locator(".review-card").click();
   await other.keyboard.press("ArrowLeft");
 
   const days = await other.evaluate(() => JSON.parse(localStorage.getItem("svenska.review")!).days);
@@ -111,15 +111,26 @@ test("two open tabs keep the answers of both", async ({ page, context }) => {
 test("an undo during a swipe leaves the next swipe working", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
-  await page.getByRole("button", { name: rememberedButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.locator(".review-card").click();
+  await page.keyboard.press("ArrowRight");
+  await page.locator(".review-card").click();
   await swipe(page, 240);
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".review-swedish")).toHaveText("en fika");
   await expect(page.locator(".review-card")).toHaveCSS("transform", "none");
   await swipe(page, 240);
   await expect(page.locator(".review-russian")).toHaveText("спасибо");
+});
+
+test("Space shows the next card after a click on Undo", async ({ page }) => {
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  await page.locator(".review-card").click();
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("Space");
+  await expect(page.locator(".review-swedish")).toHaveText("ett tack");
 });
 
 test("a library of words without Russian offers no review", async ({ page }) => {
@@ -132,7 +143,7 @@ test("a library of words without Russian offers no review", async ({ page }) => 
 test("a press released just off the card leaves later hovers and clicks alone", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.locator(".review-card").click();
   const box = (await page.locator(".review-card").boundingBox())!;
   const y = box.y + box.height / 2;
   await page.mouse.move(box.x + 3, y);
@@ -148,8 +159,8 @@ test("an open review brings in the next day's words when the app comes back", as
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
   for (let answer = 0; answer < 4; answer++) {
-    await page.getByRole("button", { name: "Show Swedish" }).click();
-    await page.getByRole("button", { name: rememberedButton }).click();
+    await page.locator(".review-card").click();
+    await page.keyboard.press("ArrowRight");
   }
   await expect(page.getByRole("heading", { name: "All caught up" })).toBeVisible();
   await page.clock.fastForward("24:00:00");
@@ -157,13 +168,13 @@ test("an open review brings in the next day's words when the app comes back", as
   await expect(page.locator(".review-counts")).toHaveText("0 new0 learning2 to review");
 });
 
-test("a long translation scrolls on a phone and leaves the controls reachable", async ({ page }) => {
+test("a long translation scrolls on a phone and can still be answered", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 664 });
   await page.addInitScript(() => localStorage.setItem("svenska.lookup-library", JSON.stringify([{ headword: "tfa", word: "16868" }])));
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
-  await page.getByRole("button", { name: rememberedButton }).click();
+  await page.locator(".review-card").click();
+  await page.keyboard.press("ArrowRight");
   await expect(page.locator(".review-counts")).toHaveText("0 new1 learning0 to review");
 });
 
@@ -181,21 +192,24 @@ test("the review button counts what fell due while the page stayed open", async 
   await expect(page.locator(".review-counts")).toHaveText("0 new0 learning2 to review");
 });
 
-test("showing the Swedish leaves the Russian where it was", async ({ page }) => {
+test("the card text stays vertically centred before and after the Swedish shows", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  const russian = page.locator(".review-russian");
-  const before = await russian.boundingBox();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  const middle = (box: { y: number; height: number }) => box.y + box.height / 2;
+  const card = middle((await page.locator(".review-card").boundingBox())!);
+  expect(middle((await page.locator(".review-russian").boundingBox())!)).toBeCloseTo(card, 0);
+  await page.locator(".review-card").click();
   await expect(page.locator(".review-swedish")).toBeVisible();
-  expect(await russian.boundingBox()).toEqual(before);
+  const top = (await page.locator(".review-russian").boundingBox())!.y;
+  const bottom = await page.locator(".review-answer-body").boundingBox();
+  expect((top + bottom!.y + bottom!.height) / 2).toBeCloseTo(card, 0);
 });
 
 test("a flick decides the answer by the way the finger moves when it lets go", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.locator(".review-card").click();
   const box = (await page.locator(".review-card").boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
@@ -213,7 +227,7 @@ test("a flick decides the answer by the way the finger moves when it lets go", a
 test("a flick after a pause carries the card off", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
+  await page.locator(".review-card").click();
   const box = (await page.locator(".review-card").boundingBox())!;
   const x = box.x + box.width / 2;
   const y = box.y + box.height / 2;
@@ -233,8 +247,8 @@ test("a card settles on time when frames come slowly", async ({ page }) => {
   });
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();
-  await page.getByRole("button", { name: "Show Swedish" }).click();
-  await page.getByRole("button", { name: rememberedButton }).click();
+  await page.locator(".review-card").click();
+  await page.keyboard.press("ArrowRight");
   await page.keyboard.press("ControlOrMeta+z");
   await expect(page.locator(".review-card")).toHaveCSS("transform", "none");
 });

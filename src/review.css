@@ -77,7 +77,7 @@ html:has(.review[open]) { overflow: hidden; }
   justify-content: center;
   min-block-size: 0;
   overflow-y: auto;
-  padding-block: 1rem;
+  padding-block: 1rem 3.75rem;
 }
 
 .review-card {
@@ -90,10 +90,9 @@ html:has(.review[open]) { overflow: hidden; }
   cursor: grab;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
   inline-size: 100%;
   justify-content: center;
-  min-block-size: min(22rem, 100%);
+  min-block-size: min(24rem, 100%);
   padding: 2.5rem 1.5rem;
   position: relative;
   text-align: center;
@@ -142,65 +141,46 @@ html:has(.review[open]) { overflow: hidden; }
 }
 
 .review-answer {
-  border-block-start: 1px solid var(--lookup-soft-line);
   display: grid;
-  gap: .35rem;
+  grid-template-rows: 0fr;
   inline-size: 100%;
-  padding-block-start: 1rem;
-  transition: opacity 150ms var(--ease-out), visibility 150ms;
-}
-
-.review-answer:not(.is-shown) {
   opacity: 0;
+  transition: grid-template-rows 200ms var(--ease-out), opacity 200ms var(--ease-out), visibility 200ms;
   visibility: hidden;
 }
 
-.review-swedish {
+.review-answer.is-shown {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  visibility: visible;
+}
+
+.review-answer-body {
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.review-swedish,
+.review-forms {
   font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.2;
+  line-height: 1.25;
   margin: 0;
+  text-wrap: balance;
+}
+
+.review-swedish {
+  border-block-start: 1px solid var(--lookup-soft-line);
+  font-weight: 700;
+  margin-block-start: 1.25rem;
+  padding-block-start: 1.25rem;
 }
 
 .review-forms {
   color: var(--lookup-muted);
-  font-size: var(--text-secondary);
-  margin: 0;
+  margin-block-start: .5rem;
 }
 
-.review-actions {
-  display: flex;
-  gap: .75rem;
-}
-
-.review-answer-button {
-  align-items: center;
-  appearance: none;
-  background: var(--lookup-card);
-  border: 1px solid var(--lookup-line);
-  border-radius: .9rem;
-  color: var(--lookup-ink);
-  cursor: pointer;
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  font: inherit;
-  font-size: var(--text-body);
-  font-weight: 500;
-  gap: .1rem;
-  justify-content: center;
-  min-block-size: 3.5rem;
-  touch-action: manipulation;
-  transition: transform 120ms var(--ease-out);
-}
-
-.review-answer-button:active { transform: scale(.97); }
-.review-answer-button span { color: var(--lookup-muted); font-size: var(--text-label); font-weight: 400; }
-.review-forgot { color: var(--lookup-destructive); }
-.review-remembered { color: var(--review-remembered); }
-
-.review-text-button:focus-visible,
-.review-answer-button:focus-visible {
+.review-text-button:focus-visible {
   outline: 3px solid var(--lookup-blue);
   outline-offset: 2px;
 }
@@ -271,10 +251,6 @@ html:has(.review[open]) { overflow: hidden; }
   .review-card { box-shadow: 0 .75rem 2rem rgb(0 0 0 / 45%); }
 }
 
-@media (hover: hover) and (pointer: fine) {
-  .review-answer-button:hover { background: var(--lookup-hover); }
-}
-
 @media (prefers-reduced-motion: reduce) {
   .review,
   .review-card,
@@ -283,7 +259,6 @@ html:has(.review[open]) { overflow: hidden; }
 
 @media (prefers-contrast: more) {
   .review-card,
-  .review-answer-button,
   .review-stats div,
   .review-forgotten { border-color: currentColor; }
 }

@@ -1,0 +1,39 @@
+.minimal-lookup {
+  position: relative;
+  transition: transform 280ms cubic-bezier(.32, .72, 0, 1);
+}
+
+.minimal-lookup[data-pulling],
+.minimal-lookup[data-pulling] .pull-to-sync rect {
+  transition: none;
+}
+
+.pull-to-sync {
+  align-items: flex-end;
+  background: var(--lookup-background);
+  block-size: 100dvb;
+  display: flex;
+  inset-block-end: calc(100% - 1px);
+  inset-inline: 0;
+  justify-content: center;
+  pointer-events: none;
+  position: absolute;
+}
+
+.pull-to-sync svg { margin-block-end: calc(1rem - env(safe-area-inset-top, 0px)); }
+
+.pull-to-sync rect {
+  fill: var(--lookup-muted);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out);
+}
+
+.pull-to-sync[data-syncing] svg { animation: pull-to-sync-spin 1s steps(12) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .minimal-lookup { transition: none; }
+}
+
+@keyframes pull-to-sync-spin {
+  to { rotate: 360deg; }
+}

@@ -117,7 +117,7 @@ export class LibraryStore {
       this.current = state; this.publish();
       if (!state.snapshot.libraryId && wasConnected) this.setStatus("local");
       if (state.snapshot.libraryId && this.automatic && (!this.remote || !wasConnected)) {
-        void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
+        void this.flushRemote();
       }
     }
     return this.current;
@@ -162,7 +162,7 @@ export class LibraryStore {
       }
       if (this.current.snapshot.libraryId && this.automatic) {
         if (this.status !== "error" && this.status !== "revoked") this.setStatus("saving");
-        void this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
+        void this.flushRemote();
       }
     } catch { this.current = attempted ?? queue(this.current); this.storageFailed(); }
   }
@@ -262,6 +262,13 @@ export class LibraryStore {
       this.remote = loading;
     }
     return this.remote;
+  }
+  private flushRemote(): Promise<void> {
+    return this.startRemote().then((remote) => remote.flush()).catch(() => this.setStatus("offline"));
+  }
+  async refresh(): Promise<void> {
+    await this.ready;
+    if (this.current.snapshot.libraryId) await this.flushRemote();
   }
   async close(): Promise<void> {
     this.disposeRemote();

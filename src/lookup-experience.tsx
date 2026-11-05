@@ -7,6 +7,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useReducer,
   useRef,
   useState,
   type CSSProperties,
@@ -19,9 +20,10 @@ import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contr
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
 import { isList, type PastedLine, type PastedList } from "./lookup-session";
 import { sortLookupLibrary, type LibrarySort } from "./lookup-library";
-import { readReviewState, reviewQueue, writeReviewState } from "./review-schedule";
+import { readReviewState, reviewQueue, writeReviewState, type ReviewState } from "./review-schedule";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
+import { mergeState, useListener } from "./use-subscription";
 import { suggestionRow, wordCards, type WordCardContent } from "./word-cards";
 import { wordKey, type LibraryWord } from "./words";
 
@@ -63,32 +65,43 @@ const Review = lazy(() => import("./review").catch(() => ({
 
 const reviewHash = "#review";
 
+type ReviewLaunch = { state: ReviewState; open: boolean; now: number };
+
+type Menu = { open: boolean; active: number; rendered: number; opens: number };
+type MenuEvent =
+  | { kind: "closed" }
+  | { kind: "word-opened"; opens: number }
+  | { kind: "typed"; open: boolean }
+  | { kind: "shown"; open: boolean }
+  | { kind: "moved"; active: number }
+  | { kind: "hovered"; active: number }
+  | { kind: "scrolled-to-end"; total: number };
+
+function reduceMenu(menu: Menu, event: MenuEvent): Menu {
+  switch (event.kind) {
+    case "closed": return { ...menu, open: false, active: -1 };
+    case "word-opened": return { ...menu, open: false, active: -1, opens: event.opens };
+    case "typed": return { ...menu, open: event.open, active: -1, rendered: suggestionBatchSize };
+    case "shown": return { ...menu, open: event.open };
+    case "moved": return { ...menu, open: true, active: event.active, rendered: Math.max(menu.rendered, event.active + 1) };
+    case "hovered": return { ...menu, active: event.active };
+    case "scrolled-to-end": return { ...menu, rendered: Math.min(event.total, menu.rendered + suggestionBatchSize) };
+  }
+}
+
 const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: readonly WordCardContent[] }) {
   const cards = useMemo(() => library.filter((card) => card.translation !== ""), [library]);
-  const [state, setState] = useState(readReviewState);
-  const [open, setOpen] = useState(() => location.hash === reviewHash);
-  const [now, setNow] = useState(Date.now);
+  const [{ state, open, now }, update] = useReducer(mergeState<ReviewLaunch>, undefined, () => ({
+    state: readReviewState(), open: location.hash === reviewHash, now: Date.now(),
+  }));
   const pushed = useRef(false);
   const keys = useMemo(() => cards.map((card) => card.card), [cards]);
   const { next, counts } = reviewQueue(state, keys, now);
   const due = counts.new + counts.learning + counts.review;
 
-  useEffect(() => {
-    const follow = () => {
-      setOpen(location.hash === reviewHash);
-      setNow(Date.now());
-    };
-    const refresh = () => setNow(Date.now());
-    const reread = () => setState(readReviewState());
-    window.addEventListener("popstate", follow);
-    window.addEventListener("storage", reread);
-    document.addEventListener("visibilitychange", refresh);
-    return () => {
-      window.removeEventListener("popstate", follow);
-      window.removeEventListener("storage", reread);
-      document.removeEventListener("visibilitychange", refresh);
-    };
-  }, []);
+  useListener(window, "popstate", () => update({ open: location.hash === reviewHash, now: Date.now() }));
+  useListener(window, "storage", () => update({ state: readReviewState() }));
+  useListener(document, "visibilitychange", () => update({ now: Date.now() }));
 
   function close() {
     if (pushed.current) {
@@ -97,8 +110,7 @@ const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: read
       return;
     }
     history.replaceState(null, "", location.pathname + location.search);
-    setOpen(false);
-    setNow(Date.now());
+    update({ open: false, now: Date.now() });
   }
 
   if (cards.length === 0) return null;
@@ -111,8 +123,7 @@ const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: read
         onClick={() => {
           history.pushState(null, "", reviewHash);
           pushed.current = true;
-          setOpen(true);
-          setNow(Date.now());
+          update({ open: true, now: Date.now() });
         }}
       >
         {"Review "}
@@ -127,8 +138,7 @@ const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: read
             next={next}
             counts={counts}
             onChange={(next) => {
-              setState(next);
-              setNow(Date.now());
+              update({ state: next, now: Date.now() });
               writeReviewState(next);
             }}
             onClose={close}
@@ -344,9 +354,9 @@ export function LookupExperience(props: LookupExperienceProps) {
   const listId = "lookup-suggestions";
   const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
   const hasQuery = props.query.trim().length > 0;
-  const [autocompleteOpen, setAutocompleteOpen] = useState(hasQuery);
-  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
-  const [renderedSuggestionCount, setRenderedSuggestionCount] = useState(suggestionBatchSize);
+  const [menu, dispatchMenu] = useReducer(reduceMenu, { open: hasQuery, active: -1, rendered: suggestionBatchSize, opens: props.opens });
+  if (menu.opens !== props.opens) dispatchMenu({ kind: "word-opened", opens: props.opens });
+  const { open: autocompleteOpen, active: activeSuggestionIndex, rendered: renderedSuggestionCount } = menu;
   const transitionNames = useRef(new Map<string, string>());
   const visibleSuggestions = useMemo(
     () => (autocompleteOpen ? suggestions.slice(0, renderedSuggestionCount) : noSuggestions),
@@ -374,15 +384,6 @@ export function LookupExperience(props: LookupExperienceProps) {
   const [autoFocusField] = useState(() => !window.matchMedia("(pointer: coarse)").matches);
 
   useEffect(() => {
-    if (props.opens === 0) {
-      return;
-    }
-
-    setAutocompleteOpen(false);
-    setActiveSuggestionIndex(-1);
-  }, [props.opens]);
-
-  useEffect(() => {
     if (activeSuggestionIndex >= 0) {
       document.getElementById(`${listId}-${activeSuggestionIndex}`)?.scrollIntoView({ block: "nearest" });
     }
@@ -398,10 +399,10 @@ export function LookupExperience(props: LookupExperienceProps) {
       return;
     }
 
-    setRenderedSuggestionCount((current) =>
-      Math.min(latest.current.suggestionCount, current + suggestionBatchSize),
-    );
+    dispatchMenu({ kind: "scrolled-to-end", total: latest.current.suggestionCount });
   }, []);
+
+  const activateSuggestion = useCallback((active: number) => dispatchMenu({ kind: "hovered", active }), []);
 
   // A card name can hold any character, so cards are named by order of first
   // sight rather than by a sanitised name that could collide.
@@ -430,7 +431,7 @@ export function LookupExperience(props: LookupExperienceProps) {
 
   function closeAutocompleteOutsideForm(target: EventTarget) {
     if (target instanceof Element && target.closest(".lookup-autocomplete") === null) {
-      setAutocompleteOpen(false);
+      dispatchMenu({ kind: "shown", open: false });
     }
   }
 
@@ -451,11 +452,9 @@ export function LookupExperience(props: LookupExperienceProps) {
           value={props.query}
           onChange={(event) => {
             props.onQueryChange(event.target.value);
-            setAutocompleteOpen(event.target.value.trim().length > 0);
-            setActiveSuggestionIndex(-1);
-            setRenderedSuggestionCount(suggestionBatchSize);
+            dispatchMenu({ kind: "typed", open: event.target.value.trim().length > 0 });
           }}
-          onPointerDown={() => setAutocompleteOpen(hasQuery)}
+          onPointerDown={() => dispatchMenu({ kind: "shown", open: hasQuery })}
           onPaste={(event) => {
             const text = event.clipboardData.getData("text/plain");
             if (!isList(text)) {
@@ -474,23 +473,15 @@ export function LookupExperience(props: LookupExperienceProps) {
 
             if (event.key === "ArrowDown" && suggestions.length > 0) {
               event.preventDefault();
-              setAutocompleteOpen(true);
-              const nextIndex = Math.min(activeSuggestionIndex + 1, suggestions.length - 1);
-              setRenderedSuggestionCount((current) => Math.max(current, nextIndex + 1));
-              setActiveSuggestionIndex(nextIndex);
+              dispatchMenu({ kind: "moved", active: Math.min(activeSuggestionIndex + 1, suggestions.length - 1) });
             } else if (event.key === "ArrowUp" && suggestions.length > 0) {
               event.preventDefault();
-              setAutocompleteOpen(true);
-              setActiveSuggestionIndex(Math.max(activeSuggestionIndex - 1, -1));
+              dispatchMenu({ kind: "moved", active: Math.max(activeSuggestionIndex - 1, -1) });
             } else if (event.key === "Enter" && activeSuggestion !== undefined) {
               event.preventDefault();
               selectSuggestion(activeSuggestion);
-            } else if (event.key === "Tab") {
-              setAutocompleteOpen(false);
-              setActiveSuggestionIndex(-1);
-            } else if (event.key === "Escape") {
-              setAutocompleteOpen(false);
-              setActiveSuggestionIndex(-1);
+            } else if (event.key === "Tab" || event.key === "Escape") {
+              dispatchMenu({ kind: "closed" });
             }
           }}
           aria-autocomplete="list"
@@ -511,8 +502,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             onPointerDown={(event) => event.preventDefault()}
             onClick={() => {
               props.onQueryChange("");
-              setAutocompleteOpen(false);
-              setActiveSuggestionIndex(-1);
+              dispatchMenu({ kind: "closed" });
               queryInput.current?.focus();
             }}
           >
@@ -534,7 +524,7 @@ export function LookupExperience(props: LookupExperienceProps) {
             entries={props.entries}
             details={props.details}
             onSelect={selectSuggestion}
-            onActivate={setActiveSuggestionIndex}
+            onActivate={activateSuggestion}
             onScroll={revealMoreSuggestions}
           />
         ) : null}
