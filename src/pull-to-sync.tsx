@@ -105,9 +105,11 @@ export default function PullToSync() {
   return (
     <div ref={gapRef} className="pull-to-sync" aria-hidden="true">
       <svg width="28" height="28" viewBox="0 0 28 28">
-        {Array.from({ length: tickCount }, (_, index) => (
-          <rect key={index} x="12.75" y="1" width="2.5" height="7.5" rx="1.25" transform={`rotate(${index * 30} 14 14)`} />
-        ))}
+        <g>
+          {Array.from({ length: tickCount }, (_, index) => (
+            <rect key={index} x="12.75" y="1" width="2.5" height="7.5" rx="1.25" transform={`rotate(${index * 30} 14 14)`} />
+          ))}
+        </g>
       </svg>
     </div>
   );

@@ -62,7 +62,9 @@ test("pulling the top of the page down shows the sync spinner, and a short pull 
   await pull(300);
   await expect(page.locator(".pull-to-sync[data-syncing]")).toBeInViewport();
   await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 60)");
-  const spinner = (await page.locator(".pull-to-sync svg").boundingBox())!;
+  const wheel = page.locator(".pull-to-sync g");
+  await wheel.evaluate((g) => { g.getAnimations()[0].currentTime = 500; });
+  const spinner = (await wheel.boundingBox())!;
   expect(spinner.x + spinner.width / 2).toBeCloseTo(page.viewportSize()!.width / 2, 0);
   await expect(page.locator(".pull-to-sync[data-syncing]")).toHaveCount(0);
   await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "none");
