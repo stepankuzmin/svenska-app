@@ -1,36 +1,38 @@
+.minimal-lookup {
+  position: relative;
+  transition: transform 280ms cubic-bezier(.32, .72, 0, 1);
+}
+
+.pull-to-sync svg { transition: translate 280ms cubic-bezier(.32, .72, 0, 1); }
+
+.minimal-lookup[data-pulling],
+.minimal-lookup[data-pulling] .pull-to-sync :is(svg, rect) {
+  transition: none;
+}
+
 .pull-to-sync {
-  align-items: center;
-  background: var(--lookup-card);
-  border: 1px solid var(--lookup-line);
-  border-radius: 50%;
-  block-size: 2.25rem;
-  box-sizing: border-box;
+  align-items: flex-end;
+  background: var(--lookup-background);
+  block-size: 100dvb;
   display: flex;
-  inline-size: 2.25rem;
-  inset-block-start: calc(env(safe-area-inset-top, 0px) - 2.5rem);
-  inset-inline-start: calc(50% - 1.125rem);
+  inset-block-end: calc(100% - 1px);
+  inset-inline: 0;
   justify-content: center;
-  opacity: 0;
   pointer-events: none;
-  position: fixed;
-  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out);
-  z-index: 10;
+  position: absolute;
 }
 
-.pull-to-sync::before {
-  block-size: 1rem;
-  border: 2px solid var(--lookup-blue);
-  border-block-start-color: transparent;
-  border-radius: 50%;
-  box-sizing: border-box;
-  content: "";
-  inline-size: 1rem;
+.pull-to-sync rect {
+  fill: var(--lookup-muted);
+  opacity: 0;
+  transition: opacity 200ms var(--ease-out);
 }
 
-.pull-to-sync[data-syncing]::before { animation: pull-to-sync-spin 700ms linear infinite; }
+.pull-to-sync[data-syncing] svg { animation: pull-to-sync-spin 1s steps(12) infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .pull-to-sync { transition-duration: 0ms; }
+  .minimal-lookup,
+  .pull-to-sync svg { transition: none; }
 }
 
 @keyframes pull-to-sync-spin {
