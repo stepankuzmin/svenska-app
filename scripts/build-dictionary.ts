@@ -11,6 +11,7 @@ import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
 const leadingNounArticle = /^(en|ett) /;
+const leadingInfinitiveMarker = /^att /;
 
 function frequencyOf({ form, partOfSpeech, frequencies }: {
   form: string;
@@ -211,6 +212,13 @@ function resolveCrossReferences({
       return (spelled.length > 0 ? spelled : candidates).map((senseIndex) => ({ headword: target, senseIndex }));
     });
 
+  const unambiguousFrequencies = new Map<string, number | undefined>();
+  for (const [key, count] of Object.entries(frequencies)) {
+    const [form, type] = key.split("#");
+    const spelling = type === "subst." ? form.replace(leadingNounArticle, "") :
+      type === "verb" ? form.replace(leadingInfinitiveMarker, "") : form;
+    unambiguousFrequencies.set(spelling, unambiguousFrequencies.has(spelling) ? undefined : count);
+  }
   const referencesBySense = new Map(crossReferences.map((reference) =>
     [entries[reference.headword][reference.senseIndex], reference]));
   function lexicalSenses(reference: CrossReference, seen: readonly CrossReference[] = []): IndexedSense[] {
@@ -221,13 +229,15 @@ function resolveCrossReferences({
     });
   }
   for (const reference of standaloneCrossReferences({ entries, crossReferences })) {
-    const frequency = Math.max(0, ...lexicalSenses(reference).map(({ headword, senseIndex }) => {
-      const { partOfSpeech } = entries[headword][senseIndex];
+    const typedFrequency = Math.max(0, ...lexicalSenses(reference).map(({ headword, senseIndex }) => {
+      const partOfSpeech = reference.partOfSpeech || entries[headword][senseIndex].partOfSpeech;
       const article = details[headword][senseIndex].article;
       const prefix = partOfSpeech === "verb" ? "att " : article ? `${article} ` : "";
       return frequencyOf({ form: prefix + reference.headword, partOfSpeech, frequencies }) ?? 0;
     }));
-    if (frequency > 0) entries[reference.headword][reference.senseIndex].frequency = frequency;
+    const frequency = typedFrequency || (reference.partOfSpeech ? undefined :
+      unambiguousFrequencies.get(cleanLexinText(reference.headword)));
+    if (frequency) entries[reference.headword][reference.senseIndex].frequency = frequency;
   }
 
   let pending = crossReferences.filter(({ headword, senseIndex }) =>
@@ -249,6 +259,7 @@ function resolveCrossReferences({
 }
 
 type CrossReference = {
+  partOfSpeech: string;
   headword: string;
   senseIndex: number;
   targets: ReferencedWord[];
@@ -731,6 +742,7 @@ export function buildDictionaryAssets({ xml, frequencies = {} }: { xml: string; 
     if (partOfSpeech === crossReferenceType) {
       crossReferences.push({
         ...sense,
+        partOfSpeech: wordTypes.has(usage) ? usage : "",
         targets: referencedWords({ base: word.BaseLang, wordTypes }),
         ownTranslation: indexed && translation.length > 0,
         borrowed: [],

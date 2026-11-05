@@ -135,6 +135,16 @@ describe("sync semantics", () => {
     expect(() => receiveSnapshot(next, { ...confirmed, libraryId: "other" })).toThrow("Disconnect");
     expect(() => receiveSnapshot(next, { ...confirmed, protocol: 3 } as unknown as LibrarySnapshot)).toThrow("Update");
   });
+  it.each([undefined, 100])("retains the reconciled source date %s when removing a sibling offline", (addedAt) => {
+    const legacy = { headword: "val", word: "", addedAt: 200 };
+    const original = recordsOf([legacy]);
+    const earlier = { headword: "val", word: "", ...(addedAt === undefined ? {} : { addedAt }) };
+    const reconciled = applyOperation(original, { ...op("import", 1, 0, [earlier]), wordDates: true }, "computer", 1);
+    const removal = { ...op("remove", 1, 0, [legacy, election]), retained: [{ source: legacy, word: { ...whale, addedAt: 200 } }] };
+    expect(words(applyOperation(reconciled, removal, "phone", 2)))
+      .toEqual([{ ...whale, ...(addedAt === undefined ? {} : { addedAt }) }]);
+  });
+
   it("retains legacy siblings atomically without reviving earlier removals", () => {
     const legacy = { headword: "val", word: "" };
     const removal = { ...op("remove", 1, 0, [legacy, whale]), retained: [{ source: legacy, word: election }] };

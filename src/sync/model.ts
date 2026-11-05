@@ -60,7 +60,7 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
     const previous = next.get(wordKey(source));
     const existing = next.get(wordKey(word));
     if (previous?.present && existing === undefined) {
-      next.set(wordKey(word), { ...previous, ...word, index: previous.index + index / 1000 });
+      next.set(wordKey(word), { ...previous, headword: word.headword, word: word.word, index: previous.index + index / 1000 });
     } else if (previous?.present && existing?.present && (previous.addedAt ?? 0) < (existing.addedAt ?? 0)) {
       next.set(wordKey(word), { ...existing, addedAt: previous.addedAt });
     }
