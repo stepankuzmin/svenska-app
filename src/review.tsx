@@ -207,6 +207,7 @@ export default function Review({
     onChange(undoAnswer(state, undo));
     setRetry(undo);
     setUndo(null);
+    dialog.current?.focus();
     setRevealedCard(undo.card);
     setAnswered((count) => count + 1);
   }
@@ -251,37 +252,19 @@ export default function Review({
       {current === undefined ? (
         <ReviewSummary cards={cards} state={state} now={now} />
       ) : (
-        <>
-          <div className="review-deck">
-            <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
-              <span className="review-stamp review-stamp-remembered" aria-hidden="true">Remembered</span>
-              <span className="review-stamp review-stamp-forgot" aria-hidden="true">Forgot</span>
-              <p className="review-russian" lang="ru">{current.translation}</p>
-              <div className={revealed ? "review-answer is-shown" : "review-answer"} lang="sv">
+        <div className="review-deck">
+          <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
+            <span className="review-stamp review-stamp-remembered" aria-hidden="true">Remembered · {waitLabel(schedule(scheduled, true, now), now)}</span>
+            <span className="review-stamp review-stamp-forgot" aria-hidden="true">Forgot · {waitLabel(schedule(scheduled, false, now), now)}</span>
+            <p className="review-russian" lang="ru">{current.translation}</p>
+            <div className={revealed ? "review-answer is-shown" : "review-answer"} lang="sv">
+              <div className="review-answer-body">
                 <p className="review-swedish">{current.citation}</p>
-                {current.phonetics.length > 0 ? <p className="review-forms">[{current.phonetics.join(", ")}]</p> : null}
                 {current.forms.length > 1 ? <p className="review-forms">{current.forms.join(", ")}</p> : null}
               </div>
-            </ReviewCard>
-          </div>
-
-          <div className="review-actions">
-            {revealed ? (
-              <>
-                <button type="button" className="review-answer-button review-forgot" onClick={() => grade(false)}>
-                  Forgot<span>{waitLabel(schedule(scheduled, false, now), now)}</span>
-                </button>
-                <button type="button" className="review-answer-button review-remembered" onClick={() => grade(true)}>
-                  Remembered<span>{waitLabel(schedule(scheduled, true, now), now)}</span>
-                </button>
-              </>
-            ) : (
-              <button type="button" className="review-answer-button review-show" onClick={reveal}>
-                Show Swedish
-              </button>
-            )}
-          </div>
-        </>
+            </div>
+          </ReviewCard>
+        </div>
       )}
     </dialog>
   );

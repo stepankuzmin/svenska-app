@@ -105,7 +105,7 @@ function Panel({ onClose, transport }: PanelProps) {
   }
 
   return <dialog className="sync-panel" ref={dialog} onCancel={onClose} onClose={onClose} aria-labelledby="sync-title">
-    <header><h2 id="sync-title">Sync devices</h2><button type="button" onClick={onClose} aria-label="Close sync">Close</button></header>
+    <header><h2 id="sync-title">Sync devices</h2><button type="button" className="sync-text-button" onClick={onClose} aria-label="Close sync">Close</button></header>
     <p role="status">{view.error || statusText[view.status]}</p>
     {view.pending > 0 && view.connected ? <p>{view.pending} changes waiting to sync.</p> : null}
     {message && message !== view.error ? <p role="status">{message}</p> : null}
@@ -114,8 +114,8 @@ function Panel({ onClose, transport }: PanelProps) {
       <div ref={challenge} />
       <label>Device name<input value={label} maxLength={80} onChange={(event) => setLabel(event.target.value)} /></label>
       <p>Connect your devices once. Later changes sync automatically.</p>
-      {pairing ? <button disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("join", pairing))}>Connect this device</button>
-        : <button disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("libraries"))}>Enable sync</button>}
+      {pairing ? <button className="sync-primary" disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("join", pairing))}>Connect this device</button>
+        : <button className="sync-primary" disabled={busy || !view.readyForSync || !label.trim()} onClick={() => void act(() => connect("libraries"))}>Enable sync</button>}
       {!pairing ? <>
         <label>Pairing link<input value={joinInput} onChange={(event) => setJoinInput(event.target.value)} autoComplete="off" /></label>
         <button disabled={busy || !view.readyForSync || !joinInput.trim() || !label.trim()} onClick={() => void act(() => connect("join", detailsOf(joinInput)))}>Join another device</button>
@@ -125,7 +125,7 @@ function Panel({ onClose, transport }: PanelProps) {
         <button disabled={busy || !view.readyForSync || !recoveryInput.trim() || !label.trim()} onClick={() => void act(() => connect("recover", detailsOf(recoveryInput)))}>Recover library</button>
       </details>
     </> : <>
-      <button disabled={busy || view.status === "revoked"} onClick={() => void act(invite)}>Connect another device</button>
+      <button className="sync-primary" disabled={busy || view.status === "revoked"} onClick={() => void act(invite)}>Connect another device</button>
       {link ? <section aria-label="Pairing link">
         <p>Scan this code on your other device. The link works once and expires after 10 minutes.</p>
         <img src={qr} width="240" height="240" alt="QR code to connect another device" />
@@ -135,11 +135,11 @@ function Panel({ onClose, transport }: PanelProps) {
         })}>Copy link</button>
         {navigator.share ? <button onClick={() => void act(() => navigator.share({ title: "Connect Svenska.app", url: link }))}>Share link</button> : null}
       </section> : null}
-      {devices.data ? <section aria-label="Connected devices"><h3>Connected devices</h3><ul>
-        {devices.data.map((device) => <li key={device.id}>{device.label}{device.current ? " (this device)" : ""}
-          {!device.current ? <button disabled={busy} onClick={() => void act(async () => {
+      {devices.data ? <section aria-label="Connected devices"><h3>Connected devices</h3><ul role="list">
+        {devices.data.map((device) => <li key={device.id}><span>{device.label}</span>
+          {device.current ? <small>This device</small> : <button className="sync-text-button sync-destructive" aria-label={`Disconnect ${device.label}`} disabled={busy} onClick={() => void act(async () => {
             await syncRequest(`devices/${device.id}`, undefined, "DELETE"); await devices.refetch();
-          })}>Disconnect {device.label}</button> : null}
+          })}>Disconnect</button>}
         </li>)}
       </ul></section> : null}
       {devices.isError ? <p>Could not load connected devices.</p> : null}
@@ -149,12 +149,12 @@ function Panel({ onClose, transport }: PanelProps) {
           const result = await syncRequest<{ recoveryCode: string }>("recovery-code", {}); setRecovery(result.recoveryCode);
         })}>Generate recovery code</button>
       </details>
-      <button disabled={busy} onClick={() => void act(async () => {
+      <button className="sync-destructive" disabled={busy} onClick={() => void act(async () => {
         if (view.status === "revoked") await store.detach();
         else await (await store.startRemote()).disconnect();
         setLink(""); setQr(""); setRecovery("");
       })}>Disconnect this device</button>
-      <p>Disconnecting keeps your words on this device.</p>
+      <p className="sync-note">Disconnecting keeps your words on this device.</p>
     </>}
     {recovery ? <label>Recovery code<input readOnly value={recovery} onFocus={(event) => event.currentTarget.select()} /></label> : null}
   </dialog>;
