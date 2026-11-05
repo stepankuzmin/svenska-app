@@ -88,7 +88,7 @@ test("pulling the page down syncs a connected library at once", async ({ page })
       { touches: clientY === undefined ? [] : [{ clientX: 100, clientY }] },
     ));
     touch("touchstart", 100);
-    touch("touchmove", 300);
+    touch("touchmove", 400);
     touch("touchend");
   });
   await synced;
