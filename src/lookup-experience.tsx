@@ -561,14 +561,13 @@ export function LookupExperience(props: LookupExperienceProps) {
       {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 className="visually-hidden" id="lookup-library-heading">Library</h2>
-          <ReviewLauncher library={library} />
-          <label>
-            <span className="visually-hidden">Sort words</span>
-            <select className="lookup-action" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
+          <div className="lookup-actions">
+            <ReviewLauncher library={library} />
+            <select aria-label="Sort words" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
               <option value="added">Date added</option>
               <option value="frequency">Usage frequency</option>
             </select>
-          </label>
+          </div>
           <ul className="word-card-list" role="list">
             {sortedLibrary.map((item, index) => (
               <WordCard

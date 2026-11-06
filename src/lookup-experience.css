@@ -82,6 +82,12 @@ body {
   padding-inline: .8rem 3rem;
 }
 
+.lookup-autocomplete input:focus-visible,
+.lookup-actions > select:focus {
+  outline: 2px solid var(--lookup-blue);
+  outline-offset: 0;
+}
+
 .lookup-clear {
   align-items: center;
   appearance: none;
@@ -148,10 +154,6 @@ body {
   outline-offset: 2px;
 }
 
-.lookup-autocomplete:not(:has(.suggestion-empty)) input:focus-visible:not([aria-expanded="true"]) {
-  outline: 2px solid var(--lookup-blue);
-  outline-offset: 0;
-}
 
 .minimal-lookup .suggestion-empty,
 .minimal-lookup .suggestion-menu { border-color: var(--lookup-blue); }
@@ -254,12 +256,25 @@ body {
   color: var(--lookup-ink);
 }
 
+.lookup-actions {
+  display: flex;
+  min-block-size: 2.75rem;
+  margin: 0 0 .4rem;
+}
+
 .lookup-action {
   background: none;
   border: 0;
   color: var(--lookup-blue);
+}
+
+.lookup-actions > select { margin-inline-start: auto; }
+
+.lookup-action,
+.lookup-actions > select {
+  border-radius: .65rem;
   font: inherit;
-  padding: .4rem .65rem .9rem;
+  padding: 0 .65rem;
 }
 
 .word-card-list,
@@ -366,12 +381,9 @@ body {
 
 .word-card summary {
   cursor: pointer;
-  list-style: none;
   touch-action: manipulation;
 }
 
-.word-card summary::-webkit-details-marker { display: none; }
-.word-card summary::marker { content: ""; }
 .word-card-disclosure span {
   block-size: .38rem;
   border-block-start: 1.5px solid var(--lookup-muted);
