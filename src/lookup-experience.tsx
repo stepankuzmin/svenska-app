@@ -563,10 +563,16 @@ export function LookupExperience(props: LookupExperienceProps) {
           <h2 className="visually-hidden" id="lookup-library-heading">Library</h2>
           <div className="lookup-actions">
             <ReviewLauncher library={library} />
-            <select aria-label="Sort words" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
-              <option value="added">Date added</option>
-              <option value="frequency">Usage frequency</option>
-            </select>
+            <label className="lookup-sort">
+              <span aria-hidden="true">
+                {sort === "added" ? "Newest first" : "Most used"}{" "}
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m3 6 3 3 3-3" /></svg>
+              </span>
+              <select aria-label="Sort words" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
+                <option value="added">Date added</option>
+                <option value="frequency">Usage frequency</option>
+              </select>
+            </label>
           </div>
           <ul className="word-card-list" role="list">
             {sortedLibrary.map((item, index) => (
