@@ -8,6 +8,7 @@ const deployedURL = process.env.SYNC_TEST_BASE_URL;
 
 export default defineConfig({
   testDir: "./tests/browser",
+  workers: 1,
   projects: [
     { name: "chromium", testIgnore: touchSpec, use: { ...devices["Desktop Chrome"], launchOptions: chromiumLaunch } },
     { name: "webkit", testIgnore: touchSpec, use: { ...devices["Desktop Safari"] } },

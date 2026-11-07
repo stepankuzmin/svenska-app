@@ -123,10 +123,11 @@ export class LibraryStore {
     return this.current;
   }
   dispatch(event: LookupSessionEvent): Promise<void> {
+    const now = Date.now();
+    const words = wordsOpenedBy(event).map((word) => ({ ...word, addedAt: now }));
     this.actions = this.actions.then(async () => {
       if (event.kind === "word-removed") await this.remove(event.card);
       else {
-        const words = wordsOpenedBy(event);
         if (words.length > 0) await this.enqueue("open", words);
       }
     }).catch(() => this.storageFailed());

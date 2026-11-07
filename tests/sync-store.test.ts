@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { openDB } from "idb";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LibraryStore } from "../src/sync/store";
-import { recordsOf } from "../src/sync/model";
+import { applyOperation, recordsOf } from "../src/sync/model";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const stores: LibraryStore[] = [];
@@ -18,6 +18,55 @@ function create(name = crypto.randomUUID(), seed = [whale]) {
 afterEach(async () => { await Promise.all(stores.splice(0).map((store) => store.close())); vi.unstubAllGlobals(); vi.restoreAllMocks(); vi.useRealTimers(); });
 
 describe("durable local library", () => {
+  it.each([undefined, 100])("preserves the earlier date %s when imported identities overlap", async (addedAt) => {
+    const date = addedAt === undefined ? {} : { addedAt };
+    const legacy = { headword: "val", word: "", ...date };
+    const store = create(undefined, []); await store.ready;
+    const records = applyOperation(recordsOf([legacy]), {
+      kind: "import", sequence: 1, baseRevision: 0, words: [{ ...whale, addedAt: 200 }],
+    }, "other-device", 1);
+    await store.accept({ ...store.state().snapshot, libraryId: "shared", revision: 1, records });
+    store.setDictionary({
+      entries: { val: [whale, election].map(({ word }) => ({ word, partOfSpeech: "", meaning: "", translation: "" })) },
+      wordAliases: {},
+    });
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }, { ...election, ...date }]);
+    await store.remove("val#18440");
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+  });
+
+  it.each([undefined, 100])("preserves a resolved word's date %s after removing a legacy sibling", async (addedAt) => {
+    const date = addedAt === undefined ? {} : { addedAt };
+    const store = create(undefined, [{ headword: "val", word: "", ...date }]); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared" });
+    store.setDictionary({
+      entries: { val: [whale, election].map(({ word }) => ({ word, partOfSpeech: "", meaning: "", translation: "" })) },
+      wordAliases: {},
+    });
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    await store.remove("val#18440");
+    expect(store.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+    const reopened = create(crypto.randomUUID(), []); await reopened.ready;
+    await reopened.accept({ ...reopened.state().snapshot, libraryId: "shared", records: recordsOf(store.getSnapshot().words) });
+    expect(reopened.getSnapshot().words).toEqual([{ ...whale, ...date }]);
+  });
+
+  it("dates new lookups once and keeps their dates across reloads and device snapshots", async () => {
+    const clock = vi.spyOn(Date, "now").mockReturnValue(100);
+    const name = crypto.randomUUID();
+    const store = create(name, []); await store.ready;
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    clock.mockReturnValue(200);
+    await store.dispatch({ kind: "picked", choice: { word: whale } });
+    expect(store.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    const reopened = create(name, []); await reopened.ready;
+    expect(reopened.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    const other = create(crypto.randomUUID(), []); await other.ready;
+    await other.accept({ ...other.state().snapshot, libraryId: "shared", records: recordsOf(store.getSnapshot().words) });
+    expect(other.getSnapshot().words).toEqual([{ ...whale, addedAt: 100 }]);
+    await other.accept({ ...other.state().snapshot, revision: 1, records: recordsOf([{ ...whale, addedAt: 50 }]) });
+    expect(other.getSnapshot().words).toEqual([{ ...whale, addedAt: 50 }]);
+  });
   it("keeps over-capacity openings out of the shared outbox and permits replacement after removal", async () => {
     const words = Array.from({ length: 20_000 }, (_, index) => ({ headword: `word-${index}`, word: String(index + 1) }));
     const store = create(crypto.randomUUID(), words); await store.ready;

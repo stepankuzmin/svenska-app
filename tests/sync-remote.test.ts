@@ -381,7 +381,7 @@ describe("connection lifecycle", () => {
         expect(body.deviceId).toBe(snapshot.deviceId);
         snapshot = { ...snapshot, revision: snapshot.revision + 1 };
         snapshot.records = applyOperation(snapshot.records, {
-          sequence: body.sequence, baseRevision: snapshot.revision, kind: "import", words: readWords(body.words),
+          sequence: body.sequence, baseRevision: snapshot.revision, kind: "import", words: readWords(body.words), wordDates: body.wordDates === true,
         }, snapshot.deviceId, snapshot.revision);
         joins++;
         return joins === 1 ? lost.promise : replacement.promise;
@@ -447,7 +447,7 @@ describe("connection lifecycle", () => {
         if (++joins === 1) throw new TypeError("Network error");
         snapshot = {
           protocol: 2, libraryId: "shared", deviceId: body.deviceId, revision: 2, acknowledged: body.sequence,
-          records: applyOperation(recordsOf([whale]), { sequence: body.sequence, baseRevision: 2, kind: "import", words: readWords(body.words) }, body.deviceId, 2),
+          records: applyOperation(recordsOf([whale]), { sequence: body.sequence, baseRevision: 2, kind: "import", words: readWords(body.words), wordDates: body.wordDates === true }, body.deviceId, 2),
         };
         return Response.json({ snapshot });
       }
@@ -492,7 +492,7 @@ describe("connection lifecycle", () => {
     remote = createRemote(store);
     const connecting = remote.connect("libraries", { label: "Browser" });
     await expect.poll(() => fetch.mock.calls.length).toBe(1);
-    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ sequence: 1, words: [whale] });
+    expect(JSON.parse(String(fetch.mock.calls[0][1].body))).toMatchObject({ sequence: 1, wordDates: true, words: [whale] });
     const other = new LibraryStore(name, [], false, false);
     try {
       await other.ready;

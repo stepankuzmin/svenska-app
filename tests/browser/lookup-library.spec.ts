@@ -10,13 +10,15 @@ const onlyTack = [/tack/];
 const fikaRow = /^fika/;
 const valRow = /^val/;
 const valsThenFikaThenTack = [/кит/, /выбор/, /fika/, /tack/];
+const newestFirst = [/fika/, /tack/, /abborre/];
+const mostFrequentFirst = [/tack/, /fika/, /abborre/];
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
     abborre: [{ word: "101", partOfSpeech: "substantiv", meaning: "fisk", translation: "окунь" }],
-    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
-    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо" }],
+    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе", frequency: 10 }],
+    tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо", frequency: 100 }],
     framgår: [{ word: "104", partOfSpeech: "verb", meaning: "visa sig av sammanhanget", translation: "вытекать" }],
     ni: [{ word: "10630", partOfSpeech: "pronomen", meaning: "", translation: "вы" }],
     festival: [{ word: "3001", partOfSpeech: "substantiv", meaning: "", translation: "фестиваль" }],
@@ -195,11 +197,51 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await query.press("Enter");
   await expect(library.getByText("tack", { exact: true })).toBeVisible();
   await expect(library.getByText("ska vi fika?", { exact: true })).toBeHidden();
-  await expect(library.getByRole("listitem")).toHaveText(tackThenFika);
+  await expect(library.locator(".word-card-list > li")).toHaveText(tackThenFika);
 
   await page.reload();
-  await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(tackThenFika);
+  await expect(page.locator(".word-card-list > li")).toHaveText(tackThenFika);
   await expect(query).toBeFocused();
+});
+
+test("looking up a word already in the library shows its card where the sort keeps it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  for (const word of ["abborre", "tack", "fika", "framgår", "ni", "jord", "val", "abborre"]) {
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await expect(page.locator(".word-card[open] summary")).toContainText("abborre");
+  await expect(page.locator(".word-card-list > li").last()).toContainText("abborre");
+  await expect(page.locator(".word-card[open]")).toBeInViewport();
+});
+
+test("sorting uses the original addition date or corpus frequency and survives library reloads", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.clock.setFixedTime(1000);
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  const cards = page.locator(".word-card-list > li");
+  for (const [word, now] of [["abborre", 1000], ["tack", 2000], ["fika", 3000]] as const) {
+    await page.clock.setFixedTime(now);
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await expect(cards).toHaveText(newestFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("frequency");
+  await expect(cards).toHaveText(mostFrequentFirst);
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("added");
+  await page.clock.setFixedTime(4000);
+  await query.fill("tack");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+  await expect(cards).toHaveText(newestFirst);
+  await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]").find((word: { headword: string }) => word.headword === "tack").addedAt).toBe(2000);
+  await page.reload();
+  await expect(cards).toHaveText(newestFirst);
 });
 
 test("a q link opens its exact match rather than previewing it", async ({ page }) => {
@@ -229,14 +271,14 @@ test.describe("a pasted list on a phone", () => {
     await page.goto("./?q=fika&q=zzz&q=tack");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await expect(page.getByLabel("Swedish or Russian word")).toHaveValue("");
     expect(pageErrors).toEqual([]);
   });
 
   test("a review shows every line's state and adds nothing until asked", async ({ page }) => {
     await page.goto("./?q=tack");
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
     await pasteIntoField(page, "- fika - \nskjuta ihjäl\ntack\nспасибо\n");
 
     await expect(page.getByRole("region", { name: "Pasted list" }).getByRole("list")).toMatchAriaSnapshot(`
@@ -251,11 +293,11 @@ test.describe("a pasted list on a phone", () => {
           - text: спасибо
         - listitem "спасибо, no match": спасибо
     `);
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
 
     await page.getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("region", { name: "Pasted list" })).toHaveCount(0);
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
   });
 
   test("an unticked line adds nothing and copies as pasted", async ({ page }) => {
@@ -265,7 +307,7 @@ test.describe("a pasted list on a phone", () => {
     await page.getByRole("checkbox", { name: fikaRow }).click();
     await expect(page.getByLabel("Swedish or Russian word")).not.toBeFocused();
     await page.getByRole("button", { name: "Add 1 word" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(onlyTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(onlyTack);
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika\ntack - спасибо\n");
   });
 
@@ -284,7 +326,7 @@ test.describe("a pasted list on a phone", () => {
     await pasteIntoField(page, "fika\nskjuta ihjäl\ntack\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\nskjuta ihjäl\ntack - спасибо\n");
 
     await page.getByRole("button", { name: "Copy list with Russian" }).click();
@@ -315,24 +357,24 @@ test.describe("a pasted list on a phone", () => {
   test("adding a list leaves a word the library holds where it was", async ({ page }) => {
     await page.goto("./?q=fika&q=tack");
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await page.getByRole("button", { name: "Done" }).click();
     await pasteIntoField(page, "tack\nval\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(valsThenFikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(valsThenFikaThenTack);
   });
 
   test("a list the library already holds still copies with Russian", async ({ page }) => {
     await page.goto("./?q=fika&q=tack");
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     await page.getByRole("button", { name: "Done" }).click();
     await pasteIntoField(page, "fika\ntack\n");
 
     await page.getByRole("button", { name: "Show list with Russian" }).click();
     await expect(page.locator(".pasted-list-preview")).toHaveText("fika - перерыв на кофе\ntack - спасибо\n");
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
   });
 
   test("a list pasted over an open review replaces it", async ({ page }) => {
@@ -362,7 +404,7 @@ test.describe("a pasted list on a phone", () => {
     await pasteIntoField(page, "fika\ntack\n");
 
     await page.getByRole("button", { name: "Add 2 words" }).click();
-    await expect(page.getByRole("region", { name: "Library" }).getByRole("listitem")).toHaveText(fikaThenTack);
+    await expect(page.locator(".word-card-list > li")).toHaveText(fikaThenTack);
     expect(pageErrors).toEqual([]);
   });
 });
@@ -465,8 +507,8 @@ test("the library keeps a word of its own rather than the spelling", async ({ pa
   const cards = page.locator(".word-card-list > li");
   await expect(cards).toHaveCount(2);
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18439" },
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18439", addedAt: expect.any(Number) },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 
   await page.reload();
@@ -488,7 +530,7 @@ test("a suggestion opens the one word it names", async ({ page }) => {
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("выбор");
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 });
 
@@ -597,7 +639,7 @@ test("a swipe to the left removes a word from the library", async ({ page }) => 
   await expect(cards).toHaveCount(1);
   await expect(cards.nth(0)).toContainText("ett val, valet, val, valen");
   await expect.poll(async () => JSON.parse(await page.evaluate("localStorage.getItem('svenska.lookup-library')") ?? "[]")).toEqual([
-    { headword: "val", word: "18440" },
+    { headword: "val", word: "18440", addedAt: expect.any(Number) },
   ]);
 });
 
@@ -657,7 +699,7 @@ test("the card a swipe uncovers can be removed from the keyboard", async ({ page
   await expect.poll(async () => {
     await page.keyboard.press("Tab");
     return remove.evaluate((button) => button.matches(":focus-visible"));
-  }, { timeout: 5000 }).toBe(true);
+  }, { timeout: 5000, intervals: [50] }).toBe(true);
 
   await expect(cards.nth(0).locator(".word-card-swipe")).not.toHaveCSS("transform", "none");
   await page.keyboard.press("Enter");

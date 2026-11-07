@@ -6,6 +6,7 @@ import type { DictionaryAsset } from "./dictionary-contract";
 export type LibraryWord = {
   headword: string;
   word: string;
+  addedAt?: number;
 };
 
 export type HeadwordWord = LibraryWord & {
@@ -21,7 +22,8 @@ export function wordKey({ headword, word }: LibraryWord): string {
 }
 
 export function sameWords(left: readonly LibraryWord[], right: readonly LibraryWord[]): boolean {
-  return left.length === right.length && left.every((word, index) => wordKey(word) === wordKey(right[index]));
+  return left.length === right.length && left.every((word, index) =>
+    wordKey(word) === wordKey(right[index]) && word.addedAt === right[index].addedAt);
 }
 
 export function wordsOf({
@@ -47,7 +49,12 @@ export function wordsOf({
 }
 
 export function uniqueWords(libraryWords: readonly LibraryWord[]): LibraryWord[] {
-  const byKey = new Map(libraryWords.map((libraryWord) => [wordKey(libraryWord), libraryWord]));
+  const byKey = new Map<string, LibraryWord>();
+  for (const libraryWord of libraryWords) {
+    const key = wordKey(libraryWord);
+    const previous = byKey.get(key);
+    if (previous === undefined || (libraryWord.addedAt ?? 0) < (previous.addedAt ?? 0)) byKey.set(key, libraryWord);
+  }
   return [...byKey.values()];
 }
 
@@ -71,7 +78,7 @@ export function resolveLibraryWords({
     }
 
     return wordsOf({ headword: libraryWord.headword, senses })
-      .map(({ headword, word }) => ({ headword, word }));
+      .map(({ headword, word }) => ({ ...libraryWord, headword, word }));
   }));
 
   // A library the dictionary leaves as it is stays the library it was, so a

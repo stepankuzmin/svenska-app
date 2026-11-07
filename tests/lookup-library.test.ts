@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   addToLookupLibrary,
   readLookupLibrary,
+  sortLookupLibrary,
   writeLookupLibrary,
 } from "../src/lookup-library.ts";
 import { reduceLookupSession } from "../src/lookup-session.ts";
@@ -98,7 +99,8 @@ describe("opening words", () => {
     expect(addToLookupLibrary({
       libraryWords: [impression],
       openedWords: [whale, election],
-    })).toEqual([whale, election, impression]);
+      now: 1234,
+    })).toEqual([{ ...whale, addedAt: 1234 }, { ...election, addedAt: 1234 }, impression]);
   });
 
   it("moves a word already in the library to the top rather than keeping it twice", () => {
@@ -112,8 +114,39 @@ describe("opening words", () => {
     expect(addToLookupLibrary({
       libraryWords: [],
       openedWords: [whale, { ...whale }],
-    })).toEqual([whale]);
+      now: 1234,
+    })).toEqual([{ ...whale, addedAt: 1234 }]);
   });
+
+  it("keeps the original date when a word is reopened and dates a word added after removal", () => {
+    const first = addToLookupLibrary({ libraryWords: [], openedWords: [whale], now: 100 });
+    const reopened = addToLookupLibrary({ libraryWords: first, openedWords: [whale], now: 200 });
+    expect(reopened).toEqual([{ ...whale, addedAt: 100 }]);
+    expect(addToLookupLibrary({ libraryWords: [], openedWords: [whale], now: 300 }))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+  });
+});
+
+it("persists dates and reads older words without inventing dates", () => {
+  stubStorage();
+  writeLookupLibrary([{ ...whale, addedAt: 1234 }, impression]);
+  expect(readLookupLibrary()).toEqual([{ ...whale, addedAt: 1234 }, impression]);
+  stubStorage({ [storageKey]: JSON.stringify([{ ...whale, addedAt: -1 }]) });
+  expect(readLookupLibrary()).toEqual([whale]);
+});
+
+it("sorts by newest addition or highest corpus frequency, leaving unknown values last", () => {
+  const libraryWords = [impression, { ...election, addedAt: 300 }, { ...whale, addedAt: 100 }];
+  const entries = { val: [
+    { word: "18439", partOfSpeech: "subst.", translation: "кит", meaning: "", frequency: 500 },
+    { word: "18440", partOfSpeech: "subst.", translation: "выбор", meaning: "", frequency: 100 },
+  ] };
+  expect(sortLookupLibrary({ libraryWords, entries, sort: "added" }))
+    .toEqual([{ ...election, addedAt: 300 }, { ...whale, addedAt: 100 }, impression]);
+  expect(sortLookupLibrary({ libraryWords, entries, sort: "frequency" }))
+    .toEqual([{ ...whale, addedAt: 100 }, { ...election, addedAt: 300 }, impression]);
+  expect(sortLookupLibrary({ libraryWords, entries: null, sort: "frequency" }))
+    .toEqual([{ ...election, addedAt: 300 }, { ...whale, addedAt: 100 }, impression]);
 });
 
 function removeWord(libraryWords: readonly (typeof whale)[], card: string) {

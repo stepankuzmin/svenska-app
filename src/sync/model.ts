@@ -21,6 +21,7 @@ export type SyncOperation = {
   baseRevision: number;
   kind: "open" | "remove" | "import";
   words: LibraryWord[];
+  wordDates?: boolean;
   retained?: { source: LibraryWord; word: LibraryWord }[];
 };
 export type LibrarySnapshot = {
@@ -57,14 +58,23 @@ export function applyOperation(
 function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, deviceId: string, revision: number): void {
   operation.retained?.forEach(({ source, word }, index) => {
     const previous = next.get(wordKey(source));
-    if (previous?.present && !next.has(wordKey(word))) {
-      next.set(wordKey(word), { ...previous, ...word, index: previous.index + index / 1000 });
+    const existing = next.get(wordKey(word));
+    if (previous?.present && existing === undefined) {
+      next.set(wordKey(word), { ...previous, headword: word.headword, word: word.word, index: previous.index + index / 1000 });
+    } else if (previous?.present && existing?.present && (previous.addedAt ?? 0) < (existing.addedAt ?? 0)) {
+      next.set(wordKey(word), { ...existing, addedAt: previous.addedAt });
     }
   });
   operation.words.forEach((word, index) => {
     const key = wordKey(word);
     const previous = next.get(key);
-    if (operation.kind === "import" && previous !== undefined) return;
+    if (operation.kind === "import" && previous !== undefined) {
+      if (previous.present && previous.removedRevision === 0 && (word.addedAt !== undefined || operation.wordDates) &&
+        (word.addedAt ?? 0) < (previous.addedAt ?? 0)) {
+        next.set(key, { ...previous, addedAt: word.addedAt });
+      }
+      return;
+    }
     const record = previous ?? recordsOf([word])[0];
     if (operation.kind === "remove") {
       next.set(key, {
@@ -76,7 +86,11 @@ function applyTo(next: Map<string, WordRecord>, operation: SyncOperation, device
     const ownRemoval = record.removedBy === deviceId && record.removedSequence < operation.sequence;
     if (record.removedRevision > operation.baseRevision && !ownRemoval) return;
     const order = operation.kind === "import" ? -revision : revision;
-    next.set(key, { ...record, present: true, order, index });
+    let addedAt = previous?.present ? previous.addedAt : word.addedAt;
+    if (previous?.present && addedAt !== undefined && word.addedAt !== undefined) {
+      addedAt = Math.min(addedAt, word.addedAt);
+    }
+    next.set(key, { ...record, addedAt, present: true, order, index });
   });
 }
 
@@ -85,7 +99,7 @@ export function visibleWords(state: LibraryState): LibraryWord[] {
   state.pending.forEach((operation, index) => applyTo(records, operation, state.snapshot.deviceId, state.snapshot.revision + index + 1));
   return [...records.values()].filter((record) => record.present)
     .toSorted((left, right) => right.order - left.order || left.index - right.index || wordKey(left).localeCompare(wordKey(right)))
-    .map(({ headword, word }) => ({ headword, word }));
+    .map(({ headword, word, addedAt }) => ({ headword, word, ...(addedAt === undefined ? {} : { addedAt }) }));
 }
 
 export function compactLocal(state: LibraryState): LibraryState {
@@ -111,15 +125,15 @@ export function receiveSnapshot(state: LibraryState, snapshot: LibrarySnapshot):
 
 export function isLibraryWord(value: unknown): value is LibraryWord {
   if (!value || typeof value !== "object") return false;
-  const word = value as Partial<LibraryWord>;
-  return typeof word.headword === "string" && word.headword.length > 0 && word.headword.length <= 250 &&
-    typeof word.word === "string" && wordNumberPattern.test(word.word);
+  return "headword" in value && typeof value.headword === "string" && value.headword.length > 0 && value.headword.length <= 250 &&
+    "word" in value && typeof value.word === "string" && wordNumberPattern.test(value.word) &&
+    (!("addedAt" in value) || typeof value.addedAt === "number" && Number.isSafeInteger(value.addedAt) && value.addedAt > 0);
 }
 export function readWords(value: unknown, limit = maximumWords): LibraryWord[] {
   if (!Array.isArray(value) || value.length > limit || !value.every(isLibraryWord)) {
     throw new Error("400:Invalid words.");
   }
-  return uniqueWords(value.map(({ headword, word }) => ({ headword, word })));
+  return uniqueWords(value.map(({ headword, word, addedAt }) => ({ headword, word, ...(addedAt === undefined ? {} : { addedAt }) })));
 }
 function readRetained(value: unknown, sources: LibraryWord[]) {
   if (!Array.isArray(value) || value.length > 1000) throw new Error("400:Invalid retained words.");
