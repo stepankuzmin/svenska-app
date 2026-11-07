@@ -19,6 +19,7 @@ import {
 import type { DictionaryAsset, DictionaryDetailsAsset } from "./dictionary-contract";
 import { choicesOf, type LookupChoice, type LookupOutcome } from "./dictionary";
 import { isList, type PastedLine, type PastedList } from "./lookup-session";
+import { sortLookupLibrary, type LibrarySort } from "./lookup-library";
 import { readReviewState, reviewQueue, writeReviewState, type ReviewState } from "./review-schedule";
 import { queryMatches, withForm, type QueryMatch } from "./query-match";
 import { useSwipeToRemove } from "./use-swipe-to-remove";
@@ -63,6 +64,7 @@ const Review = lazy(() => import("./review").catch(() => ({
 })));
 
 const reviewHash = "#review";
+const sortLabels: Record<LibrarySort, string> = { added: "Newest first", frequency: "Most used" };
 
 type ReviewLaunch = { state: ReviewState; open: boolean; now: number };
 
@@ -118,7 +120,7 @@ const ReviewLauncher = memo(function ReviewLauncher({ library }: { library: read
     <>
       <button
         type="button"
-        className="review-start"
+        className="lookup-action"
         onClick={() => {
           history.pushState(null, "", reviewHash);
           pushed.current = true;
@@ -330,6 +332,7 @@ const SuggestionMenu = memo(function SuggestionMenu({
 });
 
 export function LookupExperience(props: LookupExperienceProps) {
+  const [sort, setSort] = useState<LibrarySort>("added");
   // The field owns the urgent update; a hundred suggestion rows render behind
   // it, so a keystroke never waits on the list it will replace.
   // The rows mark the query they answer, so the query defers with them.
@@ -343,6 +346,11 @@ export function LookupExperience(props: LookupExperienceProps) {
     () => wordCards({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
     [props.libraryWords, props.entries, props.details],
   );
+  const sortedLibrary = useMemo(() => {
+    const order = new Map(sortLookupLibrary({ libraryWords: props.libraryWords, entries: props.entries, sort })
+      .map((word, index) => [wordKey(word), index]));
+    return library.toSorted((left, right) => (order.get(left.card) ?? 0) - (order.get(right.card) ?? 0));
+  }, [library, props.libraryWords, props.entries, sort]);
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
   const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
@@ -382,6 +390,12 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
+  useEffect(() => {
+    if (props.opens > 0) {
+      document.querySelector(".word-card[open]")?.scrollIntoView({ block: "nearest" });
+    }
+  }, [props.opens]);
+
   const selectSuggestion = useCallback((item: LookupChoice) => {
     latest.current.onSelectSuggestion(item);
   }, []);
@@ -417,7 +431,7 @@ export function LookupExperience(props: LookupExperienceProps) {
   // Focusing from a tap on the page keeps the keyboard a gesture away without
   // making the user land on the field itself.
   function focusFieldFromBackground(target: EventTarget) {
-    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, .pasted-list, a, button") === null) {
+    if (target instanceof Element && target.closest(".lookup-autocomplete, .word-card-list, .pasted-list, a, button, select, label") === null) {
       queryInput.current?.focus();
     }
   }
@@ -554,9 +568,21 @@ export function LookupExperience(props: LookupExperienceProps) {
       {library.length > 0 ? (
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 className="visually-hidden" id="lookup-library-heading">Library</h2>
-          <ReviewLauncher library={library} />
+          <div className="lookup-actions">
+            <ReviewLauncher library={library} />
+            <label className="lookup-sort">
+              <span aria-hidden="true">
+                {sortLabels[sort]}{" "}
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m3 6 3 3 3-3" /></svg>
+              </span>
+              <select aria-label="Sort words" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
+                <option value="added">{sortLabels.added}</option>
+                <option value="frequency">{sortLabels.frequency}</option>
+              </select>
+            </label>
+          </div>
           <ul className="word-card-list" role="list">
-            {library.map((item, index) => (
+            {sortedLibrary.map((item, index) => (
               <WordCard
                 key={item.card}
                 item={item}
@@ -576,6 +602,8 @@ export function LookupExperience(props: LookupExperienceProps) {
         <a rel="license" href="https://creativecommons.org/licenses/by/4.0/">
           CC BY 4.0
         </a>
+        <span aria-hidden="true"> · </span>
+        <a href="https://spraakbanken.gu.se/en/resources/kelly">Kelly frequency data</a>
         {props.syncControl}
       </div>
     </main>

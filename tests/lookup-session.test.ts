@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { LookupChoice, LookupOutcome } from "../src/dictionary";
 import { newWordsOf, pastedLinesOf, pastedListText, reduceLookupSession, termsOf, type LookupSession, type LookupSessionEvent } from "../src/lookup-session";
 
@@ -12,6 +12,9 @@ const val1 = { headword: "val", word: "1" };
 const val2 = { headword: "val", word: "2" };
 const fika = { headword: "fika", word: "5" };
 const katt = { headword: "katt", word: "7" };
+const addedAt = 1234;
+beforeEach(() => { vi.spyOn(Date, "now").mockReturnValue(addedAt); });
+afterEach(() => { vi.restoreAllMocks(); });
 const choice = (word: typeof val1, exact: boolean): LookupChoice => ({
   displayWord: word.headword,
   word,
@@ -40,7 +43,7 @@ describe("lookup session", () => {
     const next = run(session, { kind: "submitted", outcome: result });
     expect(next).toEqual({
       query: "",
-      libraryWords: [val1, val2, katt],
+      libraryWords: [{ ...val1, addedAt }, { ...val2, addedAt }, katt],
       expandedCard: "val#1",
       opens: 1,
       pastedList: null,
@@ -52,7 +55,7 @@ describe("lookup session", () => {
     const second: LookupOutcome = { ...result, senses: [entries.val[1]] };
     expect(run(session, { kind: "submitted", outcome: second })).toEqual({
       query: "",
-      libraryWords: [val2, katt],
+      libraryWords: [{ ...val2, addedAt }, katt],
       expandedCard: "val#2",
       opens: 1,
       pastedList: null,
@@ -67,7 +70,7 @@ describe("lookup session", () => {
     };
     expect(run(session, { kind: "submitted", outcome })).toEqual({
       query: "",
-      libraryWords: [val2, fika, katt],
+      libraryWords: [{ ...val2, addedAt }, { ...fika, addedAt }, katt],
       expandedCard: "val#2",
       opens: 1,
       pastedList: null,
@@ -84,7 +87,7 @@ describe("lookup session", () => {
     const session = startLookupSession({ query: "va", libraryWords: [katt] });
     expect(run(session, { kind: "picked", choice: choice(val2, false) })).toEqual({
       query: "",
-      libraryWords: [val2, katt],
+      libraryWords: [{ ...val2, addedAt }, katt],
       expandedCard: "val#2",
       opens: 1,
       pastedList: null,
@@ -95,7 +98,7 @@ describe("lookup session", () => {
     const session = startLookupSession({ query: "val", libraryWords: [] });
     const next = run(session, { kind: "deep-linked", outcome: result });
     expect(next.query).toBe("val");
-    expect(next.libraryWords).toEqual([val1, val2]);
+    expect(next.libraryWords).toEqual([{ ...val1, addedAt }, { ...val2, addedAt }]);
     expect(next.expandedCard).toBe("val#1");
   });
 
@@ -103,7 +106,7 @@ describe("lookup session", () => {
     const session = startLookupSession({ query: "fika", libraryWords: [] });
     const outcome: LookupOutcome = { kind: "choices", choices: [choice(fika, true), choice(katt, true), choice(val1, false)] };
     const next = run(session, { kind: "deep-linked", outcome });
-    expect(next.libraryWords).toEqual([fika, katt]);
+    expect(next.libraryWords).toEqual([{ ...fika, addedAt }, { ...katt, addedAt }]);
     expect(next.expandedCard).toBe("fika#5");
   });
 
@@ -131,7 +134,7 @@ describe("lookup session", () => {
     const session = startLookupSession({ query: "", libraryWords: [katt] });
     const lines = [{ line: "fika", words: [fika] }, { line: "zzz", words: [] }, { line: "val", words: [val1, val2, fika] }];
     const added = run(run(session, { kind: "pasted", lines }), { kind: "list-added", lines, words: [fika, val1, val2] });
-    expect(added).toEqual({ query: "", libraryWords: [fika, val1, val2, katt], expandedCard: "fika#5", opens: 1, pastedList: { lines, added: true } });
+    expect(added).toEqual({ query: "", libraryWords: [{ ...fika, addedAt }, { ...val1, addedAt }, { ...val2, addedAt }, katt], expandedCard: "fika#5", opens: 1, pastedList: { lines, added: true } });
     expect(run(added, { kind: "query-changed", query: "k" }).pastedList).toEqual({ lines, added: true });
     expect(run(added, { kind: "list-closed" }).pastedList).toBeNull();
   });

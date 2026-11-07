@@ -6,10 +6,30 @@ import { XMLParser } from "fast-xml-parser";
 import { z } from "zod";
 import type { DictionaryAsset, DictionaryDetailsAsset } from "../src/dictionary-contract.ts";
 import { cleanLexinText, normalizeLookupText, normalizeSwedishLookupText } from "../src/normalize-lookup-text.ts";
-import { infinitiveOf, verbInflections } from "../src/word-forms.ts";
+import { citationForm, infinitiveOf, verbInflections } from "../src/word-forms.ts";
 import { crossReferenceType, wordKey } from "../src/words.ts";
 
 const sourceAttribution = "Lexin: Svensk-ryskt lexikon — Institutet för språk och folkminnen (Språkrådet)";
+const leadingNounArticle = /^(en|ett) /;
+
+function frequencyOf({ form, partOfSpeech, frequencies }: {
+  form: string;
+  partOfSpeech: string;
+  frequencies: Readonly<Record<string, number>>;
+}): number | undefined {
+  const type = partOfSpeech.endsWith("artikel") ? "artikel" : partOfSpeech;
+  const normalizedForm = normalizeSwedishLookupText(form);
+  const frequency = frequencies[`${normalizedForm}#${type}`] ??
+    (type === "pron." ? frequencies[`${normalizedForm}#artikel`] : undefined);
+  if (frequency !== undefined || partOfSpeech !== "subst.") return frequency;
+  const bareForm = normalizedForm.replace(leadingNounArticle, "");
+  if (bareForm !== normalizedForm) return frequencies[`${bareForm}#${type}`];
+  const counts = ["en ", "ett "].flatMap((article) => {
+    const count = frequencies[`${normalizeSwedishLookupText(article + form)}#${type}`];
+    return count === undefined ? [] : [count];
+  });
+  return counts.length === 1 ? counts[0] : undefined;
+}
 
 const languageSchema = z.record(z.string(), z.unknown());
 
@@ -134,14 +154,18 @@ function referencedWords({
 // `jo`. A target that is itself a pointer lends what it reads in once it has
 // it, `bil|besiktning` through `årlig kontrollbesiktning`, so the pointers
 // settle round by round until none gains a translation.
-function borrowTranslations({
+function resolveCrossReferences({
   entries,
+  details,
+  frequencies,
   senseForms,
   variants,
   indexSpellings,
   crossReferences,
 }: {
   entries: DictionaryAsset["entries"];
+  details: DictionaryDetailsAsset["entries"];
+  frequencies: Readonly<Record<string, number>>;
   senseForms: Readonly<Record<string, readonly (readonly string[])[]>>;
   variants: Readonly<Record<string, readonly string[]>>;
   indexSpellings: ReadonlyMap<string, readonly string[]>;
@@ -172,7 +196,7 @@ function borrowTranslations({
   // `fick` of the verb `får` rather than `får` the sheep, or a compound,
   // `maträtt` of `rätt` the dish rather than `rätt` the court. The senses Lexin
   // indexes under the pointer's spelling win, whatever else it names.
-  const translationsOf = (
+  const sensesOf = (
     { spelling, partOfSpeech, variants: wanted }: ReferencedWord,
     pointer: string,
   ) =>
@@ -184,15 +208,35 @@ function borrowTranslations({
       const candidates = words.length > 0 ? words : matching;
       const form = normalizeSwedishLookupText(pointer);
       const spelled = candidates.filter((index) => senseForms[target]?.[index]?.includes(form));
-      return (spelled.length > 0 ? spelled : candidates).map((index) => entries[target][index].translation);
+      return (spelled.length > 0 ? spelled : candidates).map((senseIndex) => ({ headword: target, senseIndex }));
     });
+
+  const referencesBySense = new Map(crossReferences.map((reference) =>
+    [entries[reference.headword][reference.senseIndex], reference]));
+  function lexicalSenses(reference: CrossReference, seen: readonly CrossReference[] = []): IndexedSense[] {
+    if (seen.includes(reference)) return [];
+    return reference.targets.flatMap((target) => sensesOf(target, reference.headword)).flatMap((target) => {
+      const next = referencesBySense.get(entries[target.headword][target.senseIndex]);
+      return next ? lexicalSenses(next, [...seen, reference]) : [target];
+    });
+  }
+  for (const reference of standaloneCrossReferences({ entries, crossReferences })) {
+    const frequency = Math.max(0, ...lexicalSenses(reference).map(({ headword, senseIndex }) => {
+      const partOfSpeech = reference.partOfSpeech || entries[headword][senseIndex].partOfSpeech;
+      const article = details[headword][senseIndex].article;
+      const prefix = partOfSpeech === "verb" ? "att " : article ? `${article} ` : "";
+      return frequencyOf({ form: prefix + reference.headword, partOfSpeech, frequencies }) ?? 0;
+    }));
+    if (frequency) entries[reference.headword][reference.senseIndex].frequency = frequency;
+  }
 
   let pending = crossReferences.filter(({ headword, senseIndex }) =>
     entries[headword][senseIndex].translation.length === 0);
   while (pending.length > 0) {
     const settled = pending.filter((crossReference) => {
       const { headword, senseIndex, targets } = crossReference;
-      crossReference.borrowed = [...new Set(targets.flatMap((target) => translationsOf(target, headword))
+      crossReference.borrowed = [...new Set(targets.flatMap((target) => sensesOf(target, headword)
+        .map(({ headword, senseIndex }) => entries[headword][senseIndex].translation))
         .filter((item) => item.length > 0))];
       entries[headword][senseIndex].translation = crossReference.borrowed.join(" · ");
       return crossReference.borrowed.length > 0;
@@ -205,6 +249,7 @@ function borrowTranslations({
 }
 
 type CrossReference = {
+  partOfSpeech: string;
   headword: string;
   senseIndex: number;
   targets: ReferencedWord[];
@@ -212,6 +257,16 @@ type CrossReference = {
   ownTranslation: boolean;
   borrowed: string[];
 };
+
+function standaloneCrossReferences({ entries, crossReferences }: {
+  entries: DictionaryAsset["entries"];
+  crossReferences: readonly CrossReference[];
+}): CrossReference[] {
+  return crossReferences.filter(({ headword, senseIndex }) => {
+    const { word } = entries[headword][senseIndex];
+    return !entries[headword].some((other) => other.word === word && other.partOfSpeech !== crossReferenceType);
+  });
+}
 
 // A Russian query offers every word whose translation holds it, a pointer that
 // stands as a word of its own among them. A pointer that joined another word
@@ -226,10 +281,7 @@ function indexCrossReferences({
   crossReferences: readonly CrossReference[];
   russianIndex: Map<string, IndexedSense[]>;
 }): void {
-  const standing = crossReferences.filter(({ headword, senseIndex }) => {
-    const { word } = entries[headword][senseIndex];
-    return !entries[headword].some((other) => other.word === word && other.partOfSpeech !== crossReferenceType);
-  });
+  const standing = standaloneCrossReferences({ entries, crossReferences });
   // A pointer's own synonym enters first, so a pointer that borrows it finds
   // it indexed wherever Lexin lists the two.
   for (const { headword, senseIndex } of standing.filter(({ ownTranslation }) => ownTranslation)) {
@@ -627,7 +679,7 @@ function indexOtherSpellings({ base, headword, partOfSpeech, sense, indexedInfle
   return forms;
 }
 
-export function buildDictionaryAssets({ xml }: { xml: string }): {
+export function buildDictionaryAssets({ xml, frequencies = {} }: { xml: string; frequencies?: Readonly<Record<string, number>> }): {
   dictionary: DictionaryAsset;
   details: DictionaryDetailsAsset;
 } {
@@ -680,6 +732,7 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     if (partOfSpeech === crossReferenceType) {
       crossReferences.push({
         ...sense,
+        partOfSpeech: wordTypes.has(usage) ? usage : "",
         targets: referencedWords({ base: word.BaseLang, wordTypes }),
         ownTranslation: indexed && translation.length > 0,
         borrowed: [],
@@ -734,8 +787,22 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
     for (const [word, known] of joined) {
       wordAliases[wordKey({ headword, word })] = known;
     }
+    senses.forEach((sense, index) => {
+      const details = detailEntries[headword][index];
+      const citation = citationForm({ headword, senses: [{ ...sense, ...details }] });
+      const forms = [citation?.form ?? (sense.partOfSpeech === "verb" ? `att ${headword}` : headword)];
+      if (sense.partOfSpeech === "verb") {
+        const present = headword.split(" ")[0];
+        const rest = headword.slice(present.length);
+        if (present.endsWith("r")) forms.push(`att ${present.slice(0, -1)}${rest}`);
+        forms.push(...details.inflections.slice(2).map((form) => `att ${form.endsWith(rest) ? form : form + rest}`));
+      }
+      const frequency = [...new Set(forms.map(normalizeSwedishLookupText))]
+        .reduce((total, form) => total + (frequencyOf({ form, partOfSpeech: sense.partOfSpeech, frequencies }) ?? 0), 0);
+      if (frequency > 0) sense.frequency = frequency;
+    });
   }
-  borrowTranslations({ entries, senseForms, variants, indexSpellings, crossReferences });
+  resolveCrossReferences({ entries, details: detailEntries, frequencies, senseForms, variants, indexSpellings, crossReferences });
   indexCrossReferences({ entries, crossReferences, russianIndex });
   const headwordSpellings = new Set(Object.keys(entries).map(normalizeSwedishLookupText));
   for (const [form, senses] of alternateIndex) {
@@ -772,7 +839,10 @@ export function buildDictionaryAssets({ xml }: { xml: string }): {
 async function main(): Promise<void> {
   const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
   const xml = await readFile(resolve(repositoryRoot, "data/lexin/swe_rus-2010-07-07.xml"), "utf8");
-  const { dictionary, details } = buildDictionaryAssets({ xml });
+  const frequencies = z.record(z.string(), z.number().int().positive()).parse(
+    JSON.parse(await readFile(resolve(repositoryRoot, "data/kelly/frequencies.json"), "utf8")),
+  );
+  const { dictionary, details } = buildDictionaryAssets({ xml, frequencies });
   const serializedDictionary = `${JSON.stringify(dictionary)}\n`;
   const serializedDetails = `${JSON.stringify(details)}\n`;
   const dictionaryDigest = createHash("sha256").update(serializedDictionary).digest("hex").slice(0, 16);

@@ -1,16 +1,83 @@
 import { describe, expect, it } from "vitest";
 import { applyOperation, batchOf, maximumRequestBytes, maximumWords, readOperations, readWords, receiveSnapshot, recordsOf, visibleWords, type LibrarySnapshot, type SyncOperation } from "../src/sync/model";
+import type { LibraryWord } from "../src/words";
 const whale = { headword: "val", word: "18439" };
 const election = { headword: "val", word: "18440" };
 const tea = { headword: "te", word: "123" };
 const snapshot: LibrarySnapshot = { protocol: 2, libraryId: "library", deviceId: "phone", revision: 0, acknowledged: 0, records: [] };
-function op(kind: SyncOperation["kind"], sequence: number, baseRevision = 0, words = [whale]): SyncOperation {
+function op(kind: SyncOperation["kind"], sequence: number, baseRevision = 0, words: LibraryWord[] = [whale]): SyncOperation {
   return { kind, sequence, baseRevision, words };
 }
 function words(records: ReturnType<typeof recordsOf>) {
   return visibleWords({ snapshot: { ...snapshot, records }, pending: [], sequence: 0 });
 }
 describe("sync semantics", () => {
+  it("preserves shared dates when an older client reconnects without them", () => {
+    const original = recordsOf([{ ...whale, addedAt: 100 }]);
+    expect(words(applyOperation(original, op("import", 1, 1, [whale]), "computer", 2)))
+      .toEqual([{ ...whale, addedAt: 100 }]);
+  });
+
+  it.each([undefined, 100])("keeps a re-added date when pairing an older library dated %s", (addedAt) => {
+    const opened = applyOperation([], op("open", 1, 0, [{ ...whale, addedAt: 100 }]), "phone", 1);
+    const removed = applyOperation(opened, op("remove", 2, 1), "phone", 2);
+    const reopened = applyOperation(removed, op("open", 3, 2, [{ ...whale, addedAt: 300 }]), "phone", 3);
+    const imported = { ...whale, ...(addedAt === undefined ? {} : { addedAt }) };
+    expect(words(applyOperation(reopened, op("import", 1, 0, [imported]), "computer", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+  });
+
+  it.each(["open", "import"] as const)("preserves dates from %s when an older client reopens without one", (kind) => {
+    const original = applyOperation([], op(kind, 1, 0, [{ ...whale, addedAt: 200 }]), "phone", 1);
+    const reopened = applyOperation(original, op("open", 2, 1, [{ ...whale, addedAt: 200 }]), "phone", 2);
+    expect(words(applyOperation(original, op("open", 1, 1, [whale]), "computer", 2)))
+      .toEqual([{ ...whale, addedAt: 200 }]);
+    expect(words(applyOperation(reopened, op("open", 1, 1, [whale]), "computer", 3)))
+      .toEqual([{ ...whale, addedAt: 200 }]);
+  });
+
+  it.each([
+    { first: { ...whale, addedAt: 100 }, second: { ...whale, addedAt: 200 }, expected: { ...whale, addedAt: 100 } },
+    { first: { ...whale, addedAt: 200 }, second: { ...whale, addedAt: 100 }, expected: { ...whale, addedAt: 100 } },
+    { first: whale, second: { ...whale, addedAt: 100 }, expected: whale },
+    { first: { ...whale, addedAt: 100 }, second: whale, expected: { ...whale, addedAt: 100 } },
+  ])("keeps the earliest concurrent addition in either arrival order: $first.addedAt, $second.addedAt", ({ first, second, expected }) => {
+    const opened = applyOperation([], op("open", 1, 0, [first]), "phone", 1);
+    expect(words(applyOperation(opened, op("open", 1, 0, [second]), "computer", 2))).toEqual([expected]);
+    const removed = applyOperation(opened, op("remove", 2, 1), "phone", 2);
+    const reopened = applyOperation(removed, op("open", 3, 2, [{ ...whale, addedAt: 300 }]), "phone", 3);
+    expect(words(applyOperation(reopened, op("open", 1, 0, [second]), "computer", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+  });
+
+  it.each([
+    { addedAt: undefined, expected: whale },
+    { addedAt: 100, expected: { ...whale, addedAt: 100 } },
+    { addedAt: 300, expected: { ...whale, addedAt: 200 } },
+  ])("merges imported date $addedAt without reordering or reviving known words", ({ addedAt, expected }) => {
+    const original = recordsOf([tea, { ...whale, addedAt: 200 }]);
+    const importedWord = { ...whale, ...(addedAt === undefined ? {} : { addedAt }) };
+    const operation: SyncOperation = { ...op("import", 1, 0, [importedWord]), wordDates: true };
+    expect(words(applyOperation(original, operation, "computer", 1))).toEqual([tea, expected]);
+    const removed = applyOperation(original, op("remove", 1), "phone", 1);
+    expect(words(applyOperation(removed, operation, "computer", 2))).toEqual([tea]);
+  });
+
+  it("preserves added dates through import, replay, compaction and reopening", () => {
+    const dated = { ...whale, addedAt: 100 };
+    const opened = applyOperation([], op("open", 1, 0, [dated]), "phone", 1);
+    const reopened = applyOperation(opened, op("open", 2, 1, [{ ...whale, addedAt: 200 }]), "phone", 2);
+    expect(words(reopened)).toEqual([dated]);
+    expect(words(recordsOf(words(reopened)))).toEqual([dated]);
+    expect(words(applyOperation([], op("import", 1, 0, [dated]), "computer", 1))).toEqual([dated]);
+    const removed = applyOperation(reopened, op("remove", 3, 2), "phone", 3);
+    expect(words(applyOperation(removed, op("open", 4, 3, [{ ...whale, addedAt: 300 }]), "phone", 4)))
+      .toEqual([{ ...whale, addedAt: 300 }]);
+    expect(readWords([dated])).toEqual([dated]);
+    for (const addedAt of [-1, 0, null, "100", 1.5, Number.MAX_SAFE_INTEGER + 1]) {
+      expect(() => readWords([{ ...whale, addedAt }])).toThrow("Invalid words");
+    }
+  });
   it("rejects a legacy protocol response before consuming any queued edits", () => {
     const pending = [op("open", 1)];
     const state = { snapshot, sequence: 1, pending };
@@ -68,6 +135,16 @@ describe("sync semantics", () => {
     expect(() => receiveSnapshot(next, { ...confirmed, libraryId: "other" })).toThrow("Disconnect");
     expect(() => receiveSnapshot(next, { ...confirmed, protocol: 3 } as unknown as LibrarySnapshot)).toThrow("Update");
   });
+  it.each([undefined, 100])("retains the reconciled source date %s when removing a sibling offline", (addedAt) => {
+    const legacy = { headword: "val", word: "", addedAt: 200 };
+    const original = recordsOf([legacy]);
+    const earlier = { headword: "val", word: "", ...(addedAt === undefined ? {} : { addedAt }) };
+    const reconciled = applyOperation(original, { ...op("import", 1, 0, [earlier]), wordDates: true }, "computer", 1);
+    const removal = { ...op("remove", 1, 0, [legacy, election]), retained: [{ source: legacy, word: { ...whale, addedAt: 200 } }] };
+    expect(words(applyOperation(reconciled, removal, "phone", 2)))
+      .toEqual([{ ...whale, ...(addedAt === undefined ? {} : { addedAt }) }]);
+  });
+
   it("retains legacy siblings atomically without reviving earlier removals", () => {
     const legacy = { headword: "val", word: "" };
     const removal = { ...op("remove", 1, 0, [legacy, whale]), retained: [{ source: legacy, word: election }] };

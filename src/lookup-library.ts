@@ -1,4 +1,5 @@
 import { uniqueWords, wordKey, type LibraryWord } from "./words";
+import type { DictionaryAsset } from "./dictionary-contract";
 
 const lookupLibraryStorageKey = "svenska.lookup-library";
 // A library written before the app kept words holds bare headwords. The app
@@ -8,8 +9,8 @@ function libraryWordOf(value: unknown): Partial<LibraryWord> {
     return { headword: value, word: "" };
   }
 
-  const { headword, word } = (value ?? {}) as Partial<LibraryWord>;
-  return { headword, word };
+  const { headword, word, addedAt } = (value ?? {}) as Partial<LibraryWord>;
+  return { headword, word, ...(Number.isSafeInteger(addedAt) && (addedAt ?? 0) > 0 ? { addedAt } : {}) };
 }
 
 // Reading `localStorage` itself throws where site data is blocked, so it is
@@ -34,20 +35,37 @@ export function writeLookupLibrary(libraryWords: readonly LibraryWord[]) {
   }
 }
 
-// Opened words move to the top in the order they were opened. Two index
-// entries can lead to one word, as `вы` and `Вы` both lead to `ni`, and the
-// word joins the library once.
 export function addToLookupLibrary({
   libraryWords,
   openedWords,
+  now = Date.now(),
 }: {
   libraryWords: readonly LibraryWord[];
   openedWords: readonly LibraryWord[];
+  now?: number;
 }): readonly LibraryWord[] {
-  const uniqueOpenedWords = uniqueWords(openedWords);
+  const existing = new Map(libraryWords.map((word) => [wordKey(word), word]));
+  const uniqueOpenedWords = uniqueWords(openedWords).map((word) =>
+    existing.get(wordKey(word)) ?? { ...word, addedAt: now });
   const openedKeys = new Set(uniqueOpenedWords.map(wordKey));
   return [
     ...uniqueOpenedWords,
-    ...libraryWords.filter((libraryWord) => !openedKeys.has(wordKey(libraryWord))),
+    ...libraryWords.filter((word) => !openedKeys.has(wordKey(word))),
   ];
+}
+
+export type LibrarySort = "added" | "frequency";
+
+export function sortLookupLibrary({ libraryWords, entries, sort }: {
+  libraryWords: readonly LibraryWord[];
+  entries: DictionaryAsset["entries"] | null;
+  sort: LibrarySort;
+}): LibraryWord[] {
+  if (sort === "added") return libraryWords.toSorted((left, right) => (right.addedAt ?? 0) - (left.addedAt ?? 0));
+  const frequency = new Map(libraryWords.map((word) => [wordKey(word), Math.max(0,
+    ...(entries?.[word.headword] ?? []).filter((sense) => sense.word === word.word).map((sense) => sense.frequency ?? 0),
+  )]));
+  return libraryWords.toSorted((left, right) =>
+    (frequency.get(wordKey(right)) ?? 0) - (frequency.get(wordKey(left)) ?? 0) ||
+    (right.addedAt ?? 0) - (left.addedAt ?? 0));
 }

@@ -8,6 +8,7 @@ const senseSchema = /* @__PURE__ */ z.object({
   partOfSpeech: z.string(),
   meaning: z.string(),
   translation: z.string(),
+  frequency: z.number().int().positive().optional(),
 });
 
 const bilingualTextSchema = /* @__PURE__ */ z.object({

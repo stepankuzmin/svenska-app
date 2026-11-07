@@ -32,6 +32,19 @@ describe("words of a spelling", () => {
 });
 
 describe("a stored lookup library", () => {
+  it("retains the added date when dictionary identities change", () => {
+    expect(resolveLibraryWords({
+      libraryWords: [{ headword: "val", word: "99", addedAt: 100 }],
+      dictionary: { entries, wordAliases: {} },
+    })).toEqual([
+      { headword: "val", word: "18439", addedAt: 100 },
+      { headword: "val", word: "18440", addedAt: 100 },
+    ]);
+    expect(resolveLibraryWords({
+      libraryWords: [{ headword: "val", word: "99", addedAt: 100 }],
+      dictionary: { entries, wordAliases: { "val#99": "18440" } },
+    })).toEqual([{ headword: "val", word: "18440", addedAt: 100 }]);
+  });
   it("opens every word of a spelling stored before the app kept words", () => {
     expect(resolveLibraryWords({
       libraryWords: [{ headword: "val", word: "" }, { headword: "intryck", word: "" }],

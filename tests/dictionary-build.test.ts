@@ -24,6 +24,15 @@ function closestSuggestion(query: string) {
 }
 
 describe("Lexin source edition import", () => {
+  it("joins corpus frequencies by a verb's infinitive and a noun's article", async () => {
+    const xml = await readFile(new URL("./fixtures/lexin-small.xml", import.meta.url), "utf8");
+    const { dictionary } = buildDictionaryAssets({ xml, frequencies: {
+      "en bok#subst.": 54561, "bok#subst.": 999, "att besluta#verb": 8369,
+    } });
+    expect(dictionary.entries.bok.map((sense) => sense.frequency)).toEqual([54561, undefined]);
+    expect(dictionary.entries.beslutar[0].frequency).toBe(8369);
+    expect(dictionary.entries.hus[0].frequency).toBeUndefined();
+  });
   it("groups every sense of a headword and keeps its details alongside", () => {
     expect(assets.dictionary.metadata).toEqual({
       sourceEditionDate: "2010-07-07",
