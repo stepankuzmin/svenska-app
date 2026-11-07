@@ -7,7 +7,7 @@ const reviewButton = /^Review/;
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
   entries: {
-    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе" }],
+    fika: [{ word: "102", partOfSpeech: "substantiv", meaning: "", translation: "перерыв на кофе", frequency: 1000 }],
     tack: [{ word: "103", partOfSpeech: "interjektion", meaning: "", translation: "спасибо", frequency: 100 }],
     dags: [{ word: "2685", partOfSpeech: "adverb", meaning: "det är tid", translation: "" }],
     tfa: [{ word: "16868", partOfSpeech: "förkortning", meaning: "", translation: "долгий перевод ".repeat(25) }],
@@ -26,8 +26,8 @@ async function openWithLibrary(page: Page) {
     if (localStorage.getItem("svenska.lookup-library") === null) {
       localStorage.setItem("svenska.lookup-library", JSON.stringify([
         { headword: "dags", word: "2685" },
-        { headword: "tack", word: "103" },
-        { headword: "fika", word: "102" },
+        { headword: "fika", word: "102", addedAt: 1 },
+        { headword: "tack", word: "103", addedAt: 2 },
       ]));
     }
   });

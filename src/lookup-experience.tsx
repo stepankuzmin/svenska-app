@@ -331,6 +331,11 @@ const SuggestionMenu = memo(function SuggestionMenu({
   );
 });
 
+function sortCards(library: readonly WordCardContent[], { libraryWords, entries }: Pick<LookupExperienceProps, "libraryWords" | "entries">, sort: LibrarySort) {
+  const order = new Map(sortLookupLibrary({ libraryWords, entries, sort }).map((word, index) => [wordKey(word), index]));
+  return library.toSorted((left, right) => (order.get(left.card) ?? 0) - (order.get(right.card) ?? 0));
+}
+
 export function LookupExperience(props: LookupExperienceProps) {
   const [sort, setSort] = useState<LibrarySort>("added");
   // The field owns the urgent update; a hundred suggestion rows render behind
@@ -346,11 +351,9 @@ export function LookupExperience(props: LookupExperienceProps) {
     () => wordCards({ libraryWords: props.libraryWords, entries: props.entries, details: props.details }),
     [props.libraryWords, props.entries, props.details],
   );
-  const sortedLibrary = useMemo(() => {
-    const order = new Map(sortLookupLibrary({ libraryWords: props.libraryWords, entries: props.entries, sort })
-      .map((word, index) => [wordKey(word), index]));
-    return library.toSorted((left, right) => (order.get(left.card) ?? 0) - (order.get(right.card) ?? 0));
-  }, [library, props.libraryWords, props.entries, sort]);
+  const { libraryWords, entries } = props;
+  const sortedLibrary = useMemo(() => sortCards(library, { libraryWords, entries }, sort), [library, libraryWords, entries, sort]);
+  const reviewCards = useMemo(() => sortCards(library, { libraryWords, entries }, "frequency"), [library, libraryWords, entries]);
   const inputId = "dictionary-query";
   const listId = "lookup-suggestions";
   const placeholder = props.status === "loading" ? "Loading dictionary…" : "Swedish or Russian";
@@ -569,7 +572,7 @@ export function LookupExperience(props: LookupExperienceProps) {
         <section className="word-library" aria-labelledby="lookup-library-heading">
           <h2 className="visually-hidden" id="lookup-library-heading">Library</h2>
           <div className="lookup-actions">
-            <ReviewLauncher library={library} />
+            <ReviewLauncher library={reviewCards} />
             <label className="lookup-sort">
               <span aria-hidden="true">
                 {sortLabels[sort]}{" "}
