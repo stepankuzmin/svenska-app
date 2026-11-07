@@ -150,7 +150,7 @@ export function reviewQueue(state: ReviewState, cards: readonly string[], now: n
   const due = (card: string) => state.schedules[card].due;
   learning.sort((left, right) => due(left) - due(right));
   review.sort((left, right) => due(left) - due(right));
-  const fresh = unseen.reverse().slice(0, Math.max(0, newCardsPerDay - introducedToday));
+  const fresh = unseen.slice(0, Math.max(0, newCardsPerDay - introducedToday));
   const learningNow = learning.filter((card) => due(card) <= now);
   const reviews = review.slice(0, Math.max(0, reviewsPerDay - (state.days[dayKey(now)]?.reviewed ?? 0)));
   const next = learningNow[0] ?? reviews[0] ?? fresh[0] ?? learning[0] ?? null;
