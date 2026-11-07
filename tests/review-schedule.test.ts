@@ -80,14 +80,14 @@ describe("the review schedule", () => {
 });
 
 describe("the review queue", () => {
-  it("shows due learning cards, then due reviews, then new cards oldest first", () => {
+  it("shows due learning cards, then due reviews, then new cards in the order given", () => {
     let state = answer(emptyReviewState, "learning", false, tenAm);
     state = { ...state, schedules: { ...state.schedules, review: { ...state.schedules.learning, phase: "review", interval: 1, due: dayStart(tenAm) } } };
-    const cards = ["newest", "oldest", "review", "learning"];
+    const cards = ["first", "second", "review", "learning"];
     expect(reviewQueue(state, cards, tenAm + minute)).toEqual({ next: "learning", counts: { new: 2, learning: 1, review: 1 } });
     expect(reviewQueue(state, cards, tenAm).next).toBe("review");
     const reviewed = answer(state, "review", true, tenAm);
-    expect(reviewQueue(reviewed, cards, tenAm).next).toBe("oldest");
+    expect(reviewQueue(reviewed, cards, tenAm).next).toBe("first");
   });
 
   it("shows a learning card early once nothing else is due", () => {
