@@ -1,10 +1,5 @@
 .minimal-lookup { position: relative; }
 
-.word-card-list > li {
-  contain-intrinsic-block-size: auto 3rem;
-  content-visibility: auto;
-}
-
 .minimal-lookup[data-pulling] .pull-to-sync rect { transition-duration: 80ms; }
 
 .pull-to-sync {
