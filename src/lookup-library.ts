@@ -9,12 +9,8 @@ function libraryWordOf(value: unknown): Partial<LibraryWord> {
     return { headword: value, word: "" };
   }
 
-  if (typeof value !== "object" || value === null) return {};
-  const headword = "headword" in value ? value.headword : undefined;
-  const word = "word" in value ? value.word : undefined;
-  if (typeof headword !== "string" || typeof word !== "string") return {};
-  const addedAt = "addedAt" in value ? value.addedAt : undefined;
-  return { headword, word, ...(typeof addedAt === "number" && Number.isSafeInteger(addedAt) && addedAt > 0 ? { addedAt } : {}) };
+  const { headword, word, addedAt } = (value ?? {}) as Partial<LibraryWord>;
+  return { headword, word, ...(Number.isSafeInteger(addedAt) && (addedAt ?? 0) > 0 ? { addedAt } : {}) };
 }
 
 // Reading `localStorage` itself throws where site data is blocked, so it is
