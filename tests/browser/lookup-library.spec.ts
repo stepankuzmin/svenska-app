@@ -204,6 +204,20 @@ test("chosen words persist in most-recent order and only one card is extended", 
   await expect(query).toBeFocused();
 });
 
+test("looking up a word already in the library shows its card where the sort keeps it", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  for (const word of ["abborre", "tack", "fika", "framgår", "ni", "jord", "val", "abborre"]) {
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await expect(page.locator(".word-card[open] summary")).toContainText("abborre");
+  await expect(page.locator(".word-card-list > li").last()).toContainText("abborre");
+  await expect(page.locator(".word-card[open]")).toBeInViewport();
+});
+
 test("sorting uses the original addition date or corpus frequency and survives library reloads", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.clock.setFixedTime(1000);

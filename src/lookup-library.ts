@@ -50,7 +50,7 @@ export function addToLookupLibrary({
 }): readonly LibraryWord[] {
   const existing = new Map(libraryWords.map((word) => [wordKey(word), word]));
   const uniqueOpenedWords = uniqueWords(openedWords).map((word) =>
-    existing.get(wordKey(word)) ?? { ...word, addedAt: word.addedAt ?? now });
+    existing.get(wordKey(word)) ?? { ...word, addedAt: now });
   const openedKeys = new Set(uniqueOpenedWords.map(wordKey));
   return [
     ...uniqueOpenedWords,

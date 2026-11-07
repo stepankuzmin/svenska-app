@@ -51,6 +51,7 @@ body {
   --text-label: .75rem;
   background: var(--lookup-background);
   color: var(--lookup-ink);
+  font-optical-sizing: auto;
   min-block-size: 100dvb;
   padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
 }
@@ -79,10 +80,6 @@ body {
   inline-size: 100%;
   min-block-size: 3rem;
   padding-inline: .8rem 3rem;
-}
-
-.lookup-autocomplete input:focus-visible {
-  outline: 2px solid var(--lookup-blue);
 }
 
 .lookup-clear {
@@ -151,6 +148,10 @@ body {
   outline-offset: 2px;
 }
 
+.lookup-autocomplete:not(:has(.suggestion-empty)) input:focus-visible:not([aria-expanded="true"]) {
+  outline: 2px solid var(--lookup-blue);
+  outline-offset: 0;
+}
 
 .minimal-lookup .suggestion-empty,
 .minimal-lookup .suggestion-menu { border-color: var(--lookup-blue); }
@@ -263,6 +264,7 @@ body {
   border: 0;
   border-radius: .65rem;
   color: var(--lookup-blue);
+  cursor: pointer;
   font: inherit;
   padding: 0 .65rem;
 }
@@ -274,6 +276,7 @@ body {
 }
 
 .lookup-sort select {
+  cursor: pointer;
   font-size: 1rem;
   inset: 0;
   opacity: 0;
@@ -386,9 +389,12 @@ body {
 
 .word-card summary {
   cursor: pointer;
+  list-style: none;
   touch-action: manipulation;
 }
 
+.word-card summary::-webkit-details-marker { display: none; }
+.word-card summary::marker { content: ""; }
 .word-card-disclosure span {
   block-size: .38rem;
   border-block-start: 1.5px solid var(--lookup-muted);

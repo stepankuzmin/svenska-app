@@ -64,6 +64,7 @@ const Review = lazy(() => import("./review").catch(() => ({
 })));
 
 const reviewHash = "#review";
+const sortLabels: Record<LibrarySort, string> = { added: "Newest first", frequency: "Most used" };
 
 type ReviewLaunch = { state: ReviewState; open: boolean; now: number };
 
@@ -389,6 +390,12 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
+  useEffect(() => {
+    if (props.opens > 0) {
+      document.querySelector(".word-card[open]")?.scrollIntoView({ block: "nearest" });
+    }
+  }, [props.opens]);
+
   const selectSuggestion = useCallback((item: LookupChoice) => {
     latest.current.onSelectSuggestion(item);
   }, []);
@@ -565,12 +572,12 @@ export function LookupExperience(props: LookupExperienceProps) {
             <ReviewLauncher library={library} />
             <label className="lookup-sort">
               <span aria-hidden="true">
-                {sort === "added" ? "Newest first" : "Most used"}{" "}
+                {sortLabels[sort]}{" "}
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m3 6 3 3 3-3" /></svg>
               </span>
               <select aria-label="Sort words" value={sort} onChange={(event) => setSort(event.target.value === "frequency" ? "frequency" : "added")}>
-                <option value="added">Date added</option>
-                <option value="frequency">Usage frequency</option>
+                <option value="added">{sortLabels.added}</option>
+                <option value="frequency">{sortLabels.frequency}</option>
               </select>
             </label>
           </div>

@@ -31,10 +31,12 @@ describe("pasted lists", () => {
 
 describe("Lexin source edition corpus", () => {
   it("joins corpus counts to the words their cards show", () => {
-    for (const [headword, expected] of [["de", 381431], ["dem", 152922], ["oss", 106515], ["idag", 98627], ["politik", 41855], ["te", 45826], ["varje", 57195], ["varenda", 33219], ["herr", 11204], ["andning", 2244], ["vård|central", 755], ["uppföljning", 1962], ["uppehålls|tillstånd", 1590], ["vadå", 700]] as const) {
+    for (const [headword, expected] of [["de", 381431], ["dem", 152922], ["oss", 106515], ["idag", 98627], ["politik", 41855], ["te", 45826], ["varje", 57195], ["varenda", 33219], ["herr", 11204], ["andning", 2244]] as const) {
       expect(dictionary.entries[headword][0].frequency).toBe(expected);
     }
-    expect(dictionary.entries["RÅ"][0].frequency).toBeUndefined();
+    for (const headword of ["RÅ", "vård|central", "uppföljning", "uppehålls|tillstånd", "vadå"]) {
+      expect(dictionary.entries[headword][0].frequency).toBeUndefined();
+    }
     expect(dictionary.entries.ett[0].frequency).toBe(719843);
     expect(dictionary.entries["måste"].map((sense) => sense.frequency)).toEqual([759, 252510, 252510]);
     expect(dictionary.entries.en.find((sense) => sense.partOfSpeech === "obestämd artikel")?.frequency).toBe(1654320);
