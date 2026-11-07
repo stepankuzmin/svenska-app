@@ -1,12 +1,6 @@
-.minimal-lookup {
-  position: relative;
-  transition: transform 280ms cubic-bezier(.32, .72, 0, 1);
-}
+.minimal-lookup { position: relative; }
 
-.minimal-lookup[data-pulling],
-.minimal-lookup[data-pulling] .pull-to-sync rect {
-  transition: none;
-}
+.minimal-lookup[data-pulling] .pull-to-sync rect { transition-duration: 80ms; }
 
 .pull-to-sync {
   align-items: flex-end;
@@ -28,10 +22,9 @@
   transition: opacity 200ms var(--ease-out);
 }
 
-.pull-to-sync[data-syncing] svg { animation: pull-to-sync-spin 1s steps(12) infinite; }
-
-@media (prefers-reduced-motion: reduce) {
-  .minimal-lookup { transition: none; }
+.pull-to-sync[data-syncing] g {
+  animation: pull-to-sync-spin 1s steps(12) infinite;
+  transform-origin: 14px 14px;
 }
 
 @keyframes pull-to-sync-spin {

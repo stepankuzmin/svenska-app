@@ -133,6 +133,18 @@ test("Space shows the next card after a click on Undo", async ({ page }) => {
   await expect(page.locator(".review-swedish")).toHaveText("ett tack");
 });
 
+test("keys answer at once, and a tap brings the motion back", async ({ page }) => {
+  await openWithLibrary(page);
+  await page.getByRole("button", { name: reviewButton }).click();
+  await expect(page.locator(".review-card")).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(page.locator(".review-answer")).toHaveCSS("transition-duration", "0s");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.locator(".review-card")).toHaveCSS("transition-duration", "0s");
+  await page.locator(".review-card").click();
+  await expect(page.locator(".review-card")).not.toHaveCSS("transition-duration", "0s");
+});
+
 test("a library of words without Russian offers no review", async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem("svenska.lookup-library", JSON.stringify([{ headword: "dags", word: "2685" }])));
   await openWithLibrary(page);

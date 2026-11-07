@@ -146,11 +146,6 @@ body {
 
 .lookup-autocomplete input::placeholder { color: var(--lookup-muted); }
 
-.minimal-lookup summary:focus-visible {
-  outline: 3px solid var(--lookup-blue);
-  outline-offset: 2px;
-}
-
 .minimal-lookup .suggestion-empty,
 .minimal-lookup .suggestion-menu { border-color: var(--lookup-blue); }
 
@@ -338,6 +333,7 @@ body {
 /* The tap highlight is off, so the control answers a press itself. */
 .word-card-remove:active { background: color-mix(in srgb, var(--lookup-destructive) 82%, #000); }
 
+.minimal-lookup summary:focus-visible,
 .word-card-remove:focus-visible {
   outline: 3px solid var(--lookup-blue);
   outline-offset: -3px;
