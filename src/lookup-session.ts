@@ -154,6 +154,7 @@ export function reduceLookupSession({
       return {
         ...session,
         libraryWords: session.libraryWords.filter((libraryWord) => wordKey(libraryWord) !== event.card),
+        expandedCard: session.expandedCard === event.card ? null : session.expandedCard,
       };
   }
 }

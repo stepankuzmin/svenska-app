@@ -764,3 +764,54 @@ test("a word with nothing beyond its closed line cannot be extended", async ({ p
   await query.press("Enter");
   await expect(library.getByRole("group")).toHaveCount(1);
 });
+
+test("a new word opened under Most used scrolls into view", async ({ page }) => {
+  const ranks: Record<string, number> = { tack: 900, fika: 800, framgår: 700, ni: 600, val: 500, jord: 400, abborre: 1 };
+  const ranked = structuredClone(dictionary) as typeof dictionary;
+  for (const [headword, senses] of Object.entries(ranked.entries) as [string, { frequency?: number }[]][]) {
+    for (const sense of senses) sense.frequency = ranks[headword];
+  }
+  await page.route("**/lexin-dictionary.*.json", (route) => route.fulfill({ contentType: "application/json", json: ranked }));
+  await page.setViewportSize({ width: 390, height: 500 });
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  for (const word of ["tack", "fika", "framgår", "ni", "val", "jord"]) {
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await page.getByRole("combobox", { name: "Sort words" }).selectOption("frequency");
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  await query.fill("abborre");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  await expect(page.locator(".word-card-list > li").last()).toContainText("abborre");
+  await expect(page.locator(".word-card[open]")).toBeInViewport();
+});
+
+test("a word removed in another tab comes back closed", async ({ page, context }) => {
+  await page.goto(".");
+  const query = page.getByLabel("Swedish or Russian word");
+  for (const word of ["tack", "fika"]) {
+    await query.fill(word);
+    await expect(page.getByRole("option").first()).toBeVisible();
+    await query.press("Enter");
+  }
+  await expect(page.locator(".word-card[open] summary")).toContainText("fika");
+
+  const other = await context.newPage();
+  await other.route("**/lexin-dictionary.*.json", (route) => route.fulfill({ contentType: "application/json", json: dictionary }));
+  await other.route("**/lexin-details.*.json", (route) => route.fulfill({ contentType: "application/json", json: details }));
+  await other.goto(".");
+  await other.getByRole("button", { name: "Remove en fika from the library" }).focus();
+  await other.keyboard.press("Enter");
+  await expect(page.locator(".word-card-list > li")).toHaveCount(1);
+  await other.getByLabel("Swedish or Russian word").fill("fika");
+  await expect(other.getByRole("option").first()).toBeVisible();
+  await other.getByLabel("Swedish or Russian word").press("Enter");
+
+  await expect(page.locator(".word-card-list > li")).toHaveCount(2);
+  await expect(page.locator(".word-card[open]")).toHaveCount(0);
+});

@@ -122,6 +122,29 @@ test("an undo during a swipe leaves the next swipe working", async ({ page }) =>
   await expect(page.locator(".review-russian")).toHaveText("спасибо");
 });
 
+test("an undone card removed in another tab gives way to the next due card", async ({ page, context }) => {
+  await openWithLibrary(page);
+  const other = await context.newPage();
+  await other.route("**/lexin-dictionary.*.json", (route) =>
+    route.fulfill({ contentType: "application/json", json: dictionary }),
+  );
+  await other.goto(".");
+
+  await page.getByRole("button", { name: reviewButton }).click();
+  await page.locator(".review-card").click();
+  await page.keyboard.press("ArrowRight");
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(page.locator(".review-swedish")).toHaveText("en fika");
+
+  await other.bringToFront();
+  await other.getByRole("button", { name: "Remove en fika from the library" }).focus();
+  await other.keyboard.press("Enter");
+  await expect(other.getByText("en fika")).toHaveCount(0);
+
+  await page.bringToFront();
+  await expect(page.locator(".review-russian")).toHaveText("спасибо");
+});
+
 test("Space shows the next card after a click on Undo", async ({ page }) => {
   await openWithLibrary(page);
   await page.getByRole("button", { name: reviewButton }).click();

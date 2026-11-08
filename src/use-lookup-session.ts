@@ -4,7 +4,7 @@ import { readLookupLibrary } from "./lookup-library";
 import { reduceLookupSession, type LookupSession, type LookupSessionEvent } from "./lookup-session";
 import type { createSessionBridge } from "./sync/session-bridge";
 import { useSubscription } from "./use-subscription";
-import { sameWords } from "./words";
+import { sameWords, wordKey, type LibraryWord } from "./words";
 
 function withLibraryMotion(apply: () => void) {
   if (window.matchMedia("(prefers-reduced-motion: reduce)").matches || typeof document.startViewTransition !== "function") {
@@ -22,13 +22,19 @@ export function useLookupSession({ initialQuery }: { initialQuery: string }) {
   const [storageError, setStorageError] = useState(false);
   const bridge = useRef<Promise<ReturnType<typeof createSessionBridge> | null> | null>(null);
   const active = useRef(true);
+  const storeWords = useRef<readonly LibraryWord[]>([]);
 
   function storage() {
     return bridge.current ??= import("./sync/session-bridge").then(({ createSessionBridge }) =>
       createSessionBridge((libraryWords) => {
-        if (!active.current || sameWords(latest.current.libraryWords, libraryWords)) return;
-        latest.current = { ...latest.current, libraryWords };
-        setSession((shown) => ({ ...shown, libraryWords }));
+        const { expandedCard } = latest.current;
+        const wasStored = storeWords.current.some((word) => wordKey(word) === expandedCard);
+        const removed = wasStored && !libraryWords.some((word) => wordKey(word) === expandedCard);
+        storeWords.current = libraryWords;
+        if (!active.current || (!removed && sameWords(latest.current.libraryWords, libraryWords))) return;
+        const change = { libraryWords, ...(removed ? { expandedCard: null } : {}) };
+        latest.current = { ...latest.current, ...change };
+        setSession((shown) => ({ ...shown, ...change }));
       }),
     ).catch(() => { if (active.current) setStorageError(true); return null; });
   }
