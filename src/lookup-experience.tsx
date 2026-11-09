@@ -393,11 +393,13 @@ export function LookupExperience(props: LookupExperienceProps) {
     }
   }, [activeSuggestionIndex, visibleSuggestions.length]);
 
+  const scrolledOpens = useRef(0);
+  const expandedShown = sortedLibrary.some((item) => item.card === props.expandedCard);
   useEffect(() => {
-    if (props.opens > 0) {
-      document.querySelector(".word-card[open]")?.scrollIntoView({ block: "nearest" });
-    }
-  }, [props.opens]);
+    if (!expandedShown || scrolledOpens.current === props.opens) return;
+    scrolledOpens.current = props.opens;
+    document.querySelector(".word-card[open]")?.scrollIntoView({ block: "nearest" });
+  }, [props.opens, expandedShown]);
 
   const selectSuggestion = useCallback((item: LookupChoice) => {
     latest.current.onSelectSuggestion(item);

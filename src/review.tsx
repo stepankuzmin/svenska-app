@@ -170,7 +170,8 @@ export default function Review({
   const dialog = useRef<HTMLDialogElement>(null);
   const [{ revealedCard, answered, undo, retry }, dispatch] = useReducer(reduceRound, { revealedCard: null, answered: 0, undo: null, retry: null });
   const byKey = useMemo(() => new Map(cards.map((card) => [card.card, card])), [cards]);
-  const current = byKey.get(retry?.card ?? next ?? "");
+  const retried = retry !== null && byKey.has(retry.card) ? retry : null;
+  const current = byKey.get(retried?.card ?? next ?? "");
   const revealed = current !== undefined && revealedCard === current.card;
 
   useEffect(() => {
@@ -241,7 +242,7 @@ export default function Review({
         <ReviewSummary cards={cards} state={state} now={now} />
       ) : (
         <div className="review-deck">
-          <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retry === null || dialog.current?.dataset.keyboard ? 0 : retry.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
+          <ReviewCard key={`${current.card}:${answered}`} revealed={revealed} enterFrom={retried === null || dialog.current?.dataset.keyboard ? 0 : retried.remembered ? 1 : -1} onReveal={reveal} onGrade={grade}>
             <span className="review-stamp review-stamp-remembered" aria-hidden="true">Remembered · {waitLabel(schedule(scheduled, true, now), now)}</span>
             <span className="review-stamp review-stamp-forgot" aria-hidden="true">Forgot · {waitLabel(schedule(scheduled, false, now), now)}</span>
             <p className="review-russian" lang="ru">{current.translation}</p>

@@ -209,7 +209,8 @@ describe("lookup session", () => {
   it("follows the query and removes a word", () => {
     const session = { ...startLookupSession({ query: "", libraryWords: [val1, katt] }), expandedCard: "val#1" };
     expect(run(session, { kind: "query-changed", query: "ka" })).toMatchObject({ query: "ka", expandedCard: null });
-    expect(run(session, { kind: "word-removed", card: "val#1" }).libraryWords).toEqual([katt]);
+    expect(run(session, { kind: "word-removed", card: "val#1" })).toMatchObject({ libraryWords: [katt], expandedCard: null });
+    expect(run(session, { kind: "word-removed", card: "katt#7" }).expandedCard).toBe("val#1");
   });
 
   it("resolves the library against a loaded dictionary and keeps it when nothing changes", () => {
