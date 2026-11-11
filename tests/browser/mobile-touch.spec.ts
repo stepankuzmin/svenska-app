@@ -228,3 +228,17 @@ test("a tap on a page sliding back starts no sync", async ({ page }) => {
   await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "none");
   await expect(page.locator(".pull-to-sync[data-syncing]")).toHaveCount(0);
 });
+
+test("a second finger ends a pull without a sync", async ({ page }) => {
+  await openPage(page);
+  await gesture(page, [[100, 100], [100, 400]], false);
+  const syncing = await page.evaluate(() => {
+    const touch = (type: string, touches: { clientX: number; clientY: number }[]) =>
+      document.body.dispatchEvent(Object.assign(new Event(type, { bubbles: true, cancelable: true }), { touches }));
+    touch("touchstart", [{ clientX: 100, clientY: 400 }, { clientX: 300, clientY: 300 }]);
+    touch("touchend", [{ clientX: 100, clientY: 400 }]);
+    return document.querySelector(".pull-to-sync")!.hasAttribute("data-syncing");
+  });
+  expect(syncing).toBe(false);
+  await expect(page.locator(".minimal-lookup")).toHaveCSS("transform", "none");
+});

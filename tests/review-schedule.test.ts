@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   answer, dayStart, dayKey, emptyReviewState, newCardsPerDay, readReviewState, reviewsPerDay, reviewQueue, schedule, undoAnswer, waitLabel, writeReviewState,
   type ReviewState,
@@ -18,6 +18,21 @@ function answers(card: string, remembered: readonly boolean[], start = tenAm) {
 }
 
 describe("the review schedule", () => {
+  it("starts each day at 4 a.m. local time on the nights the clocks change", () => {
+    vi.stubEnv("TZ", "Europe/Stockholm");
+    try {
+      const springForward = Date.UTC(2026, 2, 29, 2, 30);
+      const fallBack = Date.UTC(2026, 9, 25, 2, 30);
+      expect(new Date(springForward).getHours()).toBe(4);
+      expect(dayKey(springForward)).toBe("2026-03-29");
+      expect(new Date(fallBack).getHours()).toBe(3);
+      expect(dayKey(fallBack)).toBe("2026-10-24");
+      expect(new Date(dayStart(fallBack, 1)).toString()).toContain("Oct 25 2026 04:00");
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
   it("walks a new card through the 1 and 10 minute steps before it graduates to one day", () => {
     const first = schedule(undefined, true, tenAm);
     expect(first).toMatchObject({ phase: "learning", step: 1, due: tenAm + 10 * minute });

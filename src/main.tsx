@@ -65,6 +65,7 @@ function LookupApp() {
       dispatch({ kind: "dictionary-loaded", dictionary: asset });
       if (pendingLookup.current.length > 0) lookUp(pendingLookup.current, search);
       pendingLookup.current = "";
+      if (linkedText !== "") history.replaceState(history.state, "", location.pathname + location.hash);
 
       const details = await detailsRequest;
       if (

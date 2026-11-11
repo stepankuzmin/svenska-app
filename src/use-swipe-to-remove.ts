@@ -60,18 +60,34 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
 
   function beginSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     // A second finger mid-swipe would make the card jump.
-    if (swipe.current !== null || !event.isPrimary) {
+    if (swipe.current !== null || !event.isPrimary || event.button !== 0) {
       return;
     }
 
     dragged.current = false;
-    swipe.current = {
+    const press = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       startTime: event.timeStamp,
       dragging: false,
     };
+    swipe.current = press;
+    // A mouse released off the card, before a swipe captures it, and a touch the
+    // page takes over for scrolling both end the press away from the card.
+    const release = (end: PointerEvent) => {
+      if (end.pointerId !== press.pointerId) {
+        return;
+      }
+      document.removeEventListener("pointerup", release);
+      document.removeEventListener("pointercancel", release);
+      if (swipe.current === press) {
+        swipe.current = null;
+        settle();
+      }
+    };
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
   }
 
   function continueSwipe(event: ReactPointerEvent<HTMLDivElement>) {
@@ -104,8 +120,11 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
 
   function endSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     const current = swipe.current;
+    if (current === null || event.pointerId !== current.pointerId) {
+      return;
+    }
     swipe.current = null;
-    if (current === null || !current.dragging) {
+    if (!current.dragging) {
       return;
     }
 
@@ -117,11 +136,6 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
       return;
     }
 
-    settle();
-  }
-
-  function cancelSwipe() {
-    swipe.current = null;
     settle();
   }
 
@@ -143,7 +157,6 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
       onPointerDown: beginSwipe,
       onPointerMove: continueSwipe,
       onPointerUp: endSwipe,
-      onPointerCancel: cancelSwipe,
       onClickCapture: swallowClickAfterSwipe,
     },
   };

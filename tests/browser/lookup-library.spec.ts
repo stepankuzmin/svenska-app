@@ -12,6 +12,7 @@ const valRow = /^val/;
 const valsThenFikaThenTack = [/кит/, /выбор/, /fika/, /tack/];
 const newestFirst = [/fika/, /tack/, /abborre/];
 const mostFrequentFirst = [/tack/, /fika/, /abborre/];
+const withoutQuery = /\/$/;
 
 const dictionary = {
   metadata: { sourceEditionDate: "2010-07-07", attribution: "Lexin", license: "CC BY 4.0" },
@@ -721,6 +722,133 @@ test("a word removed without motion leaves just the same", async ({ page }) => {
   await swipe(page, cards.nth(0), { distance: -160, over: 240 });
 
   await expect(cards).toHaveCount(1);
+});
+
+test("a mouse press released off its card leaves nothing for a later hover and click to carry off", async ({ page }) => {
+  // Without motion a removal lands at once, so the count below cannot pass early.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  const surface = cards.nth(0).locator(".word-card-swipe");
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const x = box.x + box.width - 40;
+  const y = box.y + box.height - 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 6, { steps: 3 });
+  await page.mouse.up();
+
+  await page.mouse.move(x, y - 3);
+  await page.mouse.move(x - 200, y - 3, { steps: 5 });
+  await expect(surface).not.toHaveAttribute("data-swiping");
+  await page.mouse.down();
+  await page.mouse.up();
+  await expect(cards).toHaveCount(2);
+});
+
+test("a mouse press released off its card leaves nothing for a drag from outside to carry off", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  const surface = cards.nth(0).locator(".word-card-swipe");
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const x = box.x + box.width - 40;
+  const y = box.y + box.height - 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 6, { steps: 3 });
+  await page.mouse.up();
+
+  await page.mouse.move(box.x + box.width + 30, y - 3);
+  await page.mouse.down();
+  await page.mouse.move(x - 200, y - 3, { steps: 8 });
+  await page.mouse.up();
+  await expect(cards).toHaveCount(2);
+});
+
+test("a right-button drag removes no word", async ({ page }) => {
+  // Without motion a removal lands at once, so the count below cannot pass early.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  const surface = cards.nth(0).locator(".word-card-swipe");
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  await page.mouse.move(box.x + box.width - 40, box.y + 20);
+  await page.mouse.down({ button: "right" });
+  await page.mouse.move(box.x + box.width - 240, box.y + 20, { steps: 8 });
+  await page.mouse.up({ button: "right" });
+  await expect(cards).toHaveCount(2);
+});
+
+test("a word removed after a q link opened it stays removed on reload", async ({ page }) => {
+  await page.goto("./?q=fika");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(1);
+  await expect(page).toHaveURL(withoutQuery);
+  await page.getByRole("button", { name: "Remove en fika from the library" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(cards).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => localStorage.getItem("svenska.lookup-library"))).toBe("[]");
+
+  await page.reload();
+  await page.getByLabel("Swedish or Russian word").fill("tack");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await expect(cards).toHaveCount(0);
+});
+
+// A second finger, as a pointer the page sees but nothing captures.
+const tapSecondPointer = (target: Locator, x: number, y: number) => target.evaluate((element, { x, y }) => {
+  for (const type of ["pointerdown", "pointerup"]) {
+    element.dispatchEvent(new PointerEvent(type, { pointerId: 99, isPrimary: false, pointerType: "touch", clientX: x, clientY: y, bubbles: true }));
+  }
+}, { x, y });
+
+test("a second pointer's tap leaves a short swipe on its card", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  const surface = cards.nth(0).locator(".word-card-swipe");
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const y = box.y + box.height / 2;
+  const right = box.x + box.width - 24;
+  await page.mouse.move(right, y);
+  await page.mouse.down();
+  await page.mouse.move(right - 20, y, { steps: 5 });
+  await tapSecondPointer(surface, box.x + 30, y);
+  await expect(cards).toHaveCount(2);
+  await page.mouse.up();
+  await expect(cards).toHaveCount(2);
 });
 
 test("a closed card shows only the word, its type and its Russian", async ({ page }) => {

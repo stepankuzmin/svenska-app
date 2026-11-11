@@ -252,6 +252,34 @@ describe("connection lifecycle", () => {
     expect(store.state().snapshot.deviceId).not.toBe(snapshot.deviceId);
     expect(requestLock.mock.calls.filter(([, action]) => typeof action === "function")).toHaveLength(1);
   });
+  it("leaves a library a first pairing attempt could not join local, with the error only in the panel", async () => {
+    browserGlobals();
+    store = new LibraryStore(crypto.randomUUID(), [{ headword: "val", word: "18439" }], false, false); await store.ready;
+    store.setDictionary({ entries: {}, wordAliases: {} });
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ error: "Invalid recovery code." }, { status: 403 })));
+    remote = createRemote(store);
+    await expect(remote.connect("recover", { label: "Browser" })).rejects.toThrow("Invalid recovery code.");
+    expect(store.getSnapshot()).toMatchObject({ connected: false, status: "local", error: "" });
+  });
+  it("detaches a device disconnected elsewhere after a terminal operation failure", async () => {
+    browserGlobals();
+    store = new LibraryStore(crypto.randomUUID(), [{ headword: "val", word: "18439" }], false, false); await store.ready;
+    await store.accept({ ...store.state().snapshot, libraryId: "shared" });
+    const snapshot = store.state().snapshot;
+    await store.enqueue("open", [{ headword: "te", word: "123" }]);
+    let revoked = false;
+    vi.stubGlobal("fetch", vi.fn(async (path: string) => {
+      if (path.endsWith("operations")) return Response.json({ error: "The shared library is full." }, { status: 422 });
+      if (revoked) return Response.json({ error: "This device is no longer connected." }, { status: 401 });
+      return Response.json(snapshot);
+    }));
+    remote = await store.startRemote();
+    await remote.flush();
+    expect(store.getSnapshot()).toMatchObject({ connected: true, status: "error" });
+    revoked = true;
+    await remote.disconnect();
+    expect(store.getSnapshot()).toMatchObject({ connected: false, status: "local" });
+  });
   it("does not disconnect a newer identity when an old transport is used", async () => {
     browserGlobals();
     const name = crypto.randomUUID();
