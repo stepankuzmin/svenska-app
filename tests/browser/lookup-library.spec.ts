@@ -754,6 +754,34 @@ test("a mouse press released off its card leaves nothing for a later hover and c
   await expect(cards).toHaveCount(2);
 });
 
+test("a mouse press released off its card leaves nothing for a drag from outside to carry off", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(".");
+
+  const query = page.getByLabel("Swedish or Russian word");
+  await query.fill("val");
+  await expect(page.getByRole("option").first()).toBeVisible();
+  await query.press("Enter");
+
+  const cards = page.locator(".word-card-list > li");
+  await expect(cards).toHaveCount(2);
+  const surface = cards.nth(0).locator(".word-card-swipe");
+  await surface.hover();
+  const box = (await surface.boundingBox())!;
+  const x = box.x + box.width - 40;
+  const y = box.y + box.height - 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x, y + 6, { steps: 3 });
+  await page.mouse.up();
+
+  await page.mouse.move(box.x + box.width + 30, y - 3);
+  await page.mouse.down();
+  await page.mouse.move(x - 200, y - 3, { steps: 8 });
+  await page.mouse.up();
+  await expect(cards).toHaveCount(2);
+});
+
 test("a right-button drag removes no word", async ({ page }) => {
   // Without motion a removal lands at once, so the count below cannot pass early.
   await page.emulateMedia({ reducedMotion: "reduce" });

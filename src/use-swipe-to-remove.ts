@@ -65,24 +65,34 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
     }
 
     dragged.current = false;
-    swipe.current = {
+    const press = {
       pointerId: event.pointerId,
       startX: event.clientX,
       startY: event.clientY,
       startTime: event.timeStamp,
       dragging: false,
     };
+    swipe.current = press;
+    // A mouse released off the card, before a swipe captures it, and a touch the
+    // page takes over for scrolling both end the press away from the card.
+    const release = (end: PointerEvent) => {
+      if (end.pointerId !== press.pointerId) {
+        return;
+      }
+      document.removeEventListener("pointerup", release);
+      document.removeEventListener("pointercancel", release);
+      if (swipe.current === press) {
+        swipe.current = null;
+        settle();
+      }
+    };
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
   }
 
   function continueSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     const current = swipe.current;
     if (current === null || event.pointerId !== current.pointerId) {
-      return;
-    }
-    // A mouse released off the card ends its press without a pointerup here.
-    if (event.buttons === 0) {
-      swipe.current = null;
-      settle();
       return;
     }
 
@@ -129,14 +139,6 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
     settle();
   }
 
-  function cancelSwipe(event: ReactPointerEvent<HTMLDivElement>) {
-    if (event.pointerId !== swipe.current?.pointerId) {
-      return;
-    }
-    swipe.current = null;
-    settle();
-  }
-
   // A swipe ends in a click the card would otherwise read as a tap on itself.
   function swallowClickAfterSwipe(event: ReactMouseEvent<HTMLDivElement>) {
     if (!dragged.current) {
@@ -155,7 +157,6 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
       onPointerDown: beginSwipe,
       onPointerMove: continueSwipe,
       onPointerUp: endSwipe,
-      onPointerCancel: cancelSwipe,
       onClickCapture: swallowClickAfterSwipe,
     },
   };

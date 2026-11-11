@@ -190,7 +190,7 @@ Owner: `reduceMenu` in `src/lookup-experience.tsx`. Fields `open`, `active` (-1 
 | relearning | remembered | review, interval 1 day |
 | relearning | forgot | relearning step 0, due in 10 min |
 
-Invariants: review days and due dates start at 4 a.m. local time, also on the nights the clocks change; at most 20 new cards start and 20 review answers count per day, new cards in the launcher's "Most used" order (`reviewQueue`); undo restores the card's previous schedule and takes the answer off the day it was given.
+Invariants: review days and due dates start at 4 a.m. local time, also on the nights the clocks change; at most 20 new cards start and 20 review answers count per day (a removed word's card stops counting toward the 20 new ones), new cards in the launcher's "Most used" order (`reviewQueue`); undo restores the card's previous schedule and takes the answer off the day it was given.
 
 ## 11. Review round and dialog (`src/review.tsx`, `ReviewLauncher`)
 
@@ -221,9 +221,8 @@ Swipe to remove (`src/use-swipe-to-remove.ts`)
 | pressed | moves past 8 px, more across than down | dragging (pointer captured) |
 | pressed | moves past 8 px, more down than across | idle (page scrolls) |
 | dragging | release past 96 px left, or a 48 px flick faster than 0.35 px/ms | leaving |
-| pressed | release | idle |
+| pressed | release, on or off the card | idle |
 | dragging | other release, pointer cancel | idle, card settles |
-| pressed, dragging | the mouse moves with no button held (released off the card) | idle, card settles |
 | leaving | `transitionend` of `transform`, or at once under reduced motion | word removed |
 
 Only the pointer that pressed moves, releases or cancels a swipe (fixed, see Findings).
@@ -234,7 +233,7 @@ Pull to sync (`src/pull-to-sync.tsx`): idle, armed (one finger at the top, no zo
 
 ## 13. Sync panel (`src/sync-control.tsx`, `src/sync/panel.tsx`)
 
-Panel closed or open; a `#pair=` fragment opens it and a new fragment remounts it (`pairingVersion`). Inside, `busy` is true for the length of one action and disables every action but Copy link and Share link. The panel shows the unpaired actions when the library is local or connecting, and the device list, invitation, recovery and disconnect actions when paired.
+Panel closed or open; a `#pair=` fragment opens it and a new fragment remounts it (`pairingVersion`). Inside, `busy` is true for the length of one action and disables every action but Close, Copy link and Share link. The panel shows the unpaired actions when the library is local or connecting, and the device list, invitation, recovery and disconnect actions when paired.
 
 ## Findings
 
@@ -274,8 +273,8 @@ Removing a word cannot be undone, so a gesture the user did not finish must neve
 
 All four now leave the word, the card and the page as they were.
 
-- Fix: swipe and review card handlers act only on the pointer that pressed; a swipe starts only with the left button and ends when the mouse moves with no button held (`src/use-swipe-to-remove.ts`); a review card press starts only with the left button, and one without travel springs the card back and reveals (`src/review.tsx`); a second touch cancels a pull (`src/pull-to-sync.tsx`).
-- Tests: "a second pointer's tap leaves a short swipe on its card", "a mouse press released off its card leaves nothing for a later hover and click to carry off" and "a right-button drag removes no word" in `tests/browser/lookup-library.spec.ts`; "a second pointer's tap leaves a short drag on a revealed card unanswered", "a right-button drag leaves a revealed card unanswered" and "a click on a card flying back in after Undo stops it without answering" in `tests/browser/review.spec.ts`; "a second finger ends a pull without a sync" in `tests/browser/mobile-touch.spec.ts`.
+- Fix: swipe and review card handlers act only on the pointer that pressed; a swipe starts only with the left button and ends at its pointer's release anywhere on the page (`src/use-swipe-to-remove.ts`); a review card press starts only with the left button, and one without travel springs the card back and reveals (`src/review.tsx`); a second touch cancels a pull (`src/pull-to-sync.tsx`).
+- Tests: "a second pointer's tap leaves a short swipe on its card", "a mouse press released off its card leaves nothing for a later hover and click to carry off", "a mouse press released off its card leaves nothing for a drag from outside to carry off" and "a right-button drag removes no word" in `tests/browser/lookup-library.spec.ts`; "a second pointer's tap leaves a short drag on a revealed card unanswered", "a right-button drag leaves a revealed card unanswered" and "a click on a card flying back in after Undo stops it without answering" in `tests/browser/review.spec.ts`; "a second finger ends a pull without a sync" in `tests/browser/mobile-touch.spec.ts`.
 
 ### Issue 5: a removed word came back on reload after a `q` link
 
