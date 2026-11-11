@@ -64,7 +64,8 @@ export function writeReviewState(state: ReviewState) {
 }
 
 export function dayStart(now: number, days = 0): number {
-  const day = new Date(now - dayStartHour * hour);
+  const day = new Date(now);
+  if (day.getHours() < dayStartHour) day.setDate(day.getDate() - 1);
   day.setHours(dayStartHour, 0, 0, 0);
   day.setDate(day.getDate() + days);
   return day.getTime();

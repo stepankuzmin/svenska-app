@@ -66,6 +66,10 @@ export default function PullToSync() {
     }
 
     function begin(event: TouchEvent) {
+      if (start !== null) {
+        cancel();
+        return;
+      }
       const onPanel = event.target instanceof Element && event.target.closest("dialog, [role=listbox]") !== null;
       if (window.visualViewport!.scale > 1 || syncing || onPanel || event.touches.length !== 1 || window.scrollY > 0) return;
       cancelAnimationFrame(frame);

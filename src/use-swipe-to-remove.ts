@@ -60,7 +60,7 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
 
   function beginSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     // A second finger mid-swipe would make the card jump.
-    if (swipe.current !== null || !event.isPrimary) {
+    if (swipe.current !== null || !event.isPrimary || event.button !== 0) {
       return;
     }
 
@@ -77,6 +77,12 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
   function continueSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     const current = swipe.current;
     if (current === null || event.pointerId !== current.pointerId) {
+      return;
+    }
+    // A mouse released off the card ends its press without a pointerup here.
+    if (event.buttons === 0) {
+      swipe.current = null;
+      settle();
       return;
     }
 
@@ -104,8 +110,11 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
 
   function endSwipe(event: ReactPointerEvent<HTMLDivElement>) {
     const current = swipe.current;
+    if (current === null || event.pointerId !== current.pointerId) {
+      return;
+    }
     swipe.current = null;
-    if (current === null || !current.dragging) {
+    if (!current.dragging) {
       return;
     }
 
@@ -120,7 +129,10 @@ export function useSwipeToRemove({ onRemove }: { onRemove: () => void }) {
     settle();
   }
 
-  function cancelSwipe() {
+  function cancelSwipe(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerId !== swipe.current?.pointerId) {
+      return;
+    }
     swipe.current = null;
     settle();
   }

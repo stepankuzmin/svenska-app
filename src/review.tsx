@@ -38,7 +38,7 @@ function ReviewCard({
   children: ReactNode;
 }) {
   const surface = useRef<HTMLDivElement>(null);
-  const motion = useRef({ x: 0, v: 0, frame: 0 });
+  const motion = useRef({ x: 0, v: 0, frame: 0, leaving: false });
   const drag = useRef<Drag | null>(null);
 
   function show(x: number) {
@@ -61,6 +61,7 @@ function ReviewCard({
     const offscreen = (window.innerWidth + element.offsetWidth) / 2;
     let last = performance.now();
     motion.current.v = velocity;
+    motion.current.leaving = leave !== undefined;
     const step = (now: number) => {
       const elapsed = Math.max(now - last, 0) / 1000;
       last = now;
@@ -90,7 +91,7 @@ function ReviewCard({
   }, []);
 
   function begin(event: ReactPointerEvent<HTMLDivElement>) {
-    if (drag.current !== null || !event.isPrimary) return;
+    if (drag.current !== null || !event.isPrimary || event.button !== 0 || motion.current.leaving) return;
     event.currentTarget.setPointerCapture(event.pointerId);
     event.currentTarget.dataset.pressed = "true";
     cancelAnimationFrame(motion.current.frame);
@@ -98,7 +99,7 @@ function ReviewCard({
       pointerId: event.pointerId,
       startX: event.clientX,
       grabX: event.clientX - motion.current.x,
-      dragging: motion.current.x !== 0,
+      dragging: false,
       samples: [],
     };
   }
@@ -115,10 +116,11 @@ function ReviewCard({
 
   function end(event: ReactPointerEvent<HTMLDivElement>) {
     const current = drag.current;
+    if (current === null || event.pointerId !== current.pointerId) return;
     drag.current = null;
     delete event.currentTarget.dataset.pressed;
-    if (current === null) return;
     if (!current.dragging) {
+      if (motion.current.x !== 0) animate(0, 0);
       onReveal();
       return;
     }
@@ -140,6 +142,7 @@ function ReviewCard({
       onPointerMove={move}
       onPointerUp={end}
       onPointerCancel={(event) => {
+        if (event.pointerId !== drag.current?.pointerId) return;
         drag.current = null;
         delete event.currentTarget.dataset.pressed;
         animate(0, 0);

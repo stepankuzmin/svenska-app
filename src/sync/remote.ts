@@ -152,11 +152,13 @@ export function createRemote(store: LibraryStore): Remote {
           if (stopped || !await store.accept(result.snapshot, state)) throw new Error("This connection was cancelled. Connect again to sync devices.");
           return result;
         } catch (error) {
-          if (before.connectionSequence === undefined && error instanceof SyncError &&
-            error.status >= 400 && error.status < 500 && error.status !== 408) {
-            await store.rejectConnection(state);
+          const rejected = before.connectionSequence === undefined && error instanceof SyncError &&
+            error.status >= 400 && error.status < 500 && error.status !== 408;
+          if (rejected) await store.rejectConnection(state);
+          if (!stopped) {
+            if (rejected) store.setStatus("local");
+            else store.setStatus("error", error instanceof Error ? error.message : "Could not connect this device.");
           }
-          if (!stopped) store.setStatus("error", error instanceof Error ? error.message : "Could not connect this device.");
           throw error;
         }
       };
@@ -180,7 +182,10 @@ export function createRemote(store: LibraryStore): Remote {
         if (current.deviceId !== deviceId || current.deviceId !== expected.deviceId || current.libraryId !== expected.libraryId) {
           throw new Error("This connection was cancelled. Connect again to sync devices.");
         }
-        await syncRequest("disconnect", {});
+        await syncRequest("disconnect", {}).catch((error: unknown) => {
+          const disconnectedElsewhere = error instanceof SyncError && error.status === 401;
+          if (!disconnectedElsewhere) throw error;
+        });
         await store.detach(expected);
         remote.dispose();
         queryClient.clear();
