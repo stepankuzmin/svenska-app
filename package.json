@@ -27,7 +27,7 @@
     "worker:check": "cf deploy --prebuilt --dry-run"
   },
   "dependencies": {
-    "@tanstack/react-query": "^5.107.1",
+    "@tanstack/react-query": "^5.108.2",
     "@vitejs/plugin-react": "latest",
     "fast-xml-parser": "latest",
     "idb": "^8.0.4",
@@ -39,24 +39,24 @@
     "@tanstack/query-core": "^5.104.2"
   },
   "devDependencies": {
-    "@cloudflare/build-output-utils": "^0.9.13",
-    "@cloudflare/vite-plugin": "^2.0.0-beta.v.16",
+    "@cloudflare/build-output-utils": "^0.9.14",
+    "@cloudflare/vite-plugin": "^2.0.0-rc.2",
     "@e18e/eslint-plugin": "^0.8.1",
-    "@playwright/test": "^1.65.0",
+    "@playwright/test": "^1.65.1",
     "@size-limit/file": "^14.3.0",
     "@types/node": "latest",
     "@types/qrcode": "^1.5.6",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@vitest/coverage-v8": "^5.1.0",
-    "cf": "^1.0.0-beta.31",
+    "@vitest/coverage-v8": "^5.1.1",
+    "cf": "^1.0.0-rc.2",
     "fake-indexeddb": "^6.2.8",
-    "oxlint": "^1.93.0",
+    "oxlint": "^1.94.0",
     "size-limit": "^14.0.0",
     "tsx": "latest",
     "typescript": "latest",
     "vite-plugin-pwa": "^2.0.0",
     "vitest": "latest",
-    "wrangler": "^4.161.0"
+    "wrangler": "^4.165.0"
   }
 }
